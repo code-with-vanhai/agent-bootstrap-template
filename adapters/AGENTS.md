@@ -2,6 +2,8 @@
 
 This repository uses a shared, tool-agnostic agent system.
 
+For any coding task, MUST re-read `.agent/rulebase.md` before planning or editing, even if it was read earlier in the session.
+
 Before making changes, read:
 
 - `.agent/project-profile.md`
@@ -16,4 +18,3 @@ Before making changes, read:
 Use `scripts/agent-eval.sh` for verification gates.
 
 Do not duplicate long-lived rules in this file. The canonical source is `.agent/`.
-
