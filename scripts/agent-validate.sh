@@ -59,6 +59,12 @@ validate_template_skills() {
   check_contains "core/github/PULL_REQUEST_TEMPLATE.md" "Gates run" "core/github/PULL_REQUEST_TEMPLATE.md includes gates run section"
   check_contains "core/github/PULL_REQUEST_TEMPLATE.md" "fabricated problem statements, speculative fixes, or bundled unrelated changes" "core/github/PULL_REQUEST_TEMPLATE.md includes anti-slop warning"
 
+  check_path "core/workflows/worktree-workflow.md"
+  check_contains "core/workflows/worktree-workflow.md" "optional acceleration" "core/workflows/worktree-workflow.md states opt-in behavior"
+  check_contains "core/workflows/worktree-workflow.md" "Directory Priority" "core/workflows/worktree-workflow.md includes directory priority"
+  check_contains "core/workflows/worktree-workflow.md" "Baseline Gate" "core/workflows/worktree-workflow.md includes baseline gate"
+  check_contains "core/workflows/worktree-workflow.md" "When NOT To Use" "core/workflows/worktree-workflow.md includes when-not-to-use section"
+
   check_path "core/skills/README.md"
   check_contains "core/skills/README.md" "Skill Mapping" "core/skills/README.md includes skill mapping"
 
@@ -181,6 +187,15 @@ if [ -f ".github/PULL_REQUEST_TEMPLATE.md" ]; then
   check_contains ".github/PULL_REQUEST_TEMPLATE.md" "fabricated problem statements, speculative fixes, or bundled unrelated changes" ".github/PULL_REQUEST_TEMPLATE.md includes anti-slop warning"
 else
   printf 'SKIP: .github/PULL_REQUEST_TEMPLATE.md not generated\n'
+fi
+
+if [ -f ".agent/workflows/worktree-workflow.md" ]; then
+  check_contains ".agent/workflows/worktree-workflow.md" "optional acceleration" ".agent/workflows/worktree-workflow.md states opt-in behavior"
+  check_contains ".agent/workflows/worktree-workflow.md" "Directory Priority" ".agent/workflows/worktree-workflow.md includes directory priority"
+  check_contains ".agent/workflows/worktree-workflow.md" "Baseline Gate" ".agent/workflows/worktree-workflow.md includes baseline gate"
+  check_contains ".agent/workflows/worktree-workflow.md" "When NOT To Use" ".agent/workflows/worktree-workflow.md includes when-not-to-use section"
+else
+  printf 'SKIP: .agent/workflows/worktree-workflow.md not generated\n'
 fi
 
 if [ "$failures" -gt 0 ]; then

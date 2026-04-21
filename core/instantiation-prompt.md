@@ -122,6 +122,13 @@ Optional skills policy:
 - If the harness does not support skills, skip skill output and keep `.agent/` plus adapters as the source of truth.
 - Keep `core/skills/README.md` mapping aligned with every skill file.
 
+Optional worktree workflow policy:
+
+- Worktree workflow is optional acceleration, not a required generated workflow.
+- Generate `.agent/workflows/worktree-workflow.md` from `core/workflows/worktree-workflow.md` only when the user explicitly opts in during bootstrap or the target repo already documents worktree usage.
+- If not enabled, skip this workflow and note the skip in the final report.
+- Do not install automation scripts for creating worktrees in this step.
+
 GitHub metadata policy:
 
 - If the target repo is hosted on GitHub, generate `.github/PULL_REQUEST_TEMPLATE.md` from `core/github/PULL_REQUEST_TEMPLATE.md`.
@@ -140,6 +147,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/roles/*.md` | `.agent/roles/*.md` | Copy and trim only when repo scope justifies it |
 | `core/roles/prompts/*.md` | `.agent/roles/prompts/*.md` | Copy prompt fragments; keep harness-agnostic wording |
 | `core/workflows/*.md` | `.agent/workflows/*.md` | Copy and trim only when repo scope justifies it |
+| `core/workflows/worktree-workflow.md` | `.agent/workflows/worktree-workflow.md` | Optional only; copy when user opts into worktree workflow |
 | `core/manifest.template.json` | `.agent/manifest.json` | Fill placeholders; keep valid JSON |
 | `scripts/agent-validate.sh` | `scripts/agent-validate.sh` | Copy verbatim unless target repo has path constraints |
 | `scripts/agent-eval.template.sh` | `scripts/agent-eval.sh` | Customize commands from checked-in repo evidence |
@@ -173,6 +181,7 @@ bash scripts/agent-validate.sh
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
 - Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
 - If optional skills were generated, confirm all six skills exist and match `core/skills/README.md`.
+- If worktree workflow was requested, confirm `.agent/workflows/worktree-workflow.md` was generated.
 - If the repo is GitHub-hosted, confirm `.github/PULL_REQUEST_TEMPLATE.md` was generated from `core/github/PULL_REQUEST_TEMPLATE.md`.
 - Confirm optional hooks were not installed unless explicitly requested.
 
@@ -189,6 +198,7 @@ Report:
 - Any adapters created or updated.
 - Whether GitHub PR template was generated or skipped.
 - Any optional skills or hooks created.
+- Whether optional worktree workflow was generated or skipped.
 - Validation result.
 - Remaining human follow-up.
 

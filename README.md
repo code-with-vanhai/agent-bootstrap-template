@@ -111,6 +111,8 @@ Do not copy placeholders blindly. For each target repo, scan the actual reposito
 
 Native skill output is optional. Generate skills from `core/skills/` only when the target harness supports native skill discovery and the user wants skill files. `.agent/` remains the canonical repository instruction source.
 
+Worktree workflow output is optional. Generate `.agent/workflows/worktree-workflow.md` only when the user opts into worktree-based isolation or the target repo already documents it.
+
 GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` from `core/github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
 
 ## Upgrade Policy

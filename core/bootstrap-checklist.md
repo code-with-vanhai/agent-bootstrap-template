@@ -63,6 +63,13 @@ Tick only when the target harness supports native skill discovery and the user r
 - [ ] Generated skills include: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, and no-invented-artifacts.
 - [ ] Skills remain short behavior-shaping artifacts and do not duplicate full `.agent/` workflows.
 
+## Optional Worktree Workflow
+
+- [ ] Worktree workflow was generated only when explicitly requested or already documented by the repo.
+- [ ] If generated, `.agent/workflows/worktree-workflow.md` states that worktrees are optional acceleration, not required process.
+- [ ] If generated, the workflow includes opt-in triggers, "When NOT To Use", directory priority, baseline gate, and cleanup guidance.
+- [ ] If skipped, the final report explains worktree workflow was not requested.
+
 ## GitHub Metadata
 
 - [ ] Target host was checked from `.github/` or git remotes.
@@ -78,6 +85,7 @@ Tick only when the target harness supports native skill discovery and the user r
 - [ ] `scripts/agent-validate.sh` passes, or every failure is explained.
 - [ ] If dispatchable Claude agents were generated from prompt fragments, they preserve inputs, forbidden actions, success criteria, output format, and verification expectation.
 - [ ] If optional skills were generated, their names match `core/skills/README.md`.
+- [ ] If `.agent/workflows/worktree-workflow.md` exists, it includes opt-in language and baseline verification.
 - [ ] If `.github/PULL_REQUEST_TEMPLATE.md` exists, it includes the fabricated/speculative/bundled-change warning.
 
 ## Final Report
