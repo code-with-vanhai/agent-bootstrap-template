@@ -1,0 +1,39 @@
+{
+  "template_version": "1.0.0",
+  "instantiated_from_template_version": "1.0.0",
+  "instantiated_at": "2026-04-21T00:00:00Z",
+  "llm_tool_used": "sample",
+  "canonical_root": ".agent",
+  "generated_for_repo": "nodejs-sample",
+  "source_template": "agent-bootstrap-template",
+  "project": {
+    "name": "nodejs-sample",
+    "primary_language": "TypeScript",
+    "package_manager": "npm",
+    "frameworks": ["Node.js"],
+    "deployment_targets": ["not confirmed"]
+  },
+  "canonical_files": [
+    ".agent/project-profile.md",
+    ".agent/rulebase.md",
+    ".agent/ownership.md",
+    ".agent/gates.md",
+    ".agent/decisions.md",
+    ".agent/lessons.md"
+  ],
+  "verification": {
+    "entrypoint": "scripts/agent-eval.sh",
+    "default_gate": "fast",
+    "full_gate": "full",
+    "known_not_configured_gates": ["frontend", "e2e", "release"]
+  },
+  "tool_adapters": {
+    "codex": "AGENTS.md",
+    "claude": "CLAUDE.md",
+    "cursor": ".cursor/rules/agent-system.mdc"
+  },
+  "notes": [
+    "This is a filled sample for LLM reference.",
+    "Do not copy sample facts into real repositories."
+  ]
+}

@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+Use `.agent/` as the canonical agent instruction source.
+
+Read before editing:
+
+- `.agent/project-profile.md`
+- `.agent/rulebase.md`
+- `.agent/ownership.md`
+- `.agent/gates.md`
+- `.agent/roles/`
+- `.agent/workflows/`
+
+Run verification through `scripts/agent-eval.sh`.
+

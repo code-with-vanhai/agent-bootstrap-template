@@ -1,0 +1,44 @@
+{
+  "template_version": "1.0.0",
+  "instantiated_from_template_version": "1.0.0",
+  "instantiated_at": "{{INSTANTIATED_AT_ISO8601}}",
+  "llm_tool_used": "{{LLM_TOOL_USED}}",
+  "canonical_root": ".agent",
+  "generated_for_repo": "{{REPO_NAME}}",
+  "source_template": "{{AGENT_BOOTSTRAP_TEMPLATE_REPO_URL_OR_PATH}}",
+  "project": {
+    "name": "{{PROJECT_NAME}}",
+    "primary_language": "{{PRIMARY_LANGUAGE}}",
+    "package_manager": "{{PACKAGE_MANAGER_OR_NOT_APPLICABLE}}",
+    "frameworks": ["{{FRAMEWORK_1}}"],
+    "deployment_targets": ["{{DEPLOYMENT_TARGET_1}}"]
+  },
+  "canonical_files": [
+    ".agent/project-profile.md",
+    ".agent/rulebase.md",
+    ".agent/ownership.md",
+    ".agent/gates.md",
+    ".agent/decisions.md",
+    ".agent/lessons.md"
+  ],
+  "verification": {
+    "entrypoint": "scripts/agent-eval.sh",
+    "default_gate": "fast",
+    "full_gate": "full",
+    "known_not_configured_gates": [
+      "{{NOT_CONFIGURED_GATE_OR_EMPTY_ARRAY}}"
+    ]
+  },
+  "tool_adapters": {
+    "codex": "AGENTS.md",
+    "claude": "CLAUDE.md",
+    "gemini": "GEMINI.md",
+    "cursor": ".cursor/rules/agent-system.mdc",
+    "copilot": ".github/copilot-instructions.md"
+  },
+  "notes": [
+    "Replace all placeholders during repo-specific instantiation.",
+    "Mark unknown gates as not configured instead of inventing commands.",
+    "Keep tool-specific adapters thin; .agent/ is canonical."
+  ]
+}
