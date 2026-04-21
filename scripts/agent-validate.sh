@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -n "${AGENT_ROOT:-}" ]; then
+  ROOT="$AGENT_ROOT"
+  root_source="env"
+elif [ -d ".agent" ]; then
+  ROOT="$(pwd)"
+  root_source="pwd"
+else
+  ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  root_source="git"
+fi
+
+printf 'Resolving root: %s (source: %s)\n' "$ROOT" "$root_source" >&2
 cd "$ROOT"
 
 failures=0
