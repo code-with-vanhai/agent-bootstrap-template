@@ -98,7 +98,9 @@ Default adapter policy:
 
 - If a matching adapter already exists, update it to point to `.agent/` while preserving important existing repo-specific instructions.
 - If no adapter exists, create the common adapters unless the user asks for selected tools only.
+- Every generated adapter must require agents to re-read `.agent/rulebase.md` at the start of any coding task.
 - Do not duplicate the full rulebase inside adapters.
+- Do not install hook files unless the user explicitly asks for harness-specific hook integration.
 
 ## Source Mapping
 
@@ -118,6 +120,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `adapters/GEMINI.md` | `GEMINI.md` | Thin adapter; preserve relevant existing instructions |
 | `adapters/cursor-agent-system.mdc` | `.cursor/rules/agent-system.mdc` | Thin adapter |
 | `adapters/copilot-instructions.md` | `.github/copilot-instructions.md` | Thin adapter |
+| `core/hooks/session-start.sh` | harness-specific hook path | Optional only; copy when the user requests SessionStart context injection |
 
 ## Step 4: Self-Verify
 
@@ -133,6 +136,8 @@ bash scripts/agent-validate.sh
 - Run `bash -n scripts/agent-eval.sh`.
 - Check that no `{{PLACEHOLDER}}` tokens remain in `.agent/`, adapters, or generated scripts.
 - Confirm `manifest.json` is valid JSON.
+- Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
+- Confirm optional hooks were not installed unless explicitly requested.
 
 ## Output Contract
 

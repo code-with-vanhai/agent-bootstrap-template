@@ -43,6 +43,7 @@ agent-bootstrap-template/
 │   ├── gates.template.md
 │   ├── decisions.template.md
 │   ├── lessons.template.md
+│   ├── hooks/
 │   ├── roles/
 │   └── workflows/
 ├── adapters/

@@ -123,6 +123,8 @@ Before committing the generated files, review:
 - `gates.md`: every configured command exists in checked-in repo files.
 - `scripts/agent-eval.sh`: no deploy or remote migration commands run automatically.
 - Adapters: thin and pointing to `.agent/`.
+- Adapters: require agents to re-read `.agent/rulebase.md` at the start of any coding task.
+- Optional hooks: omitted unless intentionally enabled for a supported harness.
 - `manifest.json`: includes `instantiated_at`, `llm_tool_used`, and `known_not_configured_gates`.
 
 ## Handling Missing Gates

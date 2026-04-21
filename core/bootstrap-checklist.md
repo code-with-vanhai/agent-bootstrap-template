@@ -17,6 +17,7 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] At least one real gate command is configured for code repositories, or all gates are marked `not configured` with evidence for docs/template repos.
 - [ ] Every configured gate command was found in a checked-in source: package/build file, Makefile/justfile/Taskfile, CI workflow, or equivalent.
 - [ ] No gate command was invented from convention alone.
+- [ ] `.agent/gates.md` preserves verification discipline rules: no completion claims without fresh evidence, and no invented gates or commands.
 - [ ] `scripts/agent-eval.sh` has valid shell syntax.
 
 ## Generated Files
@@ -29,6 +30,7 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] `.agent/gates.md` exists.
 - [ ] `.agent/decisions.md` exists.
 - [ ] `.agent/lessons.md` exists.
+- [ ] `.agent/rulebase.md` preserves behavior-shaping sections: Discipline Gates, Red Flags, and Rationalization Checks.
 - [ ] `.agent/roles/` contains planner, implementer, reviewer, and gate-runner instructions.
 - [ ] `.agent/workflows/` contains bootstrap, feature, bugfix, refactor, review, security review, improvement cycle, and rule evolution workflows.
 - [ ] `scripts/agent-eval.sh` exists and is executable when the filesystem supports executable bits.
@@ -45,6 +47,8 @@ Tick only adapters that are intentionally generated or updated.
 - [ ] `.github/copilot-instructions.md`
 - [ ] Existing adapter instructions were preserved when still relevant.
 - [ ] Adapters are thin and point to `.agent/`.
+- [ ] Generated adapters require agents to re-read `.agent/rulebase.md` at the start of any coding task.
+- [ ] Optional SessionStart hook is omitted unless explicitly requested, or installed only after confirming the target harness supports it.
 
 ## Placeholder and Drift Checks
 
