@@ -99,6 +99,12 @@ GEMINI.md
 .github/copilot-instructions.md
 ```
 
+Create GitHub metadata when appropriate:
+
+```text
+.github/PULL_REQUEST_TEMPLATE.md
+```
+
 Default adapter policy:
 
 - If a matching adapter already exists, update it to point to `.agent/` while preserving important existing repo-specific instructions.
@@ -115,6 +121,13 @@ Optional skills policy:
 - For Claude Code project-local skills, copy `core/skills/*/SKILL.md` to `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when that layout is supported by the user's tool setup.
 - If the harness does not support skills, skip skill output and keep `.agent/` plus adapters as the source of truth.
 - Keep `core/skills/README.md` mapping aligned with every skill file.
+
+GitHub metadata policy:
+
+- If the target repo is hosted on GitHub, generate `.github/PULL_REQUEST_TEMPLATE.md` from `core/github/PULL_REQUEST_TEMPLATE.md`.
+- Detect GitHub hosting from an existing `.github/` directory or a checked git remote containing `github.com`.
+- If the target repo is not GitHub-hosted, skip the PR template and note the skip in the final report.
+- Do not generate GitLab, Bitbucket, Gitea, or other merge request templates in this step.
 
 ## Source Mapping
 
@@ -135,6 +148,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `adapters/GEMINI.md` | `GEMINI.md` | Thin adapter; preserve relevant existing instructions |
 | `adapters/cursor-agent-system.mdc` | `.cursor/rules/agent-system.mdc` | Thin adapter |
 | `adapters/copilot-instructions.md` | `.github/copilot-instructions.md` | Thin adapter |
+| `core/github/PULL_REQUEST_TEMPLATE.md` | `.github/PULL_REQUEST_TEMPLATE.md` | GitHub-hosted repos only |
 | `core/hooks/session-start.sh` | harness-specific hook path | Optional only; copy when the user requests SessionStart context injection |
 | `core/skills/*/SKILL.md` | `.agents/skills/agent-bootstrap/<skill>/SKILL.md` or `.claude/skills/agent-bootstrap/<skill>/SKILL.md` | Optional only; copy when the harness supports native skills |
 
@@ -159,6 +173,7 @@ bash scripts/agent-validate.sh
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
 - Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
 - If optional skills were generated, confirm all six skills exist and match `core/skills/README.md`.
+- If the repo is GitHub-hosted, confirm `.github/PULL_REQUEST_TEMPLATE.md` was generated from `core/github/PULL_REQUEST_TEMPLATE.md`.
 - Confirm optional hooks were not installed unless explicitly requested.
 
 ## Output Contract
@@ -172,6 +187,7 @@ Report:
 - Dangerous operations found.
 - Public surface classified.
 - Any adapters created or updated.
+- Whether GitHub PR template was generated or skipped.
 - Any optional skills or hooks created.
 - Validation result.
 - Remaining human follow-up.

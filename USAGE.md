@@ -18,6 +18,8 @@ AGENTS.md / CLAUDE.md / Cursor rules / other thin adapters
 
 Native skill output is optional. When the target harness supports skills and the user requests them, copy skills from `core/skills/`; otherwise omit skill files.
 
+GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
+
 ## Research Reference
 
 This workflow is based on a practical adaptation of:
@@ -53,6 +55,7 @@ Requirements:
 - Create scripts/agent-eval.sh and scripts/agent-validate.sh.
 - Create thin adapters for common tools unless existing adapters should be preserved.
 - Generate optional skills only if the target harness supports native skill discovery and skill output is requested.
+- Generate `.github/PULL_REQUEST_TEMPLATE.md` only if the repo is GitHub-hosted.
 - Configure gate commands only if they are found in package/build files, Makefile/justfile/Taskfile, CI workflows, or equivalent checked-in files.
 - Mark unknown gates as not configured instead of inventing commands.
 - Do not modify business logic.
@@ -143,6 +146,7 @@ Before committing the generated files, review:
 - Prompt fragments: `.agent/roles/prompts/` includes planner, implementer, reviewer, and gate-runner subagent prompts.
 - Run artifacts: `.agent/runs/*` is absent or contains only real task specs/plans; empty placeholder runs are not required.
 - Optional skills: omitted unless requested and supported; if present, they match `core/skills/README.md`.
+- GitHub PR template: present only for GitHub-hosted repos and includes problem/evidence/gates/human-review sections.
 - Optional hooks: omitted unless intentionally enabled for a supported harness.
 - `manifest.json`: includes `instantiated_at`, `llm_tool_used`, and `known_not_configured_gates`.
 

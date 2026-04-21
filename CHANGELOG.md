@@ -8,6 +8,7 @@
 - Added `.agent/runs/<date>-<slug>/spec.md` and `plan.md` convention for non-trivial work.
 - Added subagent prompt fragments under `.agent/roles/prompts/` and corresponding template sources under `core/roles/prompts/`.
 - Added optional native skill source files under `core/skills/` for supported harnesses.
+- Added GitHub-only pull request template source under `core/github/`; other host merge request templates remain a future extension.
 - Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
 - Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
 

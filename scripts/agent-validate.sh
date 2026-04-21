@@ -54,6 +54,11 @@ check_contains() {
 validate_template_skills() {
   expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts"
 
+  check_path "core/github/PULL_REQUEST_TEMPLATE.md"
+  check_contains "core/github/PULL_REQUEST_TEMPLATE.md" "Problem observed" "core/github/PULL_REQUEST_TEMPLATE.md includes problem observed section"
+  check_contains "core/github/PULL_REQUEST_TEMPLATE.md" "Gates run" "core/github/PULL_REQUEST_TEMPLATE.md includes gates run section"
+  check_contains "core/github/PULL_REQUEST_TEMPLATE.md" "fabricated problem statements, speculative fixes, or bundled unrelated changes" "core/github/PULL_REQUEST_TEMPLATE.md includes anti-slop warning"
+
   check_path "core/skills/README.md"
   check_contains "core/skills/README.md" "Skill Mapping" "core/skills/README.md includes skill mapping"
 
@@ -169,6 +174,14 @@ do
     printf 'SKIP: %s not generated\n' "$adapter"
   fi
 done
+
+if [ -f ".github/PULL_REQUEST_TEMPLATE.md" ]; then
+  check_contains ".github/PULL_REQUEST_TEMPLATE.md" "Problem observed" ".github/PULL_REQUEST_TEMPLATE.md includes problem observed section"
+  check_contains ".github/PULL_REQUEST_TEMPLATE.md" "Gates run" ".github/PULL_REQUEST_TEMPLATE.md includes gates run section"
+  check_contains ".github/PULL_REQUEST_TEMPLATE.md" "fabricated problem statements, speculative fixes, or bundled unrelated changes" ".github/PULL_REQUEST_TEMPLATE.md includes anti-slop warning"
+else
+  printf 'SKIP: .github/PULL_REQUEST_TEMPLATE.md not generated\n'
+fi
 
 if [ "$failures" -gt 0 ]; then
   printf '\n%d validation check(s) failed.\n' "$failures" >&2

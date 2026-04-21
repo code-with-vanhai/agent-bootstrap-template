@@ -63,6 +63,13 @@ Tick only when the target harness supports native skill discovery and the user r
 - [ ] Generated skills include: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, and no-invented-artifacts.
 - [ ] Skills remain short behavior-shaping artifacts and do not duplicate full `.agent/` workflows.
 
+## GitHub Metadata
+
+- [ ] Target host was checked from `.github/` or git remotes.
+- [ ] `.github/PULL_REQUEST_TEMPLATE.md` was generated if and only if the target repo is GitHub-hosted.
+- [ ] If generated, the PR template includes problem observed, evidence, why this belongs here, alternatives, gates run, human review, and single coherent change sections.
+- [ ] If skipped, the final report explains the repo is not confirmed GitHub-hosted.
+
 ## Placeholder and Drift Checks
 
 - [ ] No `{{PLACEHOLDER}}` tokens remain in generated files.
@@ -71,6 +78,7 @@ Tick only when the target harness supports native skill discovery and the user r
 - [ ] `scripts/agent-validate.sh` passes, or every failure is explained.
 - [ ] If dispatchable Claude agents were generated from prompt fragments, they preserve inputs, forbidden actions, success criteria, output format, and verification expectation.
 - [ ] If optional skills were generated, their names match `core/skills/README.md`.
+- [ ] If `.github/PULL_REQUEST_TEMPLATE.md` exists, it includes the fabricated/speculative/bundled-change warning.
 
 ## Final Report
 

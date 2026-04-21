@@ -44,6 +44,7 @@ agent-bootstrap-template/
 │   ├── decisions.template.md
 │   ├── lessons.template.md
 │   ├── hooks/
+│   ├── github/
 │   ├── roles/
 │   │   └── prompts/
 │   ├── skills/
@@ -109,6 +110,8 @@ repo/
 Do not copy placeholders blindly. For each target repo, scan the actual repository and replace template sections with observed facts. If a gate, test framework, deploy command, or ownership boundary is unknown, mark it as `not configured` instead of inventing it.
 
 Native skill output is optional. Generate skills from `core/skills/` only when the target harness supports native skill discovery and the user wants skill files. `.agent/` remains the canonical repository instruction source.
+
+GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` from `core/github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
 
 ## Upgrade Policy
 
