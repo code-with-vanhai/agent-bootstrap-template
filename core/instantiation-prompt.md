@@ -107,6 +107,15 @@ Default adapter policy:
 - Do not duplicate the full rulebase inside adapters.
 - Do not install hook files unless the user explicitly asks for harness-specific hook integration.
 
+Optional skills policy:
+
+- Skills are optional behavior-shaping artifacts, not a replacement for `.agent/`.
+- Generate skills only when the target harness supports native skill discovery and the user wants skill output.
+- For Codex-style harnesses, copy `core/skills/*/SKILL.md` to `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
+- For Claude Code project-local skills, copy `core/skills/*/SKILL.md` to `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when that layout is supported by the user's tool setup.
+- If the harness does not support skills, skip skill output and keep `.agent/` plus adapters as the source of truth.
+- Keep `core/skills/README.md` mapping aligned with every skill file.
+
 ## Source Mapping
 
 Use the template files as the source of truth. Do not recreate these files from memory.
@@ -127,6 +136,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `adapters/cursor-agent-system.mdc` | `.cursor/rules/agent-system.mdc` | Thin adapter |
 | `adapters/copilot-instructions.md` | `.github/copilot-instructions.md` | Thin adapter |
 | `core/hooks/session-start.sh` | harness-specific hook path | Optional only; copy when the user requests SessionStart context injection |
+| `core/skills/*/SKILL.md` | `.agents/skills/agent-bootstrap/<skill>/SKILL.md` or `.claude/skills/agent-bootstrap/<skill>/SKILL.md` | Optional only; copy when the harness supports native skills |
 
 If the target harness is Claude Code and the user wants dispatchable agents, adapt `.agent/roles/prompts/*-subagent.md` into `.claude/agents/<role>.md`. Otherwise keep prompt fragments under `.agent/roles/prompts/` for copy/paste or manual delegation.
 
@@ -148,6 +158,7 @@ bash scripts/agent-validate.sh
 - Confirm `manifest.json` is valid JSON.
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
 - Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
+- If optional skills were generated, confirm all six skills exist and match `core/skills/README.md`.
 - Confirm optional hooks were not installed unless explicitly requested.
 
 ## Output Contract
@@ -161,6 +172,7 @@ Report:
 - Dangerous operations found.
 - Public surface classified.
 - Any adapters created or updated.
+- Any optional skills or hooks created.
 - Validation result.
 - Remaining human follow-up.
 

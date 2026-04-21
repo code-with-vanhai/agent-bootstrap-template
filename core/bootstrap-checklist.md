@@ -52,6 +52,17 @@ Tick only adapters that are intentionally generated or updated.
 - [ ] Generated adapters require agents to re-read `.agent/rulebase.md` at the start of any coding task.
 - [ ] Optional SessionStart hook is omitted unless explicitly requested, or installed only after confirming the target harness supports it.
 
+## Optional Skills
+
+Tick only when the target harness supports native skill discovery and the user requested skill output.
+
+- [ ] Optional skills were omitted when the target harness does not support them or the user did not request them.
+- [ ] If generated, skills were copied from `core/skills/*/SKILL.md`, not recreated from memory.
+- [ ] If generated for Codex-style harnesses, skills live under `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
+- [ ] If generated for Claude Code project-local skills, skills live under `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when supported by the user's setup.
+- [ ] Generated skills include: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, and no-invented-artifacts.
+- [ ] Skills remain short behavior-shaping artifacts and do not duplicate full `.agent/` workflows.
+
 ## Placeholder and Drift Checks
 
 - [ ] No `{{PLACEHOLDER}}` tokens remain in generated files.
@@ -59,6 +70,7 @@ Tick only adapters that are intentionally generated or updated.
 - [ ] `.agent/manifest.json` records instantiated template version, timestamp, tool used, and known not-configured gates.
 - [ ] `scripts/agent-validate.sh` passes, or every failure is explained.
 - [ ] If dispatchable Claude agents were generated from prompt fragments, they preserve inputs, forbidden actions, success criteria, output format, and verification expectation.
+- [ ] If optional skills were generated, their names match `core/skills/README.md`.
 
 ## Final Report
 

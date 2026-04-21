@@ -16,6 +16,8 @@ AGENTS.md / CLAUDE.md / Cursor rules / other thin adapters
 
 `.agent/` is the source of truth. Tool-specific adapters should stay thin and point back to `.agent/`.
 
+Native skill output is optional. When the target harness supports skills and the user requests them, copy skills from `core/skills/`; otherwise omit skill files.
+
 ## Research Reference
 
 This workflow is based on a practical adaptation of:
@@ -50,6 +52,7 @@ Requirements:
 - Create .agent/ as the canonical instruction source.
 - Create scripts/agent-eval.sh and scripts/agent-validate.sh.
 - Create thin adapters for common tools unless existing adapters should be preserved.
+- Generate optional skills only if the target harness supports native skill discovery and skill output is requested.
 - Configure gate commands only if they are found in package/build files, Makefile/justfile/Taskfile, CI workflows, or equivalent checked-in files.
 - Mark unknown gates as not configured instead of inventing commands.
 - Do not modify business logic.
@@ -91,6 +94,15 @@ repo/
 
 Adapters may be omitted if the repo does not use that tool, but any generated adapter must point to `.agent/`.
 
+Optional generated skill layouts:
+
+```text
+.agents/skills/agent-bootstrap/<skill>/SKILL.md
+.claude/skills/agent-bootstrap/<skill>/SKILL.md
+```
+
+Use only the layout supported by the user's tool setup.
+
 ## Validation
 
 Run this from the target repo:
@@ -130,6 +142,7 @@ Before committing the generated files, review:
 - Adapters: require agents to re-read `.agent/rulebase.md` at the start of any coding task.
 - Prompt fragments: `.agent/roles/prompts/` includes planner, implementer, reviewer, and gate-runner subagent prompts.
 - Run artifacts: `.agent/runs/*` is absent or contains only real task specs/plans; empty placeholder runs are not required.
+- Optional skills: omitted unless requested and supported; if present, they match `core/skills/README.md`.
 - Optional hooks: omitted unless intentionally enabled for a supported harness.
 - `manifest.json`: includes `instantiated_at`, `llm_tool_used`, and `known_not_configured_gates`.
 

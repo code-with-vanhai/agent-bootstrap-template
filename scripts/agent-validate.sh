@@ -51,6 +51,41 @@ check_contains() {
   fi
 }
 
+validate_template_skills() {
+  expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts"
+
+  check_path "core/skills/README.md"
+  check_contains "core/skills/README.md" "Skill Mapping" "core/skills/README.md includes skill mapping"
+
+  skill_count="$(find core/skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
+  if [ "$skill_count" = "6" ]; then
+    pass "core/skills contains 6 skill files"
+  else
+    fail "core/skills contains $skill_count skill files, expected 6"
+  fi
+
+  for skill in $expected_skills; do
+    skill_file="core/skills/$skill/SKILL.md"
+    check_path "$skill_file"
+    check_contains "$skill_file" "^name: $skill$" "$skill_file has matching skill name"
+    check_contains "$skill_file" "^description: Use when" "$skill_file has trigger-style description"
+    check_contains "$skill_file" "Canonical Sources" "$skill_file lists canonical sources"
+    check_contains "core/skills/README.md" "\`$skill\`" "core/skills/README.md maps $skill"
+  done
+}
+
+if [ ! -d ".agent" ] && [ -d "core/skills" ]; then
+  validate_template_skills
+
+  if [ "$failures" -gt 0 ]; then
+    printf '\n%d template skill validation check(s) failed.\n' "$failures" >&2
+    exit 1
+  fi
+
+  printf '\nAll template skill validation checks passed.\n'
+  exit 0
+fi
+
 if [ -d ".agent" ]; then
   matches="$(grep -RIn '{{[^}]*}}' .agent AGENTS.md CLAUDE.md GEMINI.md .cursor .github scripts 2>/dev/null || true)"
   if [ -n "$matches" ]; then

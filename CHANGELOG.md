@@ -7,6 +7,7 @@
 - Added optional SessionStart hook template for supported harnesses.
 - Added `.agent/runs/<date>-<slug>/spec.md` and `plan.md` convention for non-trivial work.
 - Added subagent prompt fragments under `.agent/roles/prompts/` and corresponding template sources under `core/roles/prompts/`.
+- Added optional native skill source files under `core/skills/` for supported harnesses.
 - Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
 - Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
 

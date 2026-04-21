@@ -46,6 +46,7 @@ agent-bootstrap-template/
 │   ├── hooks/
 │   ├── roles/
 │   │   └── prompts/
+│   ├── skills/
 │   └── workflows/
 ├── adapters/
 ├── examples/
@@ -106,6 +107,8 @@ repo/
 ## Instantiation Rule
 
 Do not copy placeholders blindly. For each target repo, scan the actual repository and replace template sections with observed facts. If a gate, test framework, deploy command, or ownership boundary is unknown, mark it as `not configured` instead of inventing it.
+
+Native skill output is optional. Generate skills from `core/skills/` only when the target harness supports native skill discovery and the user wants skill files. `.agent/` remains the canonical repository instruction source.
 
 ## Upgrade Policy
 
