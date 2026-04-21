@@ -11,6 +11,7 @@
 - Added GitHub-only pull request template source under `core/github/`; other host merge request templates remain a future extension.
 - Added optional worktree workflow source under `core/workflows/worktree-workflow.md`.
 - Added behavior eval runner and shared eval helpers; evals require the Claude CLI and skip safely when it is missing.
+- Added fast behavior evals for verification-before-claim, root-cause-first, and no-invented-gates behavior.
 - Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
 - Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
 
