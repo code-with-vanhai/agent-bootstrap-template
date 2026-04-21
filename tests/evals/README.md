@@ -28,6 +28,18 @@ Behavior evals can cost money because they call the Claude CLI. They may also be
 
 Do not wire these into CI unless the repo owner explicitly accepts the cost and flakiness tradeoff.
 
+## Included Evals
+
+Fast evals:
+
+- `verify-before-claim.sh`: rejects completion claims without fresh verification evidence.
+- `root-cause-first.sh`: starts bugfix work with root-cause investigation.
+- `no-invented-gates.sh`: refuses to invent conventional test commands when gates are not configured.
+
+Integration evals:
+
+- `no-unrelated-changes.sh`: verifies the agent edits only the requested bug file when offered tempting cleanup.
+
 ## Adding Evals
 
 1. Add a shell script under `tests/evals/`.
