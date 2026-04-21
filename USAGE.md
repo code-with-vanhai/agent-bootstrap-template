@@ -8,6 +8,7 @@ The generated target repo should have:
 
 ```text
 .agent/                  # canonical agent instructions
+.agent/roles/prompts/    # prompt fragments for delegated agent work
 scripts/agent-eval.sh    # repo-specific verification gates
 scripts/agent-validate.sh # mechanical validation guardrail
 AGENTS.md / CLAUDE.md / Cursor rules / other thin adapters
@@ -75,6 +76,8 @@ repo/
 │   ├── decisions.md
 │   ├── lessons.md
 │   ├── roles/
+│   │   └── prompts/
+│   ├── runs/              # created only for non-trivial task specs/plans
 │   └── workflows/
 ├── scripts/
 │   ├── agent-eval.sh
@@ -99,7 +102,8 @@ bash scripts/agent-validate.sh
 The validator checks:
 
 - Required `.agent/` files exist.
-- Role and workflow files exist.
+- Role, role prompt, and workflow files exist.
+- Behavior-shaping guardrails exist in `.agent/rulebase.md` and `.agent/gates.md`.
 - No `{{PLACEHOLDER}}` tokens remain.
 - `.agent/manifest.json` is valid JSON.
 - `scripts/agent-eval.sh` has valid shell syntax.
@@ -124,6 +128,8 @@ Before committing the generated files, review:
 - `scripts/agent-eval.sh`: no deploy or remote migration commands run automatically.
 - Adapters: thin and pointing to `.agent/`.
 - Adapters: require agents to re-read `.agent/rulebase.md` at the start of any coding task.
+- Prompt fragments: `.agent/roles/prompts/` includes planner, implementer, reviewer, and gate-runner subagent prompts.
+- Run artifacts: `.agent/runs/*` is absent or contains only real task specs/plans; empty placeholder runs are not required.
 - Optional hooks: omitted unless intentionally enabled for a supported harness.
 - `manifest.json`: includes `instantiated_at`, `llm_tool_used`, and `known_not_configured_gates`.
 

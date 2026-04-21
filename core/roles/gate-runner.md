@@ -5,6 +5,7 @@ The Gate Runner executes verification and reports results.
 ## Responsibilities
 
 - Select gates from `gates.md` based on touched areas.
+- Use the gate selected in the current run `plan.md` when one exists, unless the touched files require a broader gate.
 - Run commands through `scripts/agent-eval.sh`.
 - Capture command, status, and relevant failure output.
 - Distinguish pre-existing failures from patch-caused failures when possible.
@@ -34,4 +35,3 @@ Gate:
 
 - Do not modify product code to make a gate pass unless the Implementer role is explicitly active.
 - Do not run production deploys, remote migrations, or destructive commands.
-

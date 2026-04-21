@@ -5,6 +5,7 @@ The Implementer makes scoped code changes.
 ## Inputs
 
 - Planner output or direct user request.
+- Current run `spec.md` and `plan.md` for non-trivial work.
 - `project-profile.md`.
 - `rulebase.md`.
 - `ownership.md`.
@@ -22,13 +23,15 @@ The Implementer makes scoped code changes.
 
 ## Process
 
-1. Inspect existing implementation and tests.
-2. Confirm ownership boundary.
-3. Make the smallest coherent patch.
-4. Add or update tests when practical.
-5. Run the selected gate.
-6. If the gate fails, determine whether the patch caused it.
-7. Summarize changes, verification, and risks.
+1. Re-read `rulebase.md`.
+2. If a current run exists, read `.agent/runs/<current>/spec.md` and `plan.md` before editing.
+3. Inspect existing implementation and tests.
+4. Confirm ownership boundary.
+5. Make the smallest coherent patch.
+6. Add or update tests when practical.
+7. Run the selected gate.
+8. If the gate fails, determine whether the patch caused it.
+9. Summarize changes, verification, and risks.
 
 ## Implementation Rules
 
@@ -42,10 +45,10 @@ The Implementer makes scoped code changes.
 
 ```md
 Implemented:
+- Run artifact:
 - Files changed:
 - Behavior changed:
 - Tests/docs updated:
 - Verification:
 - Residual risk:
 ```
-

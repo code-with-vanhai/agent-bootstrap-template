@@ -65,7 +65,12 @@ Create or update these files in the target repo:
 │   ├── planner.md
 │   ├── implementer.md
 │   ├── reviewer.md
-│   └── gate-runner.md
+│   ├── gate-runner.md
+│   └── prompts/
+│       ├── planner-subagent.md
+│       ├── implementer-subagent.md
+│       ├── reviewer-subagent.md
+│       └── gate-runner-subagent.md
 └── workflows/
     ├── bootstrap-workflow.md
     ├── feature-workflow.md
@@ -111,6 +116,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/README.md` | `.agent/README.md` | Copy and adjust repo-specific wording if needed |
 | `core/*.template.md` | `.agent/<name>.md` | Fill placeholders and customize from repo scan |
 | `core/roles/*.md` | `.agent/roles/*.md` | Copy and trim only when repo scope justifies it |
+| `core/roles/prompts/*.md` | `.agent/roles/prompts/*.md` | Copy prompt fragments; keep harness-agnostic wording |
 | `core/workflows/*.md` | `.agent/workflows/*.md` | Copy and trim only when repo scope justifies it |
 | `core/manifest.template.json` | `.agent/manifest.json` | Fill placeholders; keep valid JSON |
 | `scripts/agent-validate.sh` | `scripts/agent-validate.sh` | Copy verbatim unless target repo has path constraints |
@@ -121,6 +127,10 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `adapters/cursor-agent-system.mdc` | `.cursor/rules/agent-system.mdc` | Thin adapter |
 | `adapters/copilot-instructions.md` | `.github/copilot-instructions.md` | Thin adapter |
 | `core/hooks/session-start.sh` | harness-specific hook path | Optional only; copy when the user requests SessionStart context injection |
+
+If the target harness is Claude Code and the user wants dispatchable agents, adapt `.agent/roles/prompts/*-subagent.md` into `.claude/agents/<role>.md`. Otherwise keep prompt fragments under `.agent/roles/prompts/` for copy/paste or manual delegation.
+
+Do not create `.agent/runs/*` during bootstrap unless there is a real non-trivial follow-up task to plan. Runs are created per task, not as required bootstrap files.
 
 ## Step 4: Self-Verify
 
@@ -137,6 +147,7 @@ bash scripts/agent-validate.sh
 - Check that no `{{PLACEHOLDER}}` tokens remain in `.agent/`, adapters, or generated scripts.
 - Confirm `manifest.json` is valid JSON.
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
+- Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
 - Confirm optional hooks were not installed unless explicitly requested.
 
 ## Output Contract

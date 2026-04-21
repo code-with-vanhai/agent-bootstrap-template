@@ -9,9 +9,10 @@ Agents should read:
 - `ownership.md`
 - `gates.md`
 - `roles/`
+- `roles/prompts/`
 - `workflows/`
+- `runs/` when a non-trivial task needs a task-specific spec and plan
 - `decisions.md`
 - `lessons.md`
 
 Tool-specific adapters must stay thin and point back here.
-

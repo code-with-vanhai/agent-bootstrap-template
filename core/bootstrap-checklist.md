@@ -32,9 +32,11 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] `.agent/lessons.md` exists.
 - [ ] `.agent/rulebase.md` preserves behavior-shaping sections: Discipline Gates, Red Flags, and Rationalization Checks.
 - [ ] `.agent/roles/` contains planner, implementer, reviewer, and gate-runner instructions.
+- [ ] `.agent/roles/prompts/` contains planner, implementer, reviewer, and gate-runner subagent prompt fragments.
 - [ ] `.agent/workflows/` contains bootstrap, feature, bugfix, refactor, review, security review, improvement cycle, and rule evolution workflows.
 - [ ] `scripts/agent-eval.sh` exists and is executable when the filesystem supports executable bits.
 - [ ] `scripts/agent-validate.sh` exists and is executable when the filesystem supports executable bits.
+- [ ] `.agent/runs/*` is not required for bootstrap; create run artifacts only for real non-trivial tasks.
 
 ## Adapter Files
 
@@ -56,6 +58,7 @@ Tick only adapters that are intentionally generated or updated.
 - [ ] No generated adapter duplicates the full `.agent/rulebase.md`.
 - [ ] `.agent/manifest.json` records instantiated template version, timestamp, tool used, and known not-configured gates.
 - [ ] `scripts/agent-validate.sh` passes, or every failure is explained.
+- [ ] If dispatchable Claude agents were generated from prompt fragments, they preserve inputs, forbidden actions, success criteria, output format, and verification expectation.
 
 ## Final Report
 

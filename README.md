@@ -45,6 +45,7 @@ agent-bootstrap-template/
 │   ├── lessons.template.md
 │   ├── hooks/
 │   ├── roles/
+│   │   └── prompts/
 │   └── workflows/
 ├── adapters/
 ├── examples/
@@ -89,6 +90,8 @@ repo/
 │   ├── decisions.md
 │   ├── lessons.md
 │   ├── roles/
+│   │   └── prompts/
+│   ├── runs/              # Created per non-trivial task, not required at bootstrap
 │   └── workflows/
 ├── scripts/
 │   ├── agent-eval.sh

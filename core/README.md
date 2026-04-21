@@ -9,10 +9,12 @@ Agents must read these files before making changes:
 - `ownership.md`: which role owns which paths and when coordination is required.
 - `gates.md`: verification commands and acceptance criteria.
 - `roles/`: role-specific behavior.
+- `roles/prompts/`: harness-agnostic prompt fragments for delegated planner, implementer, reviewer, and gate-runner work.
 - `workflows/`: feature, bugfix, refactor, review, and bootstrap procedures.
 - `workflows/improvement-cycle-workflow.md`: metric-driven candidate/champion improvement loop.
 - `workflows/security-review-workflow.md`: focused security review for auth, data, secrets, and trust boundaries.
 - `workflows/rule-evolution-workflow.md`: controlled process for updating agent rules.
+- `runs/`: optional per-task specs and plans created for non-trivial work.
 - `decisions.md`: architecture decisions that must be preserved.
 - `lessons.md`: repo-specific lessons learned from previous incidents and reviews.
 
@@ -24,11 +26,12 @@ Tool-specific instruction files such as `AGENTS.md`, `CLAUDE.md`, Cursor rules, 
 
 1. Bootstrap knowledge before editing.
 2. Identify the correct workflow.
-3. Assign ownership by path and subsystem.
-4. Make scoped changes.
-5. Run the appropriate gate through `scripts/agent-eval.sh`.
-6. Review the diff against `rulebase.md`, `ownership.md`, and `decisions.md`.
-7. Record new durable lessons in `lessons.md` only when they prevent future mistakes.
+3. For non-trivial work, create `.agent/runs/<date>-<slug>/spec.md` and `plan.md`.
+4. Assign ownership by path and subsystem.
+5. Make scoped changes.
+6. Run the appropriate gate through `scripts/agent-eval.sh`.
+7. Review the diff against `rulebase.md`, `ownership.md`, and `decisions.md`.
+8. Record new durable lessons in `lessons.md` only when they prevent future mistakes.
 
 ## Acceptance Model
 

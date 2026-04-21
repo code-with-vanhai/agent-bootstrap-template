@@ -4,6 +4,8 @@ alwaysApply: true
 
 Use `.agent/` as the canonical agent instruction source.
 
+For any coding task, MUST re-read `.agent/rulebase.md` before planning or editing, even if it was read earlier in the session.
+
 Read before editing:
 
 - `.agent/project-profile.md`
@@ -14,4 +16,3 @@ Read before editing:
 - `.agent/workflows/`
 
 Run verification through `scripts/agent-eval.sh`.
-

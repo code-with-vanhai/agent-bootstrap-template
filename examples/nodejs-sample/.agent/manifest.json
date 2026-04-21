@@ -19,7 +19,11 @@
     ".agent/ownership.md",
     ".agent/gates.md",
     ".agent/decisions.md",
-    ".agent/lessons.md"
+    ".agent/lessons.md",
+    ".agent/roles/prompts/planner-subagent.md",
+    ".agent/roles/prompts/implementer-subagent.md",
+    ".agent/roles/prompts/reviewer-subagent.md",
+    ".agent/roles/prompts/gate-runner-subagent.md"
   ],
   "verification": {
     "entrypoint": "scripts/agent-eval.sh",

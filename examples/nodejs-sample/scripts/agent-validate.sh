@@ -26,6 +26,23 @@ pass() {
   printf 'PASS: %s\n' "$*"
 }
 
+check_contains() {
+  file="$1"
+  pattern="$2"
+  description="$3"
+
+  if [ ! -f "$file" ]; then
+    fail "$description cannot be checked because $file is missing"
+    return
+  fi
+
+  if grep -q "$pattern" "$file"; then
+    pass "$description"
+  else
+    fail "$description"
+  fi
+}
+
 for path in \
   .agent/README.md \
   .agent/manifest.json \
@@ -39,6 +56,10 @@ for path in \
   .agent/roles/implementer.md \
   .agent/roles/reviewer.md \
   .agent/roles/gate-runner.md \
+  .agent/roles/prompts/planner-subagent.md \
+  .agent/roles/prompts/implementer-subagent.md \
+  .agent/roles/prompts/reviewer-subagent.md \
+  .agent/roles/prompts/gate-runner-subagent.md \
   .agent/workflows/bootstrap-workflow.md \
   .agent/workflows/feature-workflow.md \
   .agent/workflows/bugfix-workflow.md \
@@ -55,6 +76,10 @@ do
     fail "$path is missing"
   fi
 done
+
+check_contains ".agent/rulebase.md" "NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE" ".agent/rulebase.md includes completion verification discipline"
+check_contains ".agent/rulebase.md" "Rationalization Checks" ".agent/rulebase.md includes rationalization checks"
+check_contains ".agent/gates.md" "NO INVENTED GATES OR COMMANDS" ".agent/gates.md includes no-invented-gates discipline"
 
 matches="$(grep -RIn '{{[^}]*}}' .agent AGENTS.md CLAUDE.md .cursor scripts 2>/dev/null || true)"
 if [ -n "$matches" ]; then

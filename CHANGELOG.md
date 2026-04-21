@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Added behavior-shaping guardrails to rulebase and gates templates: verification discipline, root-cause-first language, no invented artifacts, and no unrelated changes.
+- Updated generated adapters to require re-reading `.agent/rulebase.md` at the start of coding tasks.
+- Added optional SessionStart hook template for supported harnesses.
+- Added `.agent/runs/<date>-<slug>/spec.md` and `plan.md` convention for non-trivial work.
+- Added subagent prompt fragments under `.agent/roles/prompts/` and corresponding template sources under `core/roles/prompts/`.
+- Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
+- Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
+
 ## 1.0.0 - Initial Template
 
 - Added tool-agnostic `.agent/` core templates.

@@ -2,6 +2,8 @@
 
 This sample uses `.agent/` as the canonical instruction source.
 
+For any coding task, MUST re-read `.agent/rulebase.md` before planning or editing, even if it was read earlier in the session.
+
 Read:
 
 - `.agent/project-profile.md`
@@ -12,4 +14,3 @@ Read:
 - `.agent/workflows/`
 
 Run verification through `scripts/agent-eval.sh`.
-
