@@ -45,6 +45,7 @@ The template currently provides:
 - Optional worktree workflow for teams that explicitly opt into isolated workspaces.
 - Optional GitHub pull request template for GitHub-hosted repositories.
 - Optional SessionStart hook template for supported harnesses, off by default.
+- Deterministic bootstrap skeleton generation via `scripts/bootstrap-request.sh`.
 - Template and generated-repo validation via `scripts/agent-validate.sh`.
 - Optional headless behavior evals via `scripts/agent-evals.sh`.
 
@@ -57,6 +58,7 @@ agent-bootstrap-template/
 ├── core/
 │   ├── README.md
 │   ├── research-basis.md
+│   ├── bootstrap-steps.md
 │   ├── instantiation-prompt.md
 │   ├── bootstrap-checklist.md
 │   ├── manifest.template.json
@@ -77,6 +79,7 @@ agent-bootstrap-template/
 ├── scripts/
 │   ├── agent-eval.template.sh
 │   ├── agent-evals.sh
+│   ├── bootstrap-request.sh
 │   └── agent-validate.sh
 └── tests/
     └── evals/
@@ -85,17 +88,33 @@ agent-bootstrap-template/
 ## Quickstart
 
 1. Clone or copy this template near the target repository.
-2. Ask your LLM coding tool to read `core/instantiation-prompt.md` and instantiate the template into the target repo.
-3. In the target repo, run:
+2. From the target repository, generate the deterministic skeleton:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/bootstrap-request.sh \
+  --features standard \
+  --harness claude \
+  --target .
+```
+
+Use `--harness codex`, `cursor`, `copilot`, `gemini`, or `generic` for other tools. Use `--features minimal` for the smallest baseline or `--features full` to also generate supported native skills and the optional worktree workflow.
+
+3. Ask your coding agent:
+
+```text
+Complete .agent/bootstrap-pending.md
+```
+
+4. In the target repo, run:
 
 ```bash
 bash scripts/agent-validate.sh
 ```
 
-4. Review the generated `.agent/` files and thin adapters.
-5. Commit the generated agent system only after the repo-specific facts, gates, dangerous operations, and ownership boundaries are correct.
+5. Review the generated `.agent/` files and thin adapters.
+6. Commit the generated agent system only after the repo-specific facts, gates, dangerous operations, and ownership boundaries are correct.
 
-Suggested request:
+Manual fallback for harnesses where you want the agent to do the full instantiation:
 
 ```text
 Setup Agent Bootstrap Kit for this repo.
@@ -137,6 +156,7 @@ repo/
 Optional outputs:
 
 ```text
+.agent/bootstrap-pending.md
 .agents/skills/agent-bootstrap/<skill>/SKILL.md
 .claude/skills/agent-bootstrap/<skill>/SKILL.md
 .agent/workflows/worktree-workflow.md
@@ -145,6 +165,8 @@ harness-specific SessionStart hook path
 ```
 
 ## Instantiation Rule
+
+Prefer `scripts/bootstrap-request.sh` for first setup. It copies the deterministic skeleton and writes `.agent/bootstrap-pending.md`; the agent then completes only repo-specific classification, gates, ownership, and manifest fields.
 
 Do not copy placeholders blindly. For each target repo, scan the actual repository and replace template sections with observed facts. If a gate, test framework, deploy command, or ownership boundary is unknown, mark it as `not configured` instead of inventing it.
 

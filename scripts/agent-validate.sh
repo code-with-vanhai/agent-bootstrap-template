@@ -44,7 +44,7 @@ check_contains() {
     return
   fi
 
-  if grep -q "$pattern" "$file"; then
+  if grep -q -- "$pattern" "$file"; then
     pass "$description"
   else
     fail "$description"
@@ -53,6 +53,19 @@ check_contains() {
 
 validate_template_skills() {
   expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts"
+
+  check_path "core/bootstrap-steps.md"
+  check_contains "core/bootstrap-steps.md" "Deterministic Skeleton" "core/bootstrap-steps.md includes deterministic skeleton phase"
+  check_contains "core/bootstrap-steps.md" "Agent Completion" "core/bootstrap-steps.md includes agent completion phase"
+
+  check_path "scripts/bootstrap-request.sh"
+  check_contains "scripts/bootstrap-request.sh" "--features" "scripts/bootstrap-request.sh supports feature selection"
+  check_contains "scripts/bootstrap-request.sh" "--harness" "scripts/bootstrap-request.sh supports harness selection"
+  if bash -n scripts/bootstrap-request.sh; then
+    pass "scripts/bootstrap-request.sh shell syntax is valid"
+  else
+    fail "scripts/bootstrap-request.sh shell syntax is invalid"
+  fi
 
   check_path "core/github/PULL_REQUEST_TEMPLATE.md"
   check_contains "core/github/PULL_REQUEST_TEMPLATE.md" "Problem observed" "core/github/PULL_REQUEST_TEMPLATE.md includes problem observed section"

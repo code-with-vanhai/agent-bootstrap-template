@@ -2,13 +2,15 @@
 
 Use this prompt when an LLM instantiates this template into a target repository.
 
+`core/bootstrap-steps.md` is the canonical bootstrap process. This file is the expanded LLM-facing version for agents that are completing bootstrap manually or finishing `.agent/bootstrap-pending.md`.
+
 ## Prompt
 
 You are setting up a tool-agnostic agent system for an existing repository.
 
 Your job is to instantiate this template into the target repo by creating `.agent/` as the canonical instruction source, plus thin tool-specific adapters. Do not modify business logic.
 
-Follow this exact process:
+Follow `core/bootstrap-steps.md` and this expanded process:
 
 ## Step 1: Scan
 

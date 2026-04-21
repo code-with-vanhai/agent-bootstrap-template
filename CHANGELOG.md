@@ -13,6 +13,8 @@
 - Added behavior eval runner and shared eval helpers; evals require the Claude CLI and skip safely when it is missing.
 - Added fast behavior evals for verification-before-claim, root-cause-first, and no-invented-gates behavior.
 - Added integration behavior eval for scoped changes and no unrelated cleanup.
+- Added deterministic bootstrap skeleton generator with `.agent/bootstrap-pending.md` handoff.
+- Added canonical bootstrap steps document to keep script, prompt, and future skills/plugins aligned.
 - Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
 - Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
 

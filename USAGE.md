@@ -47,14 +47,50 @@ The paper uses specialized agents, repository profiling, correctness checks, QoR
 ## Recommended Workflow
 
 1. Put this template next to the target repository.
-2. Ask your LLM coding tool to read `core/instantiation-prompt.md`.
-3. Let the LLM scan the target repo and generate `.agent/`.
+2. Run `scripts/bootstrap-request.sh` from this template against the target repo.
+3. Ask your LLM coding tool to complete `.agent/bootstrap-pending.md`.
 4. Run validation in the target repo.
 5. Review the generated diff before committing.
 
-## Prompt To Use
+## One-Line Setup
 
-From inside the target repository, send this to your coding agent:
+From inside the target repository:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/bootstrap-request.sh \
+  --features standard \
+  --harness claude \
+  --target .
+```
+
+Then tell your coding agent:
+
+```text
+Complete .agent/bootstrap-pending.md
+```
+
+Replace `/path/to/agent-bootstrap-template` with the actual path.
+
+Feature levels:
+
+- `minimal`: baseline `.agent/`, verification scripts, and selected harness adapters.
+- `standard`: `minimal` plus GitHub PR template when the repo is confirmed GitHub-hosted.
+- `full`: `standard` plus supported native skills and the optional worktree workflow.
+
+Harness options:
+
+- `generic`: `AGENTS.md`
+- `codex`: `AGENTS.md`; with `full`, skills go to `.agents/skills/agent-bootstrap/`
+- `claude`: `AGENTS.md` and `CLAUDE.md`; with `full`, skills go to `.claude/skills/agent-bootstrap/`
+- `cursor`: `AGENTS.md` and `.cursor/rules/agent-system.mdc`
+- `copilot`: `AGENTS.md` and `.github/copilot-instructions.md`
+- `gemini`: `AGENTS.md` and `GEMINI.md`
+
+Hooks are never installed by feature level alone. Use `--install-hook` only after confirming the target harness supports the SessionStart hook shape.
+
+## Manual Prompt Fallback
+
+If you do not want to run the deterministic bootstrap script, send this from inside the target repository:
 
 ```text
 Setup Agent Bootstrap Kit for this repo.
@@ -83,7 +119,7 @@ Requirements:
 - Do not edit secrets or env values.
 ```
 
-Replace `/path/to/agent-bootstrap-template` with the actual path.
+The script-first flow is preferred because it lets shell code handle deterministic file copy and leaves the model to complete only repo-specific facts.
 
 ## What The LLM Should Generate
 
@@ -136,6 +172,7 @@ Use only the layout supported by the user's tool setup.
 Optional generated files:
 
 ```text
+.agent/bootstrap-pending.md                # created by bootstrap-request.sh until agent completion
 .agent/workflows/worktree-workflow.md       # only when worktree isolation is requested
 .github/PULL_REQUEST_TEMPLATE.md            # only for GitHub-hosted repos
 harness-specific SessionStart hook path      # only when explicitly requested
@@ -165,6 +202,7 @@ bash scripts/agent-validate.sh
 The validator checks:
 
 - Required `.agent/` files exist.
+- `.agent/bootstrap-pending.md` may exist during initial setup; delete it after agent completion.
 - Role, role prompt, and workflow files exist.
 - Behavior-shaping guardrails exist in `.agent/rulebase.md` and `.agent/gates.md`.
 - No `{{PLACEHOLDER}}` tokens remain.
