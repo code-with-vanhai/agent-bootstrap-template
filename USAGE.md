@@ -135,6 +135,19 @@ bash scripts/agent-eval.sh fast
 
 If a gate is marked `not configured`, do not treat that as a failure by itself. Review whether the LLM correctly scanned the repo and documented why no command exists.
 
+## Testing Agent Behavior
+
+This template also includes optional behavior evals for the template itself:
+
+```bash
+scripts/agent-evals.sh --fast
+scripts/agent-evals.sh --integration
+```
+
+Behavior evals are separate from validation. They invoke `claude -p`, can consume model tokens, and may be sensitive to model or harness changes. By default, the eval runner exits 0 with a `SKIP` message when the Claude CLI is not installed.
+
+Do not add these evals to CI unless the repo owner explicitly accepts the cost and flakiness tradeoff.
+
 ## Review Checklist
 
 Before committing the generated files, review:
