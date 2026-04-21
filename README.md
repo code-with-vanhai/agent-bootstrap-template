@@ -1,8 +1,15 @@
 # Agent Bootstrap Template
 
-Tool-agnostic template for adding an agent operating system to an existing repository.
+Tool-agnostic template for adding a repository-local agent operating system to an existing codebase.
 
 The generated project files live under `.agent/` and are the canonical source of truth for all coding assistants. Tool-specific files such as `AGENTS.md`, `CLAUDE.md`, Cursor rules, Gemini instructions, and Copilot instructions should stay thin and point back to `.agent/`.
+
+The current template focuses on four things:
+
+- Repository facts: stack, public surface, ownership, dangerous operations, and configured gates are derived from checked-in files.
+- Behavior guardrails: rulebase and gates include hard requirements for verification, root-cause-first debugging, no invented artifacts, and no unrelated changes.
+- Delegation structure: roles, prompt fragments, workflows, and optional native skills make common agent behavior explicit.
+- Verification: `agent-validate.sh` checks generated file shape and required content; optional headless evals test whether instructions actually shape agent behavior.
 
 ## Research Reference
 
@@ -24,6 +31,22 @@ This template is based on a conservative adaptation of repository-scale multi-ag
 - Keep a champion state and reject regressions.
 - Treat the rulebase as evolvable, but only through controlled review.
 - Prefer improvements with precedent in the codebase before introducing new architecture.
+- Keep generated adapters thin; `.agent/` remains the canonical instruction source.
+- Prefer `not configured` over invented gates, commands, files, frameworks, or repo facts.
+- Treat worktrees, native skills, hooks, and PR templates as optional layers, not required baseline output.
+
+## Current Capabilities
+
+The template currently provides:
+
+- Core `.agent/` templates for project profile, rulebase, ownership, gates, decisions, lessons, roles, and workflows.
+- Four role prompt fragments for planner, implementer, reviewer, and gate-runner subagents.
+- Six optional native behavior skills: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, and no-invented-artifacts.
+- Optional worktree workflow for teams that explicitly opt into isolated workspaces.
+- Optional GitHub pull request template for GitHub-hosted repositories.
+- Optional SessionStart hook template for supported harnesses, off by default.
+- Template and generated-repo validation via `scripts/agent-validate.sh`.
+- Optional headless behavior evals via `scripts/agent-evals.sh`.
 
 ## Template Layout
 
@@ -51,7 +74,12 @@ agent-bootstrap-template/
 │   └── workflows/
 ├── adapters/
 ├── examples/
-└── scripts/
+├── scripts/
+│   ├── agent-eval.template.sh
+│   ├── agent-evals.sh
+│   └── agent-validate.sh
+└── tests/
+    └── evals/
 ```
 
 ## Quickstart
@@ -74,6 +102,7 @@ Setup Agent Bootstrap Kit for this repo.
 Read core/instantiation-prompt.md from the agent-bootstrap-template repo and instantiate it here.
 Scan the repo first. Do not modify business logic. Do not deploy. Do not run remote migrations.
 Mark unknown gates as not configured instead of inventing commands.
+Generate optional skills, worktree workflow, and hooks only when supported and requested. Generate the GitHub PR template only when the repo is confirmed GitHub-hosted.
 ```
 
 For detailed usage, see `USAGE.md`.
@@ -105,6 +134,16 @@ repo/
 └── .github/copilot-instructions.md
 ```
 
+Optional outputs:
+
+```text
+.agents/skills/agent-bootstrap/<skill>/SKILL.md
+.claude/skills/agent-bootstrap/<skill>/SKILL.md
+.agent/workflows/worktree-workflow.md
+.github/PULL_REQUEST_TEMPLATE.md
+harness-specific SessionStart hook path
+```
+
 ## Instantiation Rule
 
 Do not copy placeholders blindly. For each target repo, scan the actual repository and replace template sections with observed facts. If a gate, test framework, deploy command, or ownership boundary is unknown, mark it as `not configured` instead of inventing it.
@@ -114,6 +153,31 @@ Native skill output is optional. Generate skills from `core/skills/` only when t
 Worktree workflow output is optional. Generate `.agent/workflows/worktree-workflow.md` only when the user opts into worktree-based isolation or the target repo already documents it.
 
 GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` from `core/github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
+
+SessionStart hook output is optional. Copy `core/hooks/session-start.sh` only when the user explicitly asks for context injection and the target harness supports that hook shape.
+
+## Validation And Evals
+
+Run generated-repo validation from the target repo:
+
+```bash
+bash scripts/agent-validate.sh
+```
+
+Run template-source validation from this repo:
+
+```bash
+bash scripts/agent-validate.sh
+```
+
+Run optional headless behavior evals from this repo when the Claude CLI is available and the cost/flakiness tradeoff is acceptable:
+
+```bash
+scripts/agent-evals.sh --fast
+scripts/agent-evals.sh --integration
+```
+
+The eval runner exits 0 with `SKIP` when the Claude CLI is missing. Evals are intentionally not wired into validation or CI by default.
 
 ## Upgrade Policy
 

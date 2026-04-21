@@ -4,7 +4,7 @@ This guide explains how to use `agent-bootstrap-template` to add a tool-agnostic
 
 ## Goal
 
-The generated target repo should have:
+The generated target repo should have these baseline files:
 
 ```text
 .agent/                  # canonical agent instructions
@@ -14,13 +14,25 @@ scripts/agent-validate.sh # mechanical validation guardrail
 AGENTS.md / CLAUDE.md / Cursor rules / other thin adapters
 ```
 
+`.agent/runs/` is created only when a real non-trivial task needs spec and plan artifacts; it is not required at bootstrap.
+
 `.agent/` is the source of truth. Tool-specific adapters should stay thin and point back to `.agent/`.
+
+Generated rulebase and gates files include behavior-shaping guardrails:
+
+- no completion claims without fresh verification evidence
+- no fixes without root-cause investigation
+- no invented commands, files, functions, gates, or repo facts
+- no unrelated changes bundled into the task
+- rationalization checks that turn common agent excuses into explicit stop signs
 
 Native skill output is optional. When the target harness supports skills and the user requests them, copy skills from `core/skills/`; otherwise omit skill files.
 
 Worktree workflow output is optional. Generate it only when the user opts into worktree-based isolation.
 
 GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
+
+SessionStart hook output is optional. Install hook files only when the user explicitly requests harness-level context injection and the target harness supports it.
 
 ## Research Reference
 
@@ -56,9 +68,13 @@ Requirements:
 - Create .agent/ as the canonical instruction source.
 - Create scripts/agent-eval.sh and scripts/agent-validate.sh.
 - Create thin adapters for common tools unless existing adapters should be preserved.
+- Preserve behavior-shaping sections in rulebase and gates.
+- Create .agent/roles/prompts/ subagent prompt fragments.
+- Do not create .agent/runs/* during bootstrap unless there is a real non-trivial task to plan.
 - Generate optional skills only if the target harness supports native skill discovery and skill output is requested.
 - Generate optional worktree workflow only if requested or already documented by the repo.
 - Generate `.github/PULL_REQUEST_TEMPLATE.md` only if the repo is GitHub-hosted.
+- Install optional SessionStart hooks only if explicitly requested.
 - Configure gate commands only if they are found in package/build files, Makefile/justfile/Taskfile, CI workflows, or equivalent checked-in files.
 - Mark unknown gates as not configured instead of inventing commands.
 - Do not modify business logic.
@@ -85,7 +101,15 @@ repo/
 │   ├── decisions.md
 │   ├── lessons.md
 │   ├── roles/
+│   │   ├── planner.md
+│   │   ├── implementer.md
+│   │   ├── reviewer.md
+│   │   ├── gate-runner.md
 │   │   └── prompts/
+│   │       ├── planner-subagent.md
+│   │       ├── implementer-subagent.md
+│   │       ├── reviewer-subagent.md
+│   │       └── gate-runner-subagent.md
 │   ├── runs/              # created only for non-trivial task specs/plans
 │   └── workflows/
 ├── scripts/
@@ -109,6 +133,27 @@ Optional generated skill layouts:
 
 Use only the layout supported by the user's tool setup.
 
+Optional generated files:
+
+```text
+.agent/workflows/worktree-workflow.md       # only when worktree isolation is requested
+.github/PULL_REQUEST_TEMPLATE.md            # only for GitHub-hosted repos
+harness-specific SessionStart hook path      # only when explicitly requested
+```
+
+## Operating Rules For Generated Repos
+
+Agents using a generated repo should follow these rules:
+
+- Re-read `.agent/rulebase.md` at the start of any coding task.
+- Use `.agent/project-profile.md` for repo facts and `.agent/gates.md` for gate commands.
+- Treat every unknown command or gate as `not configured` until found in checked-in files.
+- For trivial work, inline planning is acceptable when all of these are true: two files or fewer, 30 changed lines or fewer, no public contract change, and no schema change.
+- For non-trivial work, create `.agent/runs/<date>-<slug>/spec.md` and `plan.md` before editing.
+- When in doubt, write the plan. When the heuristic and engineering judgment conflict, engineering judgment wins.
+- Report fresh verification evidence before saying work is complete.
+- Link meaningful run artifacts from `.agent/decisions.md` or `.agent/lessons.md` when they affect future work.
+
 ## Validation
 
 Run this from the target repo:
@@ -126,6 +171,9 @@ The validator checks:
 - `.agent/manifest.json` is valid JSON.
 - `scripts/agent-eval.sh` has valid shell syntax.
 - Generated adapters point to `.agent/`.
+- Optional GitHub PR template and worktree workflow are validated only when present.
+
+The same script also supports template-source validation. When run from this repository root, it validates source files such as `core/skills/`, `core/github/PULL_REQUEST_TEMPLATE.md`, and `core/workflows/worktree-workflow.md`.
 
 Then run a configured gate when appropriate:
 
@@ -147,6 +195,16 @@ scripts/agent-evals.sh --integration
 Behavior evals are separate from validation. They invoke `claude -p`, can consume model tokens, and may be sensitive to model or harness changes. By default, the eval runner exits 0 with a `SKIP` message when the Claude CLI is not installed.
 
 Do not add these evals to CI unless the repo owner explicitly accepts the cost and flakiness tradeoff.
+
+Included fast evals:
+
+- `verify-before-claim.sh`: rejects completion claims without fresh verification evidence.
+- `root-cause-first.sh`: starts bugfix work with root-cause investigation.
+- `no-invented-gates.sh`: refuses to invent conventional test commands when gates are not configured.
+
+Included integration evals:
+
+- `no-unrelated-changes.sh`: verifies the agent edits only the requested bug file when offered tempting cleanup.
 
 ## Review Checklist
 
