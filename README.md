@@ -46,7 +46,8 @@ The template currently provides:
 - Optional GitHub pull request template for GitHub-hosted repositories.
 - Optional SessionStart hook template for supported harnesses, off by default.
 - Deterministic bootstrap skeleton generation via `scripts/bootstrap-request.sh`.
-- Optional Claude Code plugin wrapper for first-run bootstrap through `/agent-bootstrap:bootstrap`.
+- Optional Claude Code native slash commands through `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check`.
+- Prompt-based command convention for non-Claude harnesses through `agent:<name>` when `.agent/commands/` is generated.
 - Template and generated-repo validation via `scripts/agent-validate.sh`.
 - Optional headless behavior evals via `scripts/agent-evals.sh`.
 
@@ -71,13 +72,13 @@ agent-bootstrap-template/
 │   ├── lessons.template.md
 │   ├── hooks/
 │   ├── github/
+│   ├── commands/
 │   ├── roles/
 │   │   └── prompts/
 │   ├── skills/
 │   └── workflows/
 ├── adapters/
 ├── .claude-plugin/
-├── commands/
 ├── bin/
 ├── examples/
 ├── scripts/
@@ -114,6 +115,17 @@ For reusable local install, add the local marketplace and install the plugin:
 ```
 
 The plugin exposes `core/skills/` directly, so the `bootstrap-agent-system` skill can trigger from a short request like "Set up agent system here." It still uses `scripts/bootstrap-request.sh`; it does not hand-create `.agent/`.
+
+The plugin also exposes native Claude Code slash commands from `core/commands/`:
+
+```text
+/agent-bootstrap:plan <task>
+/agent-bootstrap:bugfix <bug>
+/agent-bootstrap:implement <run-or-task>
+/agent-bootstrap:review <scope>
+/agent-bootstrap:verify fast
+/agent-bootstrap:release-check
+```
 
 ### Script-First Setup
 
@@ -169,6 +181,7 @@ repo/
 │   ├── gates.md
 │   ├── decisions.md
 │   ├── lessons.md
+│   ├── commands/          # Generated for standard/full; prompt convention for non-Claude tools
 │   ├── roles/
 │   │   └── prompts/
 │   ├── runs/              # Created per non-trivial task, not required at bootstrap
@@ -187,6 +200,7 @@ Optional outputs:
 
 ```text
 .agent/bootstrap-pending.md
+.agent/commands/<command>.md
 .agents/skills/agent-bootstrap/<skill>/SKILL.md
 .claude/skills/agent-bootstrap/<skill>/SKILL.md
 .agent/workflows/worktree-workflow.md

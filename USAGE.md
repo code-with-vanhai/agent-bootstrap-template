@@ -30,6 +30,8 @@ Native skill output is optional. When the target harness supports skills and the
 
 Claude Code plugin output is optional. The plugin lives in this template repo and provides a first-run wrapper around the same deterministic bootstrap script.
 
+Command prompts are generated for `standard` and `full` feature levels. Claude Code uses them as native slash commands from the plugin; other harnesses use them through the prompt convention documented in generated adapters.
+
 Worktree workflow output is optional. Generate it only when the user opts into worktree-based isolation.
 
 GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
@@ -87,7 +89,7 @@ You can pass bootstrap flags after the command when needed:
 The plugin exposes:
 
 - `core/skills/` as namespaced Claude Code skills.
-- `/agent-bootstrap:bootstrap` as an explicit bootstrap command.
+- `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check` as explicit native slash commands.
 - `bin/agent-bootstrap` as a wrapper around `scripts/bootstrap-request.sh` with default `--harness claude`.
 
 The plugin does not install SessionStart hooks automatically and does not replace `.agent/` as the repository source of truth.
@@ -114,7 +116,7 @@ Replace `/path/to/agent-bootstrap-template` with the actual path.
 Feature levels:
 
 - `minimal`: baseline `.agent/`, verification scripts, and selected harness adapters.
-- `standard`: `minimal` plus GitHub PR template when the repo is confirmed GitHub-hosted.
+- `standard`: `minimal` plus `.agent/commands/` and GitHub PR template when the repo is confirmed GitHub-hosted.
 - `full`: `standard` plus supported native skills and the optional worktree workflow.
 
 Harness options:
@@ -176,6 +178,7 @@ repo/
 │   ├── gates.md
 │   ├── decisions.md
 │   ├── lessons.md
+│   ├── commands/
 │   ├── roles/
 │   │   ├── planner.md
 │   │   ├── implementer.md
@@ -213,6 +216,7 @@ Optional generated files:
 
 ```text
 .agent/bootstrap-pending.md                # created by bootstrap-request.sh until agent completion
+.agent/commands/<command>.md               # generated for standard/full
 .agent/workflows/worktree-workflow.md       # only when worktree isolation is requested
 .github/PULL_REQUEST_TEMPLATE.md            # only for GitHub-hosted repos
 harness-specific SessionStart hook path      # only when explicitly requested
@@ -224,6 +228,7 @@ Agents using a generated repo should follow these rules:
 
 - Re-read `.agent/rulebase.md` at the start of any coding task.
 - Use `.agent/project-profile.md` for repo facts and `.agent/gates.md` for gate commands.
+- For Codex, Cursor, Copilot, Gemini, and generic agents, when the user message starts with `agent:<name>`, read `.agent/commands/<name>.md` and treat the remaining text as the task description or gate mode.
 - Treat every unknown command or gate as `not configured` until found in checked-in files.
 - For trivial work, inline planning is acceptable when all of these are true: two files or fewer, 30 changed lines or fewer, no public contract change, and no schema change.
 - For non-trivial work, create `.agent/runs/<date>-<slug>/spec.md` and `plan.md` before editing.
@@ -244,6 +249,7 @@ The validator checks:
 - Required `.agent/` files exist.
 - `.agent/bootstrap-pending.md` may exist during initial setup; delete it after agent completion.
 - Role, role prompt, and workflow files exist.
+- Command prompts are validated when `.agent/commands/` exists or manifest `features_enabled` includes `commands`.
 - Behavior-shaping guardrails exist in `.agent/rulebase.md` and `.agent/gates.md`.
 - No `{{PLACEHOLDER}}` tokens remain.
 - `.agent/manifest.json` is valid JSON.
@@ -282,6 +288,7 @@ Do not add these evals to CI unless the repo owner explicitly accepts the cost a
 
 Included fast evals:
 
+- `plugin-command-load.sh`: verifies Claude loads plugin commands from the canonical `core/commands/` custom path.
 - `verify-before-claim.sh`: rejects completion claims without fresh verification evidence.
 - `root-cause-first.sh`: starts bugfix work with root-cause investigation.
 - `no-invented-gates.sh`: refuses to invent conventional test commands when gates are not configured.
@@ -303,6 +310,7 @@ Before committing the generated files, review:
 - Adapters: thin and pointing to `.agent/`.
 - Adapters: require agents to re-read `.agent/rulebase.md` at the start of any coding task.
 - Prompt fragments: `.agent/roles/prompts/` includes planner, implementer, reviewer, and gate-runner subagent prompts.
+- Commands: if generated, `.agent/commands/` includes bootstrap, plan, bugfix, implement, review, verify, and release-check prompts.
 - Run artifacts: `.agent/runs/*` is absent or contains only real task specs/plans; empty placeholder runs are not required.
 - Optional skills: omitted unless requested and supported; if present, they match `core/skills/README.md`.
 - Optional worktree workflow: omitted unless requested; if present, it states opt-in triggers, baseline gate, and cleanup rules.

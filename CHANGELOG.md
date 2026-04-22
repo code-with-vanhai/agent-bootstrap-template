@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-04-22
 
+- Added canonical command prompts under `core/commands/` for bootstrap, plan, bugfix, implement, review, verify, and release-check.
+- Moved Claude Code plugin commands to the canonical `core/commands/` path to avoid root `commands/` drift.
+- Added `.agent/commands/` generation for `standard` and `full` bootstrap feature levels.
+- Added `core/command-conventions.md` documenting Claude native slash commands and prompt-based `agent:<name>` convention for non-Claude harnesses.
+- Added `release-check-workflow.md` for report-only release readiness checks without deploys, tags, pushes, or remote migrations.
+- Added `features_enabled`, gate mode metadata, and `security` gate support to generated manifests and gate templates.
+- Updated generated adapters for Codex/generic, Cursor, Copilot, and Gemini to document `agent:<name>` command convention; Claude stays native slash only.
+- Updated validation to check command files when the commands feature is enabled while remaining compatible with older generated repos without `.agent/commands/`.
+- Bumped the Claude plugin and local marketplace metadata to `0.2.0`.
 - Added behavior-shaping guardrails to rulebase and gates templates: verification discipline, root-cause-first language, no invented artifacts, and no unrelated changes.
 - Updated generated adapters to require re-reading `.agent/rulebase.md` at the start of coding tasks.
 - Added optional SessionStart hook template for supported harnesses.
