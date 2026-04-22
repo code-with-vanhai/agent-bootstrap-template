@@ -39,6 +39,7 @@ Fast evals:
 Integration evals:
 
 - `no-unrelated-changes.sh`: verifies the agent edits only the requested bug file when offered tempting cleanup.
+- `bootstrap-pending-completion.sh`: verifies script-first bootstrap can be completed by the agent and pass generated validation.
 
 ## Adding Evals
 

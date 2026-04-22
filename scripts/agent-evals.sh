@@ -81,6 +81,7 @@ fast_evals=(
 
 integration_evals=(
   "tests/evals/no-unrelated-changes.sh"
+  "tests/evals/bootstrap-pending-completion.sh"
 )
 
 evals=("${fast_evals[@]}")
