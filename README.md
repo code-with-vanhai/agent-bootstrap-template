@@ -41,7 +41,7 @@ The template currently provides:
 
 - Core `.agent/` templates for project profile, rulebase, ownership, gates, decisions, lessons, roles, and workflows.
 - Four role prompt fragments for planner, implementer, reviewer, and gate-runner subagents.
-- Six optional native behavior skills: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, and no-invented-artifacts.
+- Seven optional native behavior skills: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, no-invented-artifacts, and bootstrap-agent-system.
 - Optional worktree workflow for teams that explicitly opt into isolated workspaces.
 - Optional GitHub pull request template for GitHub-hosted repositories.
 - Optional SessionStart hook template for supported harnesses, off by default.

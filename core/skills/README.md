@@ -14,6 +14,7 @@ The canonical project governance remains `.agent/`. Skills should stay short and
 | `plan-before-code` | `.agents/skills/agent-bootstrap/plan-before-code/SKILL.md` or `.claude/skills/agent-bootstrap/plan-before-code/SKILL.md` | `.agent/roles/planner.md`, `.agent/runs/` convention |
 | `worktree-isolation` | `.agents/skills/agent-bootstrap/worktree-isolation/SKILL.md` or `.claude/skills/agent-bootstrap/worktree-isolation/SKILL.md` | `.agent/workflows/worktree-workflow.md` when enabled |
 | `no-invented-artifacts` | `.agents/skills/agent-bootstrap/no-invented-artifacts/SKILL.md` or `.claude/skills/agent-bootstrap/no-invented-artifacts/SKILL.md` | `.agent/rulebase.md`, `.agent/gates.md`, `.agent/project-profile.md` |
+| `bootstrap-agent-system` | `.agents/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md` or `.claude/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md` | `.agent/bootstrap-pending.md`, `scripts/bootstrap-request.sh`, `core/bootstrap-steps.md` |
 
 ## Drift Rule
 

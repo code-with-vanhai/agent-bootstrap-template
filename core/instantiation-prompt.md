@@ -182,7 +182,7 @@ bash scripts/agent-validate.sh
 - Confirm `manifest.json` is valid JSON.
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
 - Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
-- If optional skills were generated, confirm all six skills exist and match `core/skills/README.md`.
+- If optional skills were generated, confirm every skill listed in `core/skills/README.md` exists.
 - If worktree workflow was requested, confirm `.agent/workflows/worktree-workflow.md` was generated.
 - If the repo is GitHub-hosted, confirm `.github/PULL_REQUEST_TEMPLATE.md` was generated from `core/github/PULL_REQUEST_TEMPLATE.md`.
 - Confirm optional hooks were not installed unless explicitly requested.

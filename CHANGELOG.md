@@ -15,6 +15,7 @@
 - Added integration behavior eval for scoped changes and no unrelated cleanup.
 - Added deterministic bootstrap skeleton generator with `.agent/bootstrap-pending.md` handoff.
 - Added canonical bootstrap steps document to keep script, prompt, and future skills/plugins aligned.
+- Added `bootstrap-agent-system` native skill for completing script-first bootstrap safely.
 - Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
 - Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
 

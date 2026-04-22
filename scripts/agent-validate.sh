@@ -52,7 +52,7 @@ check_contains() {
 }
 
 validate_template_skills() {
-  expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts"
+  expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts bootstrap-agent-system"
 
   check_path "core/bootstrap-steps.md"
   check_contains "core/bootstrap-steps.md" "Deterministic Skeleton" "core/bootstrap-steps.md includes deterministic skeleton phase"
@@ -82,10 +82,10 @@ validate_template_skills() {
   check_contains "core/skills/README.md" "Skill Mapping" "core/skills/README.md includes skill mapping"
 
   skill_count="$(find core/skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
-  if [ "$skill_count" = "6" ]; then
-    pass "core/skills contains 6 skill files"
+  if [ "$skill_count" = "7" ]; then
+    pass "core/skills contains 7 skill files"
   else
-    fail "core/skills contains $skill_count skill files, expected 6"
+    fail "core/skills contains $skill_count skill files, expected 7"
   fi
 
   for skill in $expected_skills; do
