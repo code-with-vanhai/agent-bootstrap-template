@@ -96,7 +96,7 @@ else
   pass "does not modify business logic"
 fi
 
-if printf '%s\n' "$changed_files" | grep -Fxq ".agents/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md"; then
+if [ -f "$project_dir/.agents/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md" ]; then
   pass "bootstrap skill exists in generated codex skill output"
 else
   fail "bootstrap skill exists in generated codex skill output"
