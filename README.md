@@ -46,6 +46,7 @@ The template currently provides:
 - Optional GitHub pull request template for GitHub-hosted repositories.
 - Optional SessionStart hook template for supported harnesses, off by default.
 - Deterministic bootstrap skeleton generation via `scripts/bootstrap-request.sh`.
+- Optional Claude Code plugin wrapper for first-run bootstrap through `/agent-bootstrap:bootstrap`.
 - Template and generated-repo validation via `scripts/agent-validate.sh`.
 - Optional headless behavior evals via `scripts/agent-evals.sh`.
 
@@ -75,6 +76,9 @@ agent-bootstrap-template/
 │   ├── skills/
 │   └── workflows/
 ├── adapters/
+├── .claude-plugin/
+├── commands/
+├── bin/
 ├── examples/
 ├── scripts/
 │   ├── agent-eval.template.sh
@@ -86,6 +90,32 @@ agent-bootstrap-template/
 ```
 
 ## Quickstart
+
+### Claude Code Plugin
+
+For the lowest-friction Claude Code setup, load or install this repo as a plugin, then run the plugin command from the target repository:
+
+```bash
+cd /path/to/target-repo
+claude --plugin-dir /path/to/agent-bootstrap-template
+```
+
+Inside Claude Code, from the target repo:
+
+```text
+/agent-bootstrap:bootstrap
+```
+
+For reusable local install, add the local marketplace and install the plugin:
+
+```text
+/plugin marketplace add /path/to/agent-bootstrap-template
+/plugin install agent-bootstrap@agent-bootstrap-template
+```
+
+The plugin exposes `core/skills/` directly, so the `bootstrap-agent-system` skill can trigger from a short request like "Set up agent system here." It still uses `scripts/bootstrap-request.sh`; it does not hand-create `.agent/`.
+
+### Script-First Setup
 
 1. Clone or copy this template near the target repository.
 2. From the target repository, generate the deterministic skeleton:

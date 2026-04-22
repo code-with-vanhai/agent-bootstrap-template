@@ -4,6 +4,8 @@ These skills are optional behavior-shaping artifacts generated only for harnesse
 
 The canonical project governance remains `.agent/`. Skills should stay short and focused on triggers, hard gates, and red flags. Longer process details belong in roles and workflows.
 
+When the Claude Code plugin is installed, `.claude-plugin/plugin.json` exposes this directory directly as plugin skills. Do not create a second plugin-specific copy of these files.
+
 ## Skill Mapping
 
 | Skill | Generated path | Canonical source to keep aligned |

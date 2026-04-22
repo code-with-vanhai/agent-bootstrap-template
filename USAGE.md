@@ -28,6 +28,8 @@ Generated rulebase and gates files include behavior-shaping guardrails:
 
 Native skill output is optional. When the target harness supports skills and the user requests them, copy skills from `core/skills/`; otherwise omit skill files.
 
+Claude Code plugin output is optional. The plugin lives in this template repo and provides a first-run wrapper around the same deterministic bootstrap script.
+
 Worktree workflow output is optional. Generate it only when the user opts into worktree-based isolation.
 
 GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
@@ -47,12 +49,50 @@ The paper uses specialized agents, repository profiling, correctness checks, QoR
 ## Recommended Workflow
 
 1. Put this template next to the target repository.
-2. Run `scripts/bootstrap-request.sh` from this template against the target repo.
-3. Ask your LLM coding tool to complete `.agent/bootstrap-pending.md`.
+2. Use the Claude Code plugin or run `scripts/bootstrap-request.sh` from this template against the target repo.
+3. Ask your LLM coding tool to complete `.agent/bootstrap-pending.md` if the script created it.
 4. Run validation in the target repo.
 5. Review the generated diff before committing.
 
-## One-Line Setup
+## Claude Code Plugin Setup
+
+Use this when you want the shortest first-run prompt in Claude Code.
+
+Development or one-session load:
+
+```bash
+cd /path/to/target-repo
+claude --plugin-dir /path/to/agent-bootstrap-template
+```
+
+Reusable local install:
+
+```text
+/plugin marketplace add /path/to/agent-bootstrap-template
+/plugin install agent-bootstrap@agent-bootstrap-template
+```
+
+Then, from Claude Code in the target repository:
+
+```text
+/agent-bootstrap:bootstrap
+```
+
+You can pass bootstrap flags after the command when needed:
+
+```text
+/agent-bootstrap:bootstrap --features full
+```
+
+The plugin exposes:
+
+- `core/skills/` as namespaced Claude Code skills.
+- `/agent-bootstrap:bootstrap` as an explicit bootstrap command.
+- `bin/agent-bootstrap` as a wrapper around `scripts/bootstrap-request.sh` with default `--harness claude`.
+
+The plugin does not install SessionStart hooks automatically and does not replace `.agent/` as the repository source of truth.
+
+## Script-First Setup
 
 From inside the target repository:
 
@@ -231,6 +271,12 @@ scripts/agent-evals.sh --integration
 ```
 
 Behavior evals are separate from validation. They invoke `claude -p`, can consume model tokens, and may be sensitive to model or harness changes. By default, the eval runner exits 0 with a `SKIP` message when the Claude CLI is not installed.
+
+If your Claude CLI requires explicit tool permissions in headless mode, pass them through `CLAUDE_EXTRA_ARGS`, for example:
+
+```bash
+CLAUDE_EXTRA_ARGS="--allowedTools Bash,Read,Edit,Write" scripts/agent-evals.sh --integration
+```
 
 Do not add these evals to CI unless the repo owner explicitly accepts the cost and flakiness tradeoff.
 

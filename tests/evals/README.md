@@ -22,6 +22,12 @@ Options:
 - `--verbose`: print full agent output on assertion failures.
 - `--skip-on-missing-cli`: exit 0 with `SKIP` when `claude` is not installed. This is the default behavior.
 
+Some Claude CLI versions require explicit tool permission flags for headless editing. Pass them through `CLAUDE_EXTRA_ARGS` when needed:
+
+```bash
+CLAUDE_EXTRA_ARGS="--allowedTools Bash,Read,Edit,Write" scripts/agent-evals.sh --integration
+```
+
 ## Cost And Flakiness
 
 Behavior evals can cost money because they call the Claude CLI. They may also be sensitive to model and harness changes. Use broad regex assertions and keep prompts focused.

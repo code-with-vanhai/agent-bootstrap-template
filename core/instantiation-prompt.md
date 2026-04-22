@@ -121,6 +121,7 @@ Optional skills policy:
 - Generate skills only when the target harness supports native skill discovery and the user wants skill output.
 - For Codex-style harnesses, copy `core/skills/*/SKILL.md` to `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
 - For Claude Code project-local skills, copy `core/skills/*/SKILL.md` to `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when that layout is supported by the user's tool setup.
+- For Claude Code plugin installs, do not copy plugin files into the target repo; the plugin exposes `core/skills/`, `/agent-bootstrap:bootstrap`, and `bin/agent-bootstrap` from the template repo.
 - If the harness does not support skills, skip skill output and keep `.agent/` plus adapters as the source of truth.
 - Keep `core/skills/README.md` mapping aligned with every skill file.
 
@@ -161,6 +162,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/github/PULL_REQUEST_TEMPLATE.md` | `.github/PULL_REQUEST_TEMPLATE.md` | GitHub-hosted repos only |
 | `core/hooks/session-start.sh` | harness-specific hook path | Optional only; copy when the user requests SessionStart context injection |
 | `core/skills/*/SKILL.md` | `.agents/skills/agent-bootstrap/<skill>/SKILL.md` or `.claude/skills/agent-bootstrap/<skill>/SKILL.md` | Optional only; copy when the harness supports native skills |
+| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `commands/bootstrap.md`, `bin/agent-bootstrap` | Claude Code plugin install | Optional template-level distribution layer; do not copy into target repos |
 
 If the target harness is Claude Code and the user wants dispatchable agents, adapt `.agent/roles/prompts/*-subagent.md` into `.claude/agents/<role>.md`. Otherwise keep prompt fragments under `.agent/roles/prompts/` for copy/paste or manual delegation.
 

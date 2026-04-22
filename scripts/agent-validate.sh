@@ -51,6 +51,32 @@ check_contains() {
   fi
 }
 
+check_json() {
+  file="$1"
+  description="$2"
+
+  if [ ! -f "$file" ]; then
+    fail "$description cannot be checked because $file is missing"
+    return
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    if jq . "$file" >/dev/null; then
+      pass "$description"
+    else
+      fail "$description"
+    fi
+  elif command -v python3 >/dev/null 2>&1; then
+    if python3 -m json.tool "$file" >/dev/null; then
+      pass "$description"
+    else
+      fail "$description"
+    fi
+  else
+    fail "$description cannot be checked because neither jq nor python3 is available"
+  fi
+}
+
 validate_template_skills() {
   expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts bootstrap-agent-system"
 
@@ -65,6 +91,27 @@ validate_template_skills() {
     pass "scripts/bootstrap-request.sh shell syntax is valid"
   else
     fail "scripts/bootstrap-request.sh shell syntax is invalid"
+  fi
+
+  check_path ".claude-plugin/plugin.json"
+  check_json ".claude-plugin/plugin.json" ".claude-plugin/plugin.json is valid JSON"
+  check_contains ".claude-plugin/plugin.json" "\"name\": \"agent-bootstrap\"" ".claude-plugin/plugin.json defines agent-bootstrap plugin"
+  check_contains ".claude-plugin/plugin.json" "\"skills\": \"./core/skills/\"" ".claude-plugin/plugin.json points to canonical skills"
+  check_contains ".claude-plugin/plugin.json" "\"commands\": \"./commands/\"" ".claude-plugin/plugin.json points to plugin commands"
+
+  check_path ".claude-plugin/marketplace.json"
+  check_json ".claude-plugin/marketplace.json" ".claude-plugin/marketplace.json is valid JSON"
+  check_contains ".claude-plugin/marketplace.json" "\"source\": \"./\"" ".claude-plugin/marketplace.json installs plugin from repo root"
+
+  check_path "commands/bootstrap.md"
+  check_contains "commands/bootstrap.md" "agent-bootstrap --features standard --target ." "commands/bootstrap.md invokes plugin wrapper"
+
+  check_path "bin/agent-bootstrap"
+  check_contains "bin/agent-bootstrap" "--harness claude" "bin/agent-bootstrap defaults to Claude harness"
+  if bash -n bin/agent-bootstrap; then
+    pass "bin/agent-bootstrap shell syntax is valid"
+  else
+    fail "bin/agent-bootstrap shell syntax is invalid"
   fi
 
   check_path "core/github/PULL_REQUEST_TEMPLATE.md"

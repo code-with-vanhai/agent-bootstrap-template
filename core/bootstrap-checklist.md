@@ -60,7 +60,7 @@ Tick only when the target harness supports native skill discovery and the user r
 - [ ] If generated, skills were copied from `core/skills/*/SKILL.md`, not recreated from memory.
 - [ ] If generated for Codex-style harnesses, skills live under `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
 - [ ] If generated for Claude Code project-local skills, skills live under `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when supported by the user's setup.
-- [ ] Generated skills include: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, and no-invented-artifacts.
+- [ ] Generated skills include every skill listed in `core/skills/README.md`, including bootstrap-agent-system.
 - [ ] Skills remain short behavior-shaping artifacts and do not duplicate full `.agent/` workflows.
 
 ## Optional Worktree Workflow

@@ -17,6 +17,7 @@
 - Added deterministic bootstrap skeleton generator with `.agent/bootstrap-pending.md` handoff.
 - Added canonical bootstrap steps document to keep script, prompt, and future skills/plugins aligned.
 - Added `bootstrap-agent-system` native skill for completing script-first bootstrap safely.
+- Added optional Claude Code plugin layer with `.claude-plugin/plugin.json`, local marketplace metadata, `/agent-bootstrap:bootstrap`, and `bin/agent-bootstrap`.
 - Extended validation to require role prompt fragments and behavior-shaping guardrails in generated repos.
 - Fixed validator root resolution for nested sample repos and explicit `AGENT_ROOT` overrides.
 

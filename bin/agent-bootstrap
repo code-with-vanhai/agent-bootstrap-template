@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+exec "$PLUGIN_ROOT/scripts/bootstrap-request.sh" \
+  --template "$PLUGIN_ROOT" \
+  --harness claude \
+  "$@"

@@ -6,7 +6,8 @@ Use this file as the source of truth when updating:
 
 - `core/instantiation-prompt.md`
 - `scripts/bootstrap-request.sh`
-- future bootstrap skills or plugins
+- `core/skills/bootstrap-agent-system/SKILL.md`
+- Claude Code plugin files under `.claude-plugin/`, `commands/`, and `bin/`
 
 ## Phase 1: Deterministic Skeleton
 
@@ -64,6 +65,20 @@ Unknown facts must remain `not confirmed` or `not configured`. Do not use packag
 
 SessionStart hooks are never installed by feature level alone. They require an explicit hook flag and a supported harness.
 
+## Claude Code Plugin Layer
+
+The Claude Code plugin is an optional first-run convenience layer. It must not replace the deterministic script or the repository-local `.agent/` source of truth.
+
+Plugin behavior:
+
+- `.claude-plugin/plugin.json` points Claude Code to `./core/skills/` and `./commands/`.
+- `commands/bootstrap.md` exposes `/agent-bootstrap:bootstrap` for explicit setup.
+- `bin/agent-bootstrap` wraps `scripts/bootstrap-request.sh` with `--template <plugin-root>` and default `--harness claude`.
+- The plugin may make `bootstrap-agent-system` discoverable before a target repo has `.agent/`.
+- The plugin must not install SessionStart hooks by default.
+
+After the plugin creates `.agent/bootstrap-pending.md`, Phase 2 remains unchanged: the agent completes only repo-specific facts, gates, ownership, and manifest fields from checked-in evidence.
+
 ## Harnesses
 
 `generic`:
@@ -92,4 +107,3 @@ SessionStart hooks are never installed by feature level alone. They require an e
 `gemini`:
 
 - Generate `AGENTS.md` and `GEMINI.md`
-
