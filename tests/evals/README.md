@@ -38,6 +38,7 @@ Do not wire these into CI unless the repo owner explicitly accepts the cost and 
 
 Fast evals:
 
+- `plugin-command-load.sh`: verifies Claude loads plugin commands from the canonical `core/commands/` custom path.
 - `verify-before-claim.sh`: rejects completion claims without fresh verification evidence.
 - `root-cause-first.sh`: starts bugfix work with root-cause investigation.
 - `no-invented-gates.sh`: refuses to invent conventional test commands when gates are not configured.

@@ -74,6 +74,7 @@ if ! command -v "$claude_bin" >/dev/null 2>&1; then
 fi
 
 fast_evals=(
+  "tests/evals/plugin-command-load.sh"
   "tests/evals/verify-before-claim.sh"
   "tests/evals/root-cause-first.sh"
   "tests/evals/no-invented-gates.sh"
