@@ -58,4 +58,5 @@ agent-bootstrap --features standard --target .
 - `bin/agent-bootstrap`
 - `scripts/bootstrap-request.sh`
 - `.claude-plugin/plugin.json`
+- `core/commands/` in the source template
 - `core/bootstrap-steps.md` in the source template

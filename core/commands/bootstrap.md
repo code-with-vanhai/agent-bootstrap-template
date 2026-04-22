@@ -1,10 +1,13 @@
 ---
 description: Bootstrap Agent Bootstrap Kit into the current repository using the deterministic script-first flow.
+argument-hint: [bootstrap-request.sh flags]
 ---
 
 # Bootstrap Agent System
 
 Use this command from the target repository.
+
+If the invocation included arguments, for example after `/agent-bootstrap:bootstrap <flags>` or `agent:bootstrap <flags>`, treat them as bootstrap flags for this task.
 
 If `.agent/bootstrap-pending.md` already exists:
 
@@ -22,14 +25,16 @@ If `.agent/` exists without `.agent/bootstrap-pending.md`:
 
 If `.agent/bootstrap-pending.md` does not exist:
 
-1. Run the plugin wrapper from the target repository:
+1. Run the plugin wrapper from the target repository.
+2. Start with this command:
 
 ```bash
-agent-bootstrap --features standard --target . $ARGUMENTS
+agent-bootstrap --features standard --target .
 ```
 
-2. Use `--features full` only when the user wants native skills and the optional worktree workflow.
-3. Do not add `--install-hook` unless the user explicitly asks for SessionStart context injection.
-4. After the script creates `.agent/bootstrap-pending.md`, complete the pending tasks.
+3. If the invocation included bootstrap flags, apply them to the command. For example, `--features full` should produce `agent-bootstrap --features full --target .`.
+4. Use `--features full` only when the user wants native skills and the optional worktree workflow.
+5. Do not add `--install-hook` unless the user explicitly asks for SessionStart context injection.
+6. After the script creates `.agent/bootstrap-pending.md`, complete the pending tasks.
 
 Hard rule: do not hand-create the `.agent/` skeleton. The deterministic script owns skeleton generation; the agent owns repo-specific completion.

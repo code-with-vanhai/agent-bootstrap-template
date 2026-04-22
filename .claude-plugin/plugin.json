@@ -1,7 +1,7 @@
 {
   "name": "agent-bootstrap",
   "description": "Bootstrap repository-local Agent Bootstrap Kit governance from a Claude Code plugin.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Agent Bootstrap Template Maintainers"
   },
@@ -12,5 +12,5 @@
     "skills"
   ],
   "skills": "./core/skills/",
-  "commands": "./commands/"
+  "commands": "./core/commands/"
 }
