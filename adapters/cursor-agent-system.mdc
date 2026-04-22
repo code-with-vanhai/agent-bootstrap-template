@@ -4,6 +4,8 @@ alwaysApply: true
 
 Use `.agent/` as the canonical agent instruction source.
 
+## Canonical Instructions
+
 For any coding task, MUST re-read `.agent/rulebase.md` before planning or editing, even if it was read earlier in the session.
 
 Read before editing:
@@ -16,5 +18,13 @@ Read before editing:
 - `.agent/workflows/`
 
 Run verification through `scripts/agent-eval.sh`.
+
+## Command Convention
+
+When the user message starts with `agent:<name>`, read `.agent/commands/<name>.md` and follow it.
+
+Treat everything after `agent:<name>` as the task description or gate mode. This is a prompt convention, not a native slash command.
+
+## Operating Rules
 
 Keep tool-specific rules thin. Do not duplicate the canonical `.agent/` rulebase here.
