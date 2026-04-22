@@ -77,6 +77,63 @@ check_json() {
   fi
 }
 
+manifest_has_feature() {
+  file="$1"
+  feature="$2"
+
+  [ -f "$file" ] || return 1
+
+  if command -v jq >/dev/null 2>&1; then
+    jq -e --arg feature "$feature" '(.features_enabled // []) | index($feature) != null' "$file" >/dev/null 2>&1
+    return $?
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$file" "$feature" <<'PY' >/dev/null 2>&1
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+sys.exit(0 if sys.argv[2] in data.get("features_enabled", []) else 1)
+PY
+    return $?
+  fi
+
+  grep -q "\"$feature\"" "$file"
+}
+
+validate_command_files() {
+  command_root="$1"
+
+  check_path "$command_root/bootstrap.md"
+  check_path "$command_root/plan.md"
+  check_path "$command_root/bugfix.md"
+  check_path "$command_root/implement.md"
+  check_path "$command_root/review.md"
+  check_path "$command_root/verify.md"
+  check_path "$command_root/release-check.md"
+
+  check_contains "$command_root/bootstrap.md" "agent-bootstrap --features standard --target ." "$command_root/bootstrap.md invokes plugin wrapper"
+  check_contains "$command_root/plan.md" "planning only" "$command_root/plan.md is phase-1 only"
+  check_contains "$command_root/bugfix.md" "bugfix-workflow.md" "$command_root/bugfix.md points to bugfix workflow"
+  check_contains "$command_root/implement.md" "implementation phase only" "$command_root/implement.md is implementation-phase only"
+  check_contains "$command_root/review.md" "review-workflow.md" "$command_root/review.md points to review workflow"
+  check_contains "$command_root/verify.md" "scripts/agent-eval.sh <mode>" "$command_root/verify.md maps arguments to gate modes"
+  check_contains "$command_root/release-check.md" "release-check-workflow.md" "$command_root/release-check.md points to release-check workflow"
+}
+
+validate_template_gate_modes() {
+  expected_gate_modes="changed fast frontend backend shared e2e full security release"
+
+  for mode in $expected_gate_modes; do
+    check_contains "core/manifest.template.json" "\"$mode\"" "core/manifest.template.json includes $mode gate mode"
+    check_contains "core/commands/verify.md" "\`$mode\`" "core/commands/verify.md includes $mode gate mode"
+    check_contains "scripts/agent-eval.template.sh" "$mode)" "scripts/agent-eval.template.sh includes $mode gate mode"
+  done
+}
+
 validate_template_skills() {
   expected_skills="verify-before-completion root-cause-debugging scoped-implementation plan-before-code worktree-isolation no-invented-artifacts bootstrap-agent-system"
 
@@ -87,6 +144,7 @@ validate_template_skills() {
   check_path "scripts/bootstrap-request.sh"
   check_contains "scripts/bootstrap-request.sh" "--features" "scripts/bootstrap-request.sh supports feature selection"
   check_contains "scripts/bootstrap-request.sh" "--harness" "scripts/bootstrap-request.sh supports harness selection"
+  check_contains "scripts/bootstrap-request.sh" "FEATURES_ENABLED_JSON_ARRAY" "scripts/bootstrap-request.sh renders feature metadata"
   if bash -n scripts/bootstrap-request.sh; then
     pass "scripts/bootstrap-request.sh shell syntax is valid"
   else
@@ -97,14 +155,28 @@ validate_template_skills() {
   check_json ".claude-plugin/plugin.json" ".claude-plugin/plugin.json is valid JSON"
   check_contains ".claude-plugin/plugin.json" "\"name\": \"agent-bootstrap\"" ".claude-plugin/plugin.json defines agent-bootstrap plugin"
   check_contains ".claude-plugin/plugin.json" "\"skills\": \"./core/skills/\"" ".claude-plugin/plugin.json points to canonical skills"
-  check_contains ".claude-plugin/plugin.json" "\"commands\": \"./commands/\"" ".claude-plugin/plugin.json points to plugin commands"
+  check_contains ".claude-plugin/plugin.json" "\"commands\": \"./core/commands/\"" ".claude-plugin/plugin.json points to canonical commands"
+
+  check_path "core/manifest.template.json"
+  check_contains "core/manifest.template.json" "\"features_enabled\"" "core/manifest.template.json includes features_enabled"
+
+  check_path "scripts/agent-eval.template.sh"
+  check_contains "scripts/agent-eval.template.sh" "security)" "scripts/agent-eval.template.sh supports security gate mode"
+  validate_template_gate_modes
 
   check_path ".claude-plugin/marketplace.json"
   check_json ".claude-plugin/marketplace.json" ".claude-plugin/marketplace.json is valid JSON"
   check_contains ".claude-plugin/marketplace.json" "\"source\": \"./\"" ".claude-plugin/marketplace.json installs plugin from repo root"
 
-  check_path "commands/bootstrap.md"
-  check_contains "commands/bootstrap.md" "agent-bootstrap --features standard --target ." "commands/bootstrap.md invokes plugin wrapper"
+  if [ -d "commands" ]; then
+    fail "root commands/ directory should not exist; use canonical core/commands/"
+  else
+    pass "root commands/ directory is absent"
+  fi
+
+  check_path "core/command-conventions.md"
+  check_contains "core/command-conventions.md" "Do not keep a second plugin-specific copy" "core/command-conventions.md includes drift rule"
+  validate_command_files "core/commands"
 
   check_path "bin/agent-bootstrap"
   check_contains "bin/agent-bootstrap" "--harness claude" "bin/agent-bootstrap defaults to Claude harness"
@@ -124,6 +196,9 @@ validate_template_skills() {
   check_contains "core/workflows/worktree-workflow.md" "Directory Priority" "core/workflows/worktree-workflow.md includes directory priority"
   check_contains "core/workflows/worktree-workflow.md" "Baseline Gate" "core/workflows/worktree-workflow.md includes baseline gate"
   check_contains "core/workflows/worktree-workflow.md" "When NOT To Use" "core/workflows/worktree-workflow.md includes when-not-to-use section"
+  check_path "core/workflows/release-check-workflow.md"
+  check_contains "core/workflows/release-check-workflow.md" "report-only" "core/workflows/release-check-workflow.md is report-only"
+  check_contains "core/workflows/release-check-workflow.md" "Do not deploy" "core/workflows/release-check-workflow.md forbids deploy"
 
   check_path "core/skills/README.md"
   check_contains "core/skills/README.md" "Skill Mapping" "core/skills/README.md includes skill mapping"
@@ -164,6 +239,18 @@ if [ -d ".agent" ]; then
     printf '%s\n' "$matches" >&2
   else
     pass "no template placeholders found"
+  fi
+
+  if [ ! -f ".agent/bootstrap-pending.md" ]; then
+    pending_markers="$(grep -RIn 'not confirmed - complete \.agent/bootstrap-pending\.md' .agent AGENTS.md CLAUDE.md GEMINI.md .cursor .github scripts 2>/dev/null || true)"
+    if [ -n "$pending_markers" ]; then
+      fail "bootstrap completion markers remain after .agent/bootstrap-pending.md was removed"
+      printf '%s\n' "$pending_markers" >&2
+    else
+      pass "no bootstrap completion markers remain"
+    fi
+  else
+    printf 'SKIP: bootstrap completion marker check while .agent/bootstrap-pending.md exists\n'
   fi
 else
   fail ".agent directory is missing"
@@ -220,6 +307,24 @@ if [ -f "scripts/agent-eval.sh" ]; then
     pass "scripts/agent-eval.sh shell syntax is valid"
   else
     fail "scripts/agent-eval.sh shell syntax is invalid"
+  fi
+fi
+
+commands_enabled="0"
+if [ -d ".agent/commands" ] || manifest_has_feature ".agent/manifest.json" "commands"; then
+  commands_enabled="1"
+fi
+
+if [ "$commands_enabled" = "1" ]; then
+  check_path ".agent/workflows/release-check-workflow.md"
+  check_contains ".agent/gates.md" "scripts/agent-eval.sh <mode>" ".agent/gates.md documents gate mode signature"
+  validate_command_files ".agent/commands"
+else
+  printf 'SKIP: .agent/commands not generated for this repo\n'
+  if [ -f ".agent/workflows/release-check-workflow.md" ]; then
+    check_contains ".agent/workflows/release-check-workflow.md" "report-only" ".agent/workflows/release-check-workflow.md is report-only"
+  else
+    printf 'SKIP: .agent/workflows/release-check-workflow.md not generated for this repo\n'
   fi
 fi
 

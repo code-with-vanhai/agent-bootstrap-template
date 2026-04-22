@@ -33,7 +33,9 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] `.agent/rulebase.md` preserves behavior-shaping sections: Discipline Gates, Red Flags, and Rationalization Checks.
 - [ ] `.agent/roles/` contains planner, implementer, reviewer, and gate-runner instructions.
 - [ ] `.agent/roles/prompts/` contains planner, implementer, reviewer, and gate-runner subagent prompt fragments.
-- [ ] `.agent/workflows/` contains bootstrap, feature, bugfix, refactor, review, security review, improvement cycle, and rule evolution workflows.
+- [ ] `.agent/workflows/` contains bootstrap, feature, bugfix, refactor, review, security review, improvement cycle, rule evolution, and release-check workflows.
+- [ ] If commands were generated, `.agent/commands/` contains bootstrap, plan, bugfix, implement, review, verify, and release-check prompts.
+- [ ] If commands were generated, command prompts are thin pointers to `.agent/workflows/`, `.agent/gates.md`, and `.agent/roles/`.
 - [ ] `scripts/agent-eval.sh` exists and is executable when the filesystem supports executable bits.
 - [ ] `scripts/agent-validate.sh` exists and is executable when the filesystem supports executable bits.
 - [ ] `.agent/runs/*` is not required for bootstrap; create run artifacts only for real non-trivial tasks.

@@ -60,6 +60,8 @@ Use `scripts/agent-eval.sh`.
 | `fast` | `{{CONFIGURED_OR_NOT_CONFIGURED}}` | `scripts/agent-eval.sh fast` |
 | `changed` | `{{CONFIGURED_OR_NOT_CONFIGURED}}` | `scripts/agent-eval.sh changed` |
 | `full` | `{{CONFIGURED_OR_NOT_CONFIGURED}}` | `scripts/agent-eval.sh full` |
+| `security` | `{{CONFIGURED_OR_NOT_CONFIGURED}}` | `scripts/agent-eval.sh security` |
+| `release` | `{{CONFIGURED_OR_NOT_CONFIGURED}}` | `scripts/agent-eval.sh release` |
 
 ## Current Gaps
 

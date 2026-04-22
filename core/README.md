@@ -10,10 +10,12 @@ Agents must read these files before making changes:
 - `gates.md`: verification commands and acceptance criteria.
 - `roles/`: role-specific behavior.
 - `roles/prompts/`: harness-agnostic prompt fragments for delegated planner, implementer, reviewer, and gate-runner work.
+- `commands/`: thin command prompts for common workflows when generated.
 - `workflows/`: feature, bugfix, refactor, review, and bootstrap procedures.
 - `workflows/improvement-cycle-workflow.md`: metric-driven candidate/champion improvement loop.
 - `workflows/security-review-workflow.md`: focused security review for auth, data, secrets, and trust boundaries.
 - `workflows/rule-evolution-workflow.md`: controlled process for updating agent rules.
+- `workflows/release-check-workflow.md`: report-only release readiness review.
 - `runs/`: optional per-task specs and plans created for non-trivial work.
 - `decisions.md`: architecture decisions that must be preserved.
 - `lessons.md`: repo-specific lessons learned from previous incidents and reviews.

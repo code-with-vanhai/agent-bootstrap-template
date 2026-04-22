@@ -1,6 +1,6 @@
 # Verification Gates
 
-Use `scripts/agent-eval.sh` as the entrypoint for verification.
+Use `scripts/agent-eval.sh <mode>` as the entrypoint for verification.
 
 Do not invent missing gates. If a command is not configured in this repo, mark it as `not configured` and explain the residual risk.
 
@@ -41,7 +41,10 @@ Do not use a previous run, another agent's summary, package-manager convention, 
 | `shared` | Shared types/contracts/libraries changed | `scripts/agent-eval.sh shared` |
 | `e2e` | User flows, auth, routing, or critical workflows changed | `scripts/agent-eval.sh e2e` |
 | `full` | Before merge/release or broad refactors | `scripts/agent-eval.sh full` |
+| `security` | Auth, authorization, secrets, data exposure, or trust boundaries changed | `scripts/agent-eval.sh security` |
 | `release` | Release candidate verification | `scripts/agent-eval.sh release` |
+
+Gate names are a stable convention. Do not add a new mode unless `scripts/agent-eval.sh`, this file, and any command prompt that routes to gates are updated together.
 
 ## Configured Commands
 
@@ -101,6 +104,14 @@ Status: `{{CONFIGURED_OR_NOT_CONFIGURED}}`
 
 ```bash
 {{FULL_GATE_COMMANDS}}
+```
+
+### `security`
+
+Status: `{{CONFIGURED_OR_NOT_CONFIGURED}}`
+
+```bash
+{{SECURITY_GATE_COMMANDS}}
 ```
 
 ### `release`

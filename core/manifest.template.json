@@ -1,11 +1,12 @@
 {
-  "template_version": "1.0.0",
-  "instantiated_from_template_version": "1.0.0",
+  "template_version": "{{TEMPLATE_VERSION}}",
+  "instantiated_from_template_version": "{{TEMPLATE_VERSION}}",
   "instantiated_at": "{{INSTANTIATED_AT_ISO8601}}",
   "llm_tool_used": "{{LLM_TOOL_USED}}",
   "canonical_root": ".agent",
   "generated_for_repo": "{{REPO_NAME}}",
   "source_template": "{{AGENT_BOOTSTRAP_TEMPLATE_REPO_URL_OR_PATH}}",
+  "features_enabled": {{FEATURES_ENABLED_JSON_ARRAY}},
   "project": {
     "name": "{{PROJECT_NAME}}",
     "primary_language": "{{PRIMARY_LANGUAGE}}",
@@ -29,6 +30,17 @@
     "entrypoint": "scripts/agent-eval.sh",
     "default_gate": "fast",
     "full_gate": "full",
+    "gate_modes": [
+      "changed",
+      "fast",
+      "frontend",
+      "backend",
+      "shared",
+      "e2e",
+      "full",
+      "security",
+      "release"
+    ],
     "known_not_configured_gates": [
       "{{NOT_CONFIGURED_GATE_OR_EMPTY_ARRAY}}"
     ]

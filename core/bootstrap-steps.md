@@ -7,7 +7,7 @@ Use this file as the source of truth when updating:
 - `core/instantiation-prompt.md`
 - `scripts/bootstrap-request.sh`
 - `core/skills/bootstrap-agent-system/SKILL.md`
-- Claude Code plugin files under `.claude-plugin/`, `commands/`, and `bin/`
+- Claude Code plugin files under `.claude-plugin/`, `core/commands/`, and `bin/`
 
 ## Phase 1: Deterministic Skeleton
 
@@ -20,6 +20,7 @@ The bootstrap script should perform mechanical work that does not require model 
 5. Replace known placeholders with conservative, non-invented values.
 6. Copy optional outputs only when selected or clearly detected:
    - GitHub PR template for GitHub-hosted repositories when features are `standard` or `full`.
+   - Command prompts when features are `standard` or `full`.
    - Native skills when features are `full` and the harness has a supported skill layout.
    - Worktree workflow when features are `full`.
    - SessionStart hook only when explicitly requested.
@@ -55,6 +56,7 @@ Unknown facts must remain `not confirmed` or `not configured`. Do not use packag
 `standard`:
 
 - Everything in `minimal`
+- Command prompts under `.agent/commands/`
 - GitHub PR template when the target is confirmed GitHub-hosted
 
 `full`:
@@ -71,8 +73,8 @@ The Claude Code plugin is an optional first-run convenience layer. It must not r
 
 Plugin behavior:
 
-- `.claude-plugin/plugin.json` points Claude Code to `./core/skills/` and `./commands/`.
-- `commands/bootstrap.md` exposes `/agent-bootstrap:bootstrap` for explicit setup.
+- `.claude-plugin/plugin.json` points Claude Code to `./core/skills/` and `./core/commands/`.
+- `core/commands/bootstrap.md` exposes `/agent-bootstrap:bootstrap` for explicit setup.
 - `bin/agent-bootstrap` wraps `scripts/bootstrap-request.sh` with `--template <plugin-root>` and default `--harness claude`.
 - The plugin may make `bootstrap-agent-system` discoverable before a target repo has `.agent/`.
 - The plugin must not install SessionStart hooks by default.

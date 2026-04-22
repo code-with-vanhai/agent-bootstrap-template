@@ -53,6 +53,14 @@ case "$gate" in
     # Replace with full verification.
     not_configured
     ;;
+  security)
+    # Replace with security-sensitive checks.
+    # Examples:
+    # run npm audit --audit-level high
+    # run semgrep --config auto
+    # run scripts/check-authz.sh
+    not_configured
+    ;;
   release)
     # Replace with release candidate checks.
     # This must not deploy unless explicitly approved.
@@ -60,8 +68,7 @@ case "$gate" in
     ;;
   *)
     printf 'Unknown gate: %s\n' "$gate" >&2
-    printf 'Available gates: changed, fast, frontend, backend, shared, e2e, full, release\n' >&2
+    printf 'Available gates: changed, fast, frontend, backend, shared, e2e, full, security, release\n' >&2
     exit 1
     ;;
 esac
-

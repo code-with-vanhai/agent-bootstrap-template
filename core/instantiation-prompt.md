@@ -121,7 +121,7 @@ Optional skills policy:
 - Generate skills only when the target harness supports native skill discovery and the user wants skill output.
 - For Codex-style harnesses, copy `core/skills/*/SKILL.md` to `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
 - For Claude Code project-local skills, copy `core/skills/*/SKILL.md` to `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when that layout is supported by the user's tool setup.
-- For Claude Code plugin installs, do not copy plugin files into the target repo; the plugin exposes `core/skills/`, `/agent-bootstrap:bootstrap`, and `bin/agent-bootstrap` from the template repo.
+- For Claude Code plugin installs, do not copy plugin metadata into the target repo; the plugin exposes `core/skills/`, native `/agent-bootstrap:*` commands from `core/commands/`, and `bin/agent-bootstrap` from the template repo.
 - If the harness does not support skills, skip skill output and keep `.agent/` plus adapters as the source of truth.
 - Keep `core/skills/README.md` mapping aligned with every skill file.
 
@@ -149,6 +149,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/*.template.md` | `.agent/<name>.md` | Fill placeholders and customize from repo scan |
 | `core/roles/*.md` | `.agent/roles/*.md` | Copy and trim only when repo scope justifies it |
 | `core/roles/prompts/*.md` | `.agent/roles/prompts/*.md` | Copy prompt fragments; keep harness-agnostic wording |
+| `core/commands/*.md` | `.agent/commands/*.md` | Copy when commands are enabled; keep prompts as thin pointers to workflows |
 | `core/workflows/*.md` | `.agent/workflows/*.md` | Copy and trim only when repo scope justifies it |
 | `core/workflows/worktree-workflow.md` | `.agent/workflows/worktree-workflow.md` | Optional only; copy when user opts into worktree workflow |
 | `core/manifest.template.json` | `.agent/manifest.json` | Fill placeholders; keep valid JSON |
@@ -162,7 +163,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/github/PULL_REQUEST_TEMPLATE.md` | `.github/PULL_REQUEST_TEMPLATE.md` | GitHub-hosted repos only |
 | `core/hooks/session-start.sh` | harness-specific hook path | Optional only; copy when the user requests SessionStart context injection |
 | `core/skills/*/SKILL.md` | `.agents/skills/agent-bootstrap/<skill>/SKILL.md` or `.claude/skills/agent-bootstrap/<skill>/SKILL.md` | Optional only; copy when the harness supports native skills |
-| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `commands/bootstrap.md`, `bin/agent-bootstrap` | Claude Code plugin install | Optional template-level distribution layer; do not copy into target repos |
+| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/commands/*.md`, `bin/agent-bootstrap` | Claude Code plugin install | Optional template-level distribution layer; do not copy plugin metadata into target repos |
 
 If the target harness is Claude Code and the user wants dispatchable agents, adapt `.agent/roles/prompts/*-subagent.md` into `.claude/agents/<role>.md`. Otherwise keep prompt fragments under `.agent/roles/prompts/` for copy/paste or manual delegation.
 
@@ -184,6 +185,7 @@ bash scripts/agent-validate.sh
 - Confirm `manifest.json` is valid JSON.
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
 - Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
+- If commands were generated, confirm `.agent/commands/` contains bootstrap, plan, bugfix, implement, review, verify, and release-check prompts.
 - If optional skills were generated, confirm every skill listed in `core/skills/README.md` exists.
 - If worktree workflow was requested, confirm `.agent/workflows/worktree-workflow.md` was generated.
 - If the repo is GitHub-hosted, confirm `.github/PULL_REQUEST_TEMPLATE.md` was generated from `core/github/PULL_REQUEST_TEMPLATE.md`.
