@@ -7,7 +7,9 @@ argument-hint: [release branch or version]
 
 Read `.agent/rulebase.md`, `.agent/project-profile.md`, `.agent/gates.md`, `.agent/decisions.md`, and `.agent/workflows/release-check-workflow.md`.
 
-If the invocation included arguments, for example after `/agent-bootstrap:release-check <desc>` or `agent:release-check <desc>`, treat them as the release branch, version, or release context.
+Task: $ARGUMENTS
+
+If invoked as `agent:release-check <desc>` in a non-Claude harness, treat the text after `agent:release-check` as the release branch, version, or release context.
 
 Follow `.agent/workflows/release-check-workflow.md`.
 

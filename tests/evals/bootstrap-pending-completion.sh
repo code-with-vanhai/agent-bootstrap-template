@@ -102,4 +102,10 @@ else
   fail "bootstrap skill exists in generated codex skill output"
 fi
 
+if [ -f "$project_dir/.agents/skills/agent-bootstrap/agent-plan/SKILL.md" ]; then
+  pass "codex command wrapper skill exists in generated codex skill output"
+else
+  fail "codex command wrapper skill exists in generated codex skill output"
+fi
+
 finish_test

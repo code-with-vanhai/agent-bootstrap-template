@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Added `refactor` and `security-review` command prompts backed by existing workflows.
+- Updated command validation to require the new command prompts when commands are enabled.
+- Added bootstrap target guards so the deterministic script refuses to bootstrap the template source repo into itself.
+- Tightened verify gate argument handling to reject unsupported extra arguments.
+- Added Codex command-wrapper skills for `--harness codex --features full` instead of using deprecated repo-local `.codex/prompts`.
+- Documented Claude permission hardening semantics and added narrow read-only `allowed-tools` hints to review commands.
+
 ## 0.2.0 - 2026-04-22
 
 - Added canonical command prompts under `core/commands/` for bootstrap, plan, bugfix, implement, review, verify, and release-check.

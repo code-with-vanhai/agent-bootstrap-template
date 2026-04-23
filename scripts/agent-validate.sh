@@ -111,7 +111,9 @@ validate_command_files() {
   check_path "$command_root/plan.md"
   check_path "$command_root/bugfix.md"
   check_path "$command_root/implement.md"
+  check_path "$command_root/refactor.md"
   check_path "$command_root/review.md"
+  check_path "$command_root/security-review.md"
   check_path "$command_root/verify.md"
   check_path "$command_root/release-check.md"
 
@@ -119,7 +121,9 @@ validate_command_files() {
   check_contains "$command_root/plan.md" "planning only" "$command_root/plan.md is phase-1 only"
   check_contains "$command_root/bugfix.md" "bugfix-workflow.md" "$command_root/bugfix.md points to bugfix workflow"
   check_contains "$command_root/implement.md" "implementation phase only" "$command_root/implement.md is implementation-phase only"
+  check_contains "$command_root/refactor.md" "refactor-workflow.md" "$command_root/refactor.md points to refactor workflow"
   check_contains "$command_root/review.md" "review-workflow.md" "$command_root/review.md points to review workflow"
+  check_contains "$command_root/security-review.md" "security-review-workflow.md" "$command_root/security-review.md points to security review workflow"
   check_contains "$command_root/verify.md" "scripts/agent-eval.sh <mode>" "$command_root/verify.md maps arguments to gate modes"
   check_contains "$command_root/release-check.md" "release-check-workflow.md" "$command_root/release-check.md points to release-check workflow"
 }

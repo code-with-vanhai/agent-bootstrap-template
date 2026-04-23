@@ -120,6 +120,7 @@ Optional skills policy:
 - Skills are optional behavior-shaping artifacts, not a replacement for `.agent/`.
 - Generate skills only when the target harness supports native skill discovery and the user wants skill output.
 - For Codex-style harnesses, copy `core/skills/*/SKILL.md` to `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
+- For Codex-style harnesses with command prompts enabled, generate thin `.agents/skills/agent-bootstrap/agent-<command>/SKILL.md` wrapper skills that read `.agent/commands/<command>.md`; do not create repo-local `.codex/prompts`.
 - For Claude Code project-local skills, copy `core/skills/*/SKILL.md` to `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when that layout is supported by the user's tool setup.
 - For Claude Code plugin installs, do not copy plugin metadata into the target repo; the plugin exposes `core/skills/`, native `/agent-bootstrap:*` commands from `core/commands/`, and `bin/agent-bootstrap` from the template repo.
 - If the harness does not support skills, skip skill output and keep `.agent/` plus adapters as the source of truth.
@@ -185,7 +186,7 @@ bash scripts/agent-validate.sh
 - Confirm `manifest.json` is valid JSON.
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.
 - Confirm `.agent/roles/prompts/` contains the four subagent prompt fragments.
-- If commands were generated, confirm `.agent/commands/` contains bootstrap, plan, bugfix, implement, review, verify, and release-check prompts.
+- If commands were generated, confirm `.agent/commands/` contains bootstrap, plan, bugfix, implement, refactor, review, security-review, verify, and release-check prompts.
 - If optional skills were generated, confirm every skill listed in `core/skills/README.md` exists.
 - If worktree workflow was requested, confirm `.agent/workflows/worktree-workflow.md` was generated.
 - If the repo is GitHub-hosted, confirm `.github/PULL_REQUEST_TEMPLATE.md` was generated from `core/github/PULL_REQUEST_TEMPLATE.md`.

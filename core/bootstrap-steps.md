@@ -91,7 +91,7 @@ After the plugin creates `.agent/bootstrap-pending.md`, Phase 2 remains unchange
 `codex`:
 
 - Generate `AGENTS.md`
-- In `full`, generate skills under `.agents/skills/agent-bootstrap/`
+- In `full`, generate behavior skills and command-wrapper skills under `.agents/skills/agent-bootstrap/`
 
 `claude`:
 

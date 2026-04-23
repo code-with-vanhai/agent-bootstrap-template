@@ -7,7 +7,9 @@ argument-hint: <bug description>
 
 Read `.agent/rulebase.md`, `.agent/project-profile.md`, `.agent/ownership.md`, `.agent/gates.md`, and `.agent/workflows/bugfix-workflow.md`.
 
-If the invocation included arguments, for example after `/agent-bootstrap:bugfix <desc>` or `agent:bugfix <desc>`, treat them as the bug description.
+Task: $ARGUMENTS
+
+If invoked as `agent:bugfix <desc>` in a non-Claude harness, treat the text after `agent:bugfix` as the bug description.
 
 Follow `.agent/workflows/bugfix-workflow.md`:
 

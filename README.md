@@ -46,7 +46,7 @@ The template currently provides:
 - Optional GitHub pull request template for GitHub-hosted repositories.
 - Optional SessionStart hook template for supported harnesses, off by default.
 - Deterministic bootstrap skeleton generation via `scripts/bootstrap-request.sh`.
-- Optional Claude Code native slash commands through `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check`.
+- Optional Claude Code native slash commands through `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:refactor`, `/agent-bootstrap:review`, `/agent-bootstrap:security-review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check`.
 - Prompt-based command convention for non-Claude harnesses through `agent:<name>` when `.agent/commands/` is generated.
 - Template and generated-repo validation via `scripts/agent-validate.sh`.
 - Optional headless behavior evals via `scripts/agent-evals.sh`.
@@ -122,7 +122,9 @@ The plugin also exposes native Claude Code slash commands from `core/commands/`:
 /agent-bootstrap:plan <task>
 /agent-bootstrap:bugfix <bug>
 /agent-bootstrap:implement <run-or-task>
+/agent-bootstrap:refactor <scope>
 /agent-bootstrap:review <scope>
+/agent-bootstrap:security-review <scope>
 /agent-bootstrap:verify fast
 /agent-bootstrap:release-check
 ```
@@ -139,7 +141,7 @@ The plugin also exposes native Claude Code slash commands from `core/commands/`:
   --target .
 ```
 
-Use `--harness codex`, `cursor`, `copilot`, `gemini`, or `generic` for other tools. Use `--features minimal` for the smallest baseline or `--features full` to also generate supported native skills and the optional worktree workflow.
+Use `--harness codex`, `cursor`, `copilot`, `gemini`, or `generic` for other tools. Codex intentionally uses `AGENTS.md` as its adapter; with `--features full`, repository skills are generated under `.agents/skills/agent-bootstrap/`, including thin command-wrapper skills that point back to `.agent/commands/`. Use `--features minimal` for the smallest baseline or `--features full` to also generate supported native skills and the optional worktree workflow.
 
 3. Ask your coding agent:
 

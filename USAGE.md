@@ -89,7 +89,7 @@ You can pass bootstrap flags after the command when needed:
 The plugin exposes:
 
 - `core/skills/` as namespaced Claude Code skills.
-- `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check` as explicit native slash commands.
+- `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:refactor`, `/agent-bootstrap:review`, `/agent-bootstrap:security-review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check` as explicit native slash commands.
 - `bin/agent-bootstrap` as a wrapper around `scripts/bootstrap-request.sh` with default `--harness claude`.
 
 The plugin does not install SessionStart hooks automatically and does not replace `.agent/` as the repository source of truth.
@@ -122,13 +122,15 @@ Feature levels:
 Harness options:
 
 - `generic`: `AGENTS.md`
-- `codex`: `AGENTS.md`; with `full`, skills go to `.agents/skills/agent-bootstrap/`
+- `codex`: `AGENTS.md`; with `full`, behavior skills and command-wrapper skills go to `.agents/skills/agent-bootstrap/`
 - `claude`: `AGENTS.md` and `CLAUDE.md`; with `full`, skills go to `.claude/skills/agent-bootstrap/`
 - `cursor`: `AGENTS.md` and `.cursor/rules/agent-system.mdc`
 - `copilot`: `AGENTS.md` and `.github/copilot-instructions.md`
 - `gemini`: `AGENTS.md` and `GEMINI.md`
 
 Hooks are never installed by feature level alone. Use `--install-hook` only after confirming the target harness supports the SessionStart hook shape.
+
+Claude permission note: command `allowed-tools` frontmatter is a narrow pre-approval hint, not a complete read-only enforcement layer. If a repo needs strict review-only sessions, add Claude Code `permissions.deny` rules or run with `--disallowedTools` for write-capable tools such as `Edit`, `Write`, and unsafe `Bash` patterns.
 
 ## Manual Prompt Fallback
 
@@ -229,6 +231,7 @@ Agents using a generated repo should follow these rules:
 - Re-read `.agent/rulebase.md` at the start of any coding task.
 - Use `.agent/project-profile.md` for repo facts and `.agent/gates.md` for gate commands.
 - For Codex, Cursor, Copilot, Gemini, and generic agents, when the user message starts with `agent:<name>`, read `.agent/commands/<name>.md` and treat the remaining text as the task description or gate mode.
+- Codex does not need a separate `CODEX.md` adapter in this template because it reads `AGENTS.md`. The template does not generate repo-local `.codex/prompts`; Codex custom prompt files are user-level and not a good fit for repository-scoped bootstrap behavior. Use `agent:<name>` or, with `--harness codex --features full`, invoke the generated `agent-<name>` skills that point back to `.agent/commands/<name>.md`.
 - Treat every unknown command or gate as `not configured` until found in checked-in files.
 - For trivial work, inline planning is acceptable when all of these are true: two files or fewer, 30 changed lines or fewer, no public contract change, and no schema change.
 - For non-trivial work, create `.agent/runs/<date>-<slug>/spec.md` and `plan.md` before editing.
@@ -310,7 +313,7 @@ Before committing the generated files, review:
 - Adapters: thin and pointing to `.agent/`.
 - Adapters: require agents to re-read `.agent/rulebase.md` at the start of any coding task.
 - Prompt fragments: `.agent/roles/prompts/` includes planner, implementer, reviewer, and gate-runner subagent prompts.
-- Commands: if generated, `.agent/commands/` includes bootstrap, plan, bugfix, implement, review, verify, and release-check prompts.
+- Commands: if generated, `.agent/commands/` includes bootstrap, plan, bugfix, implement, refactor, review, security-review, verify, and release-check prompts.
 - Run artifacts: `.agent/runs/*` is absent or contains only real task specs/plans; empty placeholder runs are not required.
 - Optional skills: omitted unless requested and supported; if present, they match `core/skills/README.md`.
 - Optional worktree workflow: omitted unless requested; if present, it states opt-in triggers, baseline gate, and cleanup rules.

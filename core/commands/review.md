@@ -1,13 +1,16 @@
 ---
 description: Review a diff, plan, or code area using the repository review workflow.
 argument-hint: [diff, path, PR, or review focus]
+allowed-tools: Read, Grep, Glob
 ---
 
 # Review
 
 Read `.agent/rulebase.md`, `.agent/project-profile.md`, `.agent/ownership.md`, `.agent/gates.md`, `.agent/decisions.md`, and `.agent/workflows/review-workflow.md`.
 
-If the invocation included arguments, for example after `/agent-bootstrap:review <focus>` or `agent:review <focus>`, treat them as the review scope.
+Task: $ARGUMENTS
+
+If invoked as `agent:review <focus>` in a non-Claude harness, treat the text after `agent:review` as the review scope.
 
 Follow `.agent/workflows/review-workflow.md`:
 

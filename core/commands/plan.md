@@ -7,7 +7,9 @@ argument-hint: <task description>
 
 Read `.agent/rulebase.md`, `.agent/project-profile.md`, `.agent/ownership.md`, `.agent/gates.md`, `.agent/decisions.md`, and relevant `.agent/workflows/`.
 
-If the invocation included arguments, for example after `/agent-bootstrap:plan <desc>` or `agent:plan <desc>`, treat them as the task description.
+Task: $ARGUMENTS
+
+If invoked as `agent:plan <desc>` in a non-Claude harness, treat the text after `agent:plan` as the task description.
 
 Follow `.agent/workflows/feature-workflow.md`, but execute planning only:
 

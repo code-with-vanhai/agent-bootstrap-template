@@ -6,6 +6,12 @@ cd "$ROOT"
 
 gate="${1:-fast}"
 
+if [ "$#" -gt 1 ]; then
+  printf 'Usage: %s [changed|fast|frontend|backend|shared|e2e|full|security|release]\n' "$0" >&2
+  printf 'Received unsupported extra arguments: %s\n' "$*" >&2
+  exit 1
+fi
+
 run() {
   printf '\n>>> %s\n' "$*"
   "$@"

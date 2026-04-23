@@ -34,7 +34,7 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] `.agent/roles/` contains planner, implementer, reviewer, and gate-runner instructions.
 - [ ] `.agent/roles/prompts/` contains planner, implementer, reviewer, and gate-runner subagent prompt fragments.
 - [ ] `.agent/workflows/` contains bootstrap, feature, bugfix, refactor, review, security review, improvement cycle, rule evolution, and release-check workflows.
-- [ ] If commands were generated, `.agent/commands/` contains bootstrap, plan, bugfix, implement, review, verify, and release-check prompts.
+- [ ] If commands were generated, `.agent/commands/` contains bootstrap, plan, bugfix, implement, refactor, review, security-review, verify, and release-check prompts.
 - [ ] If commands were generated, command prompts are thin pointers to `.agent/workflows/`, `.agent/gates.md`, and `.agent/roles/`.
 - [ ] `scripts/agent-eval.sh` exists and is executable when the filesystem supports executable bits.
 - [ ] `scripts/agent-validate.sh` exists and is executable when the filesystem supports executable bits.
@@ -61,6 +61,7 @@ Tick only when the target harness supports native skill discovery and the user r
 - [ ] Optional skills were omitted when the target harness does not support them or the user did not request them.
 - [ ] If generated, skills were copied from `core/skills/*/SKILL.md`, not recreated from memory.
 - [ ] If generated for Codex-style harnesses, skills live under `.agents/skills/agent-bootstrap/<skill>/SKILL.md`.
+- [ ] If generated for Codex-style harnesses with commands enabled, command-wrapper skills live under `.agents/skills/agent-bootstrap/agent-<command>/SKILL.md` and point back to `.agent/commands/<command>.md`.
 - [ ] If generated for Claude Code project-local skills, skills live under `.claude/skills/agent-bootstrap/<skill>/SKILL.md` when supported by the user's setup.
 - [ ] Generated skills include every skill listed in `core/skills/README.md`, including bootstrap-agent-system.
 - [ ] Skills remain short behavior-shaping artifacts and do not duplicate full `.agent/` workflows.

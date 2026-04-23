@@ -28,7 +28,7 @@ Claude Code exposes plugin commands as native slash commands, for example:
 /agent-bootstrap:bugfix auth token refresh fails after network error
 ```
 
-Claude Code supports arguments for invoked skills and commands. Current docs state that when command content does not include `$ARGUMENTS`, Claude appends `ARGUMENTS: <value>` to the invoked content. Command files still include explicit fallback wording so the expected input source is clear.
+Claude Code supports arguments for invoked skills and commands. Command files should use `$ARGUMENTS` for the native Claude command path and keep explicit fallback wording for prompt-based `agent:<name>` invocations in non-Claude harnesses.
 
 Reference:
 
@@ -50,6 +50,28 @@ When a user message starts with `agent:<name>`:
 3. Follow the command file exactly.
 
 This is a prompt convention, not a real runtime command system.
+
+For Codex repositories generated with `--features full`, the template also creates thin repository-local skills named `agent-<name>` under `.agents/skills/agent-bootstrap/`. These are wrappers only; `.agent/commands/<name>.md` remains the canonical command prompt.
+
+## Permission Hardening
+
+Claude command `allowed-tools` frontmatter should be treated as a narrow pre-approval hint, not as the only read-only enforcement layer. For strict read-only review sessions, use Claude Code permission deny rules or CLI `--disallowedTools` to block write-capable tools such as `Edit`, `Write`, and unsafe `Bash` patterns.
+
+Example project policy for strict review environments:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Edit",
+      "Write",
+      "Bash(git push:*)",
+      "Bash(git tag:*)",
+      "Bash(rm:*)"
+    ]
+  }
+}
+```
 
 ## Adapter Policy
 

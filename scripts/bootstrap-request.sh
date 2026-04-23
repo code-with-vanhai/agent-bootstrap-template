@@ -111,6 +111,15 @@ source_template="$TEMPLATE_ROOT"
 repo_url="$(git -C "$TARGET_ROOT" config --get remote.origin.url 2>/dev/null || true)"
 [ -n "$repo_url" ] || repo_url="not confirmed"
 
+if [ "$TARGET_ROOT" = "$TEMPLATE_ROOT" ]; then
+  die "target must be a repository that will receive Agent Bootstrap Kit, not the agent-bootstrap-template source repo"
+fi
+
+target_plugin_json="$TARGET_ROOT/.claude-plugin/plugin.json"
+if [ -f "$target_plugin_json" ] && grep -Eq '"name"[[:space:]]*:[[:space:]]*"agent-bootstrap"' "$target_plugin_json"; then
+  die "target appears to be the agent-bootstrap-template source repo because .claude-plugin/plugin.json declares name agent-bootstrap"
+fi
+
 if [ -d "$TARGET_ROOT/.agent" ] && [ "$force" != "1" ]; then
   die ".agent/ already exists in $TARGET_ROOT. Use --force to overwrite generated files intentionally."
 fi
@@ -392,6 +401,48 @@ copy_skills() {
   done
 }
 
+copy_codex_command_skills() {
+  [ "$features" = "full" ] || return 0
+  [ "$harness" = "codex" ] || return 0
+
+  set -- "$TEMPLATE_ROOT"/core/commands/*.md
+  [ -e "$1" ] || die "missing command files in $TEMPLATE_ROOT/core/commands"
+
+  for command_file in "$@"; do
+    command_name="$(basename "$command_file" .md)"
+    skill_name="agent-$command_name"
+    dest="$TARGET_ROOT/.agents/skills/agent-bootstrap/$skill_name/SKILL.md"
+
+    if [ -e "$dest" ] && [ "$force" != "1" ]; then
+      log "SKIP existing $dest"
+      record_skipped "$dest"
+      continue
+    fi
+
+    ensure_dir "$(dirname "$dest")"
+    if [ "$dry_run" = "1" ]; then
+      log "DRY-RUN write $dest"
+    else
+      cat > "$dest" <<EOF
+---
+name: $skill_name
+description: Use when the user invokes Agent Bootstrap command $skill_name, agent:$command_name, or asks Codex to run the $command_name agent workflow.
+---
+
+# Agent Bootstrap $command_name Command
+
+This is a Codex wrapper skill for the canonical command file.
+
+1. Read \`.agent/commands/$command_name.md\`.
+2. Treat the user's current request, including any text after \`$skill_name\` or \`agent:$command_name\`, as the command arguments or task context.
+3. Follow \`.agent/commands/$command_name.md\` exactly.
+4. Keep \`.agent/commands/$command_name.md\` as the source of truth; do not edit this wrapper when changing command behavior.
+EOF
+    fi
+    record_written "$dest"
+  done
+}
+
 copy_hook() {
   [ "$install_hook" = "1" ] || return 0
   copy_file "$TEMPLATE_ROOT/core/hooks/session-start.sh" "$TARGET_ROOT/.agent/hooks/session-start.sh" "755"
@@ -422,6 +473,11 @@ write_pending() {
     skills_status="generated"
   elif [ "$features" = "full" ]; then
     skills_status="not generated: no supported native skill path for harness"
+  fi
+
+  command_skill_status="not generated"
+  if [ "$features" = "full" ] && [ "$harness" = "codex" ]; then
+    command_skill_status="generated"
   fi
 
   worktree_status="not generated"
@@ -455,6 +511,7 @@ EOF
     printf 'Repo remote: %s\n' "$repo_url"
     printf 'Commands: %s\n' "$commands_status"
     printf 'Skills: %s\n' "$skills_status"
+    printf 'Codex command wrapper skills: %s\n' "$command_skill_status"
     printf 'Worktree workflow: %s\n' "$worktree_status"
     printf 'SessionStart hook: %s\n' "$hook_status"
     cat <<'EOF'
@@ -518,6 +575,7 @@ copy_scripts
 copy_adapters
 copy_github_metadata
 copy_skills
+copy_codex_command_skills
 copy_hook
 write_pending
 

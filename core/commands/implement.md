@@ -7,7 +7,15 @@ argument-hint: <run id or task description>
 
 Read `.agent/rulebase.md`, `.agent/project-profile.md`, `.agent/ownership.md`, `.agent/gates.md`, `.agent/decisions.md`, and `.agent/workflows/feature-workflow.md`.
 
-If the invocation included arguments, for example after `/agent-bootstrap:implement <desc>` or `agent:implement <desc>`, treat them as the run id, plan path, or task description.
+Task: $ARGUMENTS
+
+If invoked as `agent:implement <desc>` in a non-Claude harness, treat the text after `agent:implement` as the run id, plan path, or task description.
+
+Argument priority:
+
+1. If the argument matches an existing `.agent/runs/<run>/plan.md`, treat it as a run id.
+2. Else if it matches an existing plan file path, treat it as the approved plan path.
+3. Else treat the full argument string as the task description.
 
 Execute the implementation phase only:
 
