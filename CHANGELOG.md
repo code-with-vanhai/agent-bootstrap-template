@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-04-23
 
 - Added `refactor` and `security-review` command prompts backed by existing workflows.
 - Updated command validation to require the new command prompts when commands are enabled.

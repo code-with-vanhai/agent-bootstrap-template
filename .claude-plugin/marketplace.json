@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Local marketplace for the Agent Bootstrap Template Claude Code plugin.",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "plugins": [
     {
       "name": "agent-bootstrap",
       "source": "./",
       "description": "Bootstrap repository-local Agent Bootstrap Kit governance from a Claude Code plugin.",
-      "version": "0.2.0"
+      "version": "0.3.0"
     }
   ]
 }

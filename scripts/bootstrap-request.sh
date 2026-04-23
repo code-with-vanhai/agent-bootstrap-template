@@ -11,7 +11,7 @@ harness="generic"
 dry_run="0"
 force="0"
 install_hook="0"
-template_version="0.2.0"
+template_version="0.3.0"
 
 usage() {
   cat <<'EOF'
