@@ -349,20 +349,51 @@ If the target repo already has `AGENTS.md`, `CLAUDE.md`, Cursor rules, or Copilo
 - Add a clear pointer to `.agent/`.
 - Do not let adapter files drift from each other.
 
+## Syncing Existing Repos
+
+For repos that were already bootstrapped from this template, use the sync runner from the template repo. Dry-run is the default:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/agent-sync.sh \
+  --target /path/to/target-repo \
+  --to 0.3.0
+```
+
+Apply only after reviewing the planned changes:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/agent-sync.sh \
+  --target /path/to/target-repo \
+  --to 0.3.0 \
+  --apply
+```
+
+The runner refuses conflicts by default and performs no content writes when a conflict is detected. If a target file conflict is reviewed and the template version should win, accept that single path explicitly:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/agent-sync.sh \
+  --target /path/to/target-repo \
+  --to 0.3.0 \
+  --apply \
+  --accept-theirs .agent/commands/verify.md
+```
+
+Sync metadata is written to `.agent/manifest.json`, and successful applies append `.agent/sync-log.md`. Adapter files such as `AGENTS.md` and `CLAUDE.md` are not overwritten by default.
+
 ## Upgrade Policy
 
 When this template changes:
 
 1. Read `CHANGELOG.md`.
-2. Apply only relevant updates to the target repo.
-3. Review the diff manually.
+2. If a migration exists, run `scripts/agent-sync.sh` in dry-run mode against the target repo.
+3. Apply the migration only after reviewing planned changes and conflicts.
 4. Run:
 
 ```bash
 bash scripts/agent-validate.sh
 ```
 
-Do not use automatic migration scripts for agent rules unless a future incident proves they are necessary.
+5. Review the final diff manually before committing in the target repo.
 
 ## Example
 

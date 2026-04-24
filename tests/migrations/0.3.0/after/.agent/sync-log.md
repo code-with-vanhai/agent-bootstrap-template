@@ -1,0 +1,41 @@
+# Sync Log
+
+## 2026-04-23T00:00:00Z - Sync to 0.3.0
+
+- From: 0.2.0
+- To: 0.3.0
+- Template commit: fd30e86
+- Updated:
+  - .agent/commands/bootstrap.md
+  - .agent/commands/bugfix.md
+  - .agent/commands/implement.md
+  - .agent/commands/plan.md
+  - .agent/commands/refactor.md
+  - .agent/commands/release-check.md
+  - .agent/commands/review.md
+  - .agent/commands/security-review.md
+  - .agent/commands/verify.md
+  - scripts/agent-validate.sh
+  - scripts/agent-eval.sh patched
+  - .agents/skills/agent-bootstrap/agent-bootstrap/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-bugfix/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-implement/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-plan/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-refactor/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-release-check/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-review/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-security-review/SKILL.md
+  - .agents/skills/agent-bootstrap/agent-verify/SKILL.md
+  - .agent/manifest.json
+- Accepted theirs:
+  - none
+- Preserved:
+  - .agent/project-profile.md
+  - .agent/gates.md
+  - .agent/ownership.md
+  - scripts/agent-eval.sh repo-specific gates
+- Warnings:
+  - no managed-directory orphan files
+- Validation:
+  - agent-validate: passed
+  - bash -n agent-eval.sh: passed

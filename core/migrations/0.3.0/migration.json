@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "version": "0.3.0",
+  "from": "0.2.0",
+  "to": "0.3.0",
+  "safe_overwrite": [
+    {
+      "source_glob": "core/commands/*.md",
+      "target_dir": ".agent/commands"
+    },
+    {
+      "source": "scripts/agent-validate.sh",
+      "target": "scripts/agent-validate.sh"
+    }
+  ],
+  "adapter_files": [],
+  "patches": [
+    {
+      "file": "scripts/agent-eval.sh",
+      "anchor": "gate=\"${1:-fast}\"",
+      "insert_after_first_match": "if [ \"$#\" -gt 1 ]; then\n  printf 'Usage: %s [changed|fast|frontend|backend|shared|e2e|full|security|release]\\n' \"$0\" >&2\n  printf 'Received unsupported extra arguments: %s\\n' \"$*\" >&2\n  exit 1\nfi\n",
+      "skip_if_contains": "Received unsupported extra arguments",
+      "require_bash_syntax_ok_after": true
+    }
+  ],
+  "generate_codex_command_wrappers": {
+    "enabled_when_feature_present": "native-skills",
+    "commands_source_glob": "core/commands/*.md",
+    "target_dir": ".agents/skills/agent-bootstrap"
+  },
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.3.0",
+      "synced_to_template_version": "0.3.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.3.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.3.0: added refactor/security-review commands, Codex command-wrapper skills, verify extra-argument rejection, and command permission hardening notes."
+    },
+    "merge_array_unique": {}
+  }
+}

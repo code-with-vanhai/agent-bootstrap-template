@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 - 2026-04-24
+
+- Added versioned sync tooling for downstream repos with dry-run by default, conflict-stop behavior, explicit `--accept-theirs` overrides, and append-only sync logs.
+- Added the `0.2.0` to `0.3.0` migration manifest and mechanical fixture regression test.
+- Documented release tag discipline, immutable release tag mapping, and downstream sync usage.
+- Bumped Claude plugin and local marketplace metadata to `0.3.1`.
+
 ## 0.3.0 - 2026-04-23
 
 - Added `refactor` and `security-review` command prompts backed by existing workflows.

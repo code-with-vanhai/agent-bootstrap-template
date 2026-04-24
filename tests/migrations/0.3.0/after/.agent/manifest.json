@@ -1,0 +1,73 @@
+{
+  "template_version": "0.3.0",
+  "instantiated_from_template_version": "0.2.0",
+  "synced_to_template_version": "0.3.0",
+  "synced_to_template_commit": "fd30e86d68a91786b39af85dcf3bfce8a3000c1e",
+  "synced_at": "2026-04-23T00:00:00Z",
+  "instantiated_at": "2026-04-24T02:12:05Z",
+  "llm_tool_used": "bootstrap-request.sh skeleton; agent completion pending",
+  "canonical_root": ".agent",
+  "generated_for_repo": "fixture-before.ijc2ip",
+  "source_template": "/tmp/template-v020-fixture.dh3SMS",
+  "features_enabled": [
+    "baseline",
+    "commands",
+    "native-skills",
+    "worktree-workflow"
+  ],
+  "project": {
+    "name": "fixture-before.ijc2ip",
+    "primary_language": "not confirmed",
+    "package_manager": "not confirmed",
+    "frameworks": [
+      "not confirmed"
+    ],
+    "deployment_targets": [
+      "not configured"
+    ]
+  },
+  "canonical_files": [
+    ".agent/project-profile.md",
+    ".agent/rulebase.md",
+    ".agent/ownership.md",
+    ".agent/gates.md",
+    ".agent/decisions.md",
+    ".agent/lessons.md",
+    ".agent/roles/prompts/planner-subagent.md",
+    ".agent/roles/prompts/implementer-subagent.md",
+    ".agent/roles/prompts/reviewer-subagent.md",
+    ".agent/roles/prompts/gate-runner-subagent.md"
+  ],
+  "verification": {
+    "entrypoint": "scripts/agent-eval.sh",
+    "default_gate": "fast",
+    "full_gate": "full",
+    "gate_modes": [
+      "changed",
+      "fast",
+      "frontend",
+      "backend",
+      "shared",
+      "e2e",
+      "full",
+      "security",
+      "release"
+    ],
+    "known_not_configured_gates": [
+      "not configured"
+    ]
+  },
+  "tool_adapters": {
+    "codex": "AGENTS.md",
+    "claude": "CLAUDE.md",
+    "gemini": "GEMINI.md",
+    "cursor": ".cursor/rules/agent-system.mdc",
+    "copilot": ".github/copilot-instructions.md"
+  },
+  "notes": [
+    "Replace all placeholders during repo-specific instantiation.",
+    "Mark unknown gates as not configured instead of inventing commands.",
+    "Keep tool-specific adapters thin; .agent/ is canonical.",
+    "Synced to agent-bootstrap-template v0.3.0: added refactor/security-review commands, Codex command-wrapper skills, verify extra-argument rejection, and command permission hardening notes."
+  ]
+}
