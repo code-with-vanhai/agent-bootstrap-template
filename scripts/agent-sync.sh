@@ -9,4 +9,5 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 2
 fi
 
+export PYTHONDONTWRITEBYTECODE=1
 exec python3 "$SCRIPT_DIR/agent-sync.py" --template-root "$TEMPLATE_ROOT" "$@"
