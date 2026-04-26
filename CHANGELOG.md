@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 - 2026-04-26
+
+- Added grounded planning protocol enforced through plan/spec artifacts:
+  - Evidence-block grammar (`<!-- current-code path lines ref region_sha256 -->`) in `core/workflows/feature-workflow.md` and `core/roles/planner.md`. Plans must re-read cited files in the same turn and quote with full SHA-256 of the whitespace-normalized snippet; fabricated "BEFORE" snippets are a P0 review defect.
+  - `Existing Behaviors Preserved` requirement classifying each modified function as `PRESERVED`, `INTENTIONALLY REMOVED`, or `BUG FIX` with citation.
+  - AC Verification Method enum (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, `MANUAL`) with a jsdom layout rule that promotes layout-dependent ACs out of `AUTOMATED-UNIT`.
+  - Status field whitelist in `core/rulebase.template.md`: only `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned scores, ✅ checkmarks, and bare `Ready for ...` stamps are forbidden.
+  - Plan/Spec Review protocol in `core/workflows/review-workflow.md` and `core/roles/reviewer.md`: grounding pass first, behavior preservation second, correctness third, with a 3-round loop limit before human escalation.
+- Added `scripts/agent-validate-plan.sh` plan discipline command (NOT a gate mode) backed by `scripts/lib/validate_plan.py`, with stdlib `unittest` coverage at `scripts/lib/test_validate_plan.py`. Checks: EV-001..EV-005 (evidence integrity), SC-001..SC-004 (banned self-claims), LP-001..LP-003 (lint pack: `:contains()`, React 19 `react-dom/test-utils`, MV3 `vi.stubGlobal('chrome', ...)`), SECT-001 (required sections), AC-001/AC-002 (verification taxonomy + jsdom rule).
+- Added `tests/evals/plan-grounding.sh` behavior eval with three plan fixtures (good, stale-snippet, fictional-line) wired into `agent-evals.sh` fast set.
+- Added schema v1 extension `from_versions: []` in `scripts/agent-sync.py` so a single `core/migrations/0.4.0/migration.json` accepts both `0.3.0` and `0.3.2` source versions.
+- Added `core/migrations/0.4.0/` migration manifest + `tests/migrations/0.4.0/run.sh` regression test (clean-from-0.3.0, clean-from-0.3.2, customized scenarios; ephemeral local `v0.3.2` and `v0.4.0` tags created if missing).
+- Hardened `scripts/agent-validate.sh` placeholder regex (only `{{UPPER_CASE}}` template tokens flagged; JSX/CSS-in-JS double braces no longer false-positive) and added presence/syntax checks for the new validator files.
+- Bumped Claude plugin and local marketplace metadata to `0.4.0`. `scripts/bootstrap-request.sh` now bootstraps targets at `0.4.0`.
+
 ## 0.3.2 - 2026-04-26
 
 - Aligned `scripts/bootstrap-request.sh` template version with the published Claude plugin metadata. Repos newly bootstrapped at `0.3.2` get a manifest that matches the released plugin tag and remain compatible with the existing `0.3.0` migration; no migration is required to adopt this release.

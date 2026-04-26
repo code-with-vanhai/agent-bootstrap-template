@@ -39,7 +39,10 @@ trap cleanup EXIT
 #    code reads the template via the requested tag in multiple places).
 #    Delete the ephemeral tags on exit.
 if ! git -C "$root" rev-parse --verify --quiet "v0.3.2^{commit}" >/dev/null; then
-  git -C "$root" tag v0.3.2
+  # 0.3.2 was a metadata-only release; core/* is byte-identical to 0.3.0.
+  # Pin the ephemeral tag to v0.3.0's commit to model that accurately.
+  v030_commit="$(git -C "$root" rev-parse "v0.3.0^{commit}")"
+  git -C "$root" tag v0.3.2 "$v030_commit"
   ephemeral_v032_created="1"
 fi
 if ! git -C "$root" rev-parse --verify --quiet "v0.4.0^{commit}" >/dev/null; then
