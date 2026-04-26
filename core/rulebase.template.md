@@ -37,6 +37,24 @@ NO UNRELATED CHANGES BUNDLED INTO THE TASK
 
 If a rule cannot be satisfied, stop and report the blocker, the evidence gathered, and the remaining risk.
 
+## Status Field Whitelist
+
+Plans, specs, and run artifacts MUST NOT include self-assigned quality scores, ✅ / ✓ checkmark approvals, or "Ready for ___" stamps unless paired with a fresh gate run reference.
+
+Allowed `Status:` values for run artifacts (`spec.md`, `plan.md`):
+
+- `Draft`
+- `Proposed`
+- `Verified with evidence: <gate-name> @ <UTC-timestamp> (exit=<code>)`
+
+Banned in plan/spec text (validator-enforced when `scripts/agent-validate-plan.sh` is available):
+
+- `Quality target: N/10`, `Score: N/10`, and similar self-assigned scores.
+- Bare `Ready for implementation`, `Ready for review`, `Ready for merge`, `Ready for production`.
+- Standalone `✅` / `✓` checkmarks on Status lines without verification evidence.
+
+Verification status is set only after a fresh gate run; previous-session memory does not count.
+
 ## Red Flags
 
 Stop and re-check this rulebase when any of these thoughts apply:

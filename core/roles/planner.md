@@ -66,6 +66,45 @@ Run artifacts are task working documents. After completion:
 7. Define gates and docs/tests likely required.
 8. Hand off to Implementer or Reviewer.
 
+## Evidence Blocks
+
+Quote current code only inside an evidence block. The grammar is canonical in `.agent/workflows/feature-workflow.md`. Every block must:
+
+- Use repo-root-relative POSIX `path` (no `..`, no absolute paths).
+- Declare a 1-indexed inclusive `lines` range.
+- Pin the commit `ref` (git short SHA, ≥ 7 chars) the planner read.
+- Include `region_sha256` over the whitespace-normalized snippet.
+- Re-read the cited file in the same planning turn before writing the block. Stale memory is not acceptable.
+
+If the snippet you expected is not present at the cited region, stop and revise the plan goal. Do not fabricate a BEFORE that fits the proposed AFTER.
+
+## Existing Behaviors Preserved
+
+For each function or handler being modified, list its current side effects with evidence-block citations and classify each entry as one of:
+
+- `PRESERVED` — kept identical after the change.
+- `INTENTIONALLY REMOVED` — removed on purpose; include reason and consumer impact.
+- `BUG FIX` — current behavior is wrong; include root cause and test gap.
+
+An entry without an evidence-block citation is a P0 plan defect.
+
+## AC Verification Method
+
+Every acceptance criterion row must declare a Verification Method from this enum:
+
+- `AUTOMATED-UNIT` — Vitest/Jest/equivalent, deterministic, no real layout.
+- `AUTOMATED-INTEGRATION` — real browser/Node integration (Playwright, Puppeteer, Testcontainers).
+- `AUTOMATED-E2E` — full user-flow E2E.
+- `BUILD-OUTPUT` — file/size/manifest assertion against a build artifact.
+- `TYPECHECK` — `tsc --noEmit` or equivalent.
+- `MANUAL` — human verification with documented residual risk.
+
+If acceptance behavior depends on real layout APIs (`clientHeight`, `getBoundingClientRect`, `scrollTop`, `IntersectionObserver`, computed CSS), it must NOT be classified as `AUTOMATED-UNIT` in a jsdom environment. Promote to `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, or `MANUAL` with documented residual risk.
+
+## Status Discipline
+
+A run artifact's `Status:` line uses one of: `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned quality scores (`Quality target: 9/10`), bare `Ready for ...` stamps, and ✅ checkmarks on status lines are forbidden. Verification status is set only after a fresh gate run.
+
 ## Output
 
 Use this shape for non-trivial work:

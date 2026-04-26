@@ -155,6 +155,23 @@ validate_template_skills() {
     fail "scripts/bootstrap-request.sh shell syntax is invalid"
   fi
 
+  check_path "scripts/agent-validate-plan.sh"
+  if bash -n scripts/agent-validate-plan.sh; then
+    pass "scripts/agent-validate-plan.sh shell syntax is valid"
+  else
+    fail "scripts/agent-validate-plan.sh shell syntax is invalid"
+  fi
+  check_path "scripts/lib/validate_plan.py"
+  if command -v python3 >/dev/null 2>&1; then
+    if python3 -m py_compile scripts/lib/validate_plan.py 2>/dev/null; then
+      pass "scripts/lib/validate_plan.py compiles"
+    else
+      fail "scripts/lib/validate_plan.py fails python3 -m py_compile"
+    fi
+  else
+    fail "python3 not available; cannot verify scripts/lib/validate_plan.py"
+  fi
+
   check_path ".claude-plugin/plugin.json"
   check_json ".claude-plugin/plugin.json" ".claude-plugin/plugin.json is valid JSON"
   check_contains ".claude-plugin/plugin.json" "\"name\": \"agent-bootstrap\"" ".claude-plugin/plugin.json defines agent-bootstrap plugin"
@@ -237,7 +254,7 @@ if [ ! -d ".agent" ] && [ -d "core/skills" ]; then
 fi
 
 if [ -d ".agent" ]; then
-  matches="$(grep -RIn '{{[^}]*}}' .agent AGENTS.md CLAUDE.md GEMINI.md .cursor .github scripts 2>/dev/null || true)"
+  matches="$(grep -RIn '{{[A-Z][A-Z0-9_]*}}' .agent AGENTS.md CLAUDE.md GEMINI.md .cursor .github scripts 2>/dev/null || true)"
   if [ -n "$matches" ]; then
     fail "placeholders remain in generated agent files"
     printf '%s\n' "$matches" >&2

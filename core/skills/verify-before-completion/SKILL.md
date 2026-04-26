@@ -26,6 +26,7 @@ Before claiming work is complete:
 - Relying on a previous run, another agent's report, or manual inspection.
 - Reporting only the happy path while hiding skipped checks.
 - Treating `not configured` as success instead of residual risk.
+- Self-assigned quality scores (`Quality target: 9/10`), bare `Ready for ...` stamps, or ✅ checkmarks on `Status:` lines of plan/spec artifacts. The only allowed status values are `Draft`, `Proposed`, and `Verified with evidence: <gate> @ <UTC> (exit=<code>)`.
 
 ## Canonical Sources
 

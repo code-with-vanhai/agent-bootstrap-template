@@ -20,3 +20,16 @@ Follow `.agent/workflows/feature-workflow.md`, but execute planning only:
 5. Stop before editing product code.
 
 If the task is ambiguous enough that a plan would be speculative, ask one concise clarification question.
+
+## Grounding Requirements
+
+Before quoting any current code (BEFORE / Existing / Current snippet), you MUST:
+
+1. Re-read the cited file in this same planning turn. Earlier session memory is not sufficient.
+2. Quote using the evidence block format defined in `.agent/workflows/feature-workflow.md` (`current-code` HTML comment delimiters with `path`, `lines`, `ref`, and `region_sha256`).
+3. If the assumed pattern (`className`, import, function name, line range) is not present in the working tree, STOP and revise the plan goal — do not fabricate a snippet that fits the proposed AFTER.
+4. List every modified function in an `Existing Behaviors Preserved` section with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, or `BUG FIX`).
+5. Classify every acceptance criterion with a Verification Method enum value (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, `MANUAL`). Behaviors that depend on real layout APIs cannot be `AUTOMATED-UNIT` in jsdom.
+6. Use `Status: Draft` or `Status: Proposed` only. Do not self-assign quality scores or `Ready` checkmarks; status is upgraded to `Verified with evidence: <gate> @ <UTC> (exit=<code>)` only after a fresh gate run.
+
+A plan that quotes non-existent code or omits the sections above is rejected at review, regardless of how sensible the AFTER section is. The repo's `scripts/agent-validate-plan.sh` enforces these requirements mechanically when present.

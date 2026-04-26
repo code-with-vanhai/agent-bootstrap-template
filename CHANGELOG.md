@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 - 2026-04-26
+
+- Aligned `scripts/bootstrap-request.sh` template version with the published Claude plugin metadata. Repos newly bootstrapped at `0.3.2` get a manifest that matches the released plugin tag and remain compatible with the existing `0.3.0` migration; no migration is required to adopt this release.
+- Bumped Claude plugin and local marketplace metadata to `0.3.2`.
+
 ## 0.3.1 - 2026-04-24
 
 - Added versioned sync tooling for downstream repos with dry-run by default, conflict-stop behavior, explicit `--accept-theirs` overrides, and append-only sync logs.

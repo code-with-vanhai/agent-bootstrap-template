@@ -25,6 +25,30 @@ Use this prompt fragment when delegating planning work to a separate agent.
 - Do not deploy, run remote migrations, edit secrets, or run destructive commands.
 - Do not invent commands, frameworks, files, APIs, schemas, or ownership boundaries.
 - Do not weaken `.agent/rulebase.md`; propose explicit rule changes instead.
+- Do not fabricate "BEFORE" / "Existing" code snippets. Re-read the cited file in the same planning turn before quoting.
+- Do not self-assign quality scores, ✅ checkmarks, or `Ready for ...` stamps. Status is `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)` only.
+
+## Required Plan Sections
+
+For non-trivial work, the produced `plan.md` must contain:
+
+- `Acceptance Criteria` — every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.
+- `Existing Behaviors Preserved` — for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).
+- `Verification` — gate name and command(s).
+
+## Evidence Block Format
+
+Every "BEFORE" / "Existing" / "Current code" quote uses this format. The grammar is canonical in `.agent/workflows/feature-workflow.md`.
+
+````md
+<!-- current-code path=<repo-relative-posix> lines=A-B ref=<short-sha> region_sha256=<full-hex> -->
+```<lang>
+<exact snippet>
+```
+<!-- /current-code -->
+````
+
+Re-read the cited file before writing the block. If the snippet you expected is not present at the cited region, stop and revise the plan goal — do not fabricate a snippet that fits the proposed AFTER.
 
 ## Success Criteria
 

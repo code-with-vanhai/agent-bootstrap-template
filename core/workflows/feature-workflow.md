@@ -12,6 +12,39 @@ Use this workflow for new user-visible or system behavior.
 6. Reviewer checks the diff if the change affects public contracts, data, auth, infra, or broad UI flows.
 7. Record durable lessons or decisions only when needed.
 
+## Grounding Requirements
+
+The planner re-reads every file it cites in the same planning turn. Stale session memory is not acceptable.
+
+Every "BEFORE" / "Existing" / "Current code" quote in `spec.md` or `plan.md` MUST use this evidence block grammar:
+
+````md
+<!-- current-code path=<repo-relative-posix> lines=A-B ref=<short-sha> region_sha256=<full-hex> -->
+```<lang>
+<exact snippet>
+```
+<!-- /current-code -->
+````
+
+Rules:
+
+- `path`: repo-root-relative POSIX. No `..`, no absolute paths.
+- `lines`: `A-B`, 1-indexed inclusive. Single line uses `A-A`.
+- `ref`: git short SHA (≥ 7 chars) of the commit when the planner read the file.
+- `region_sha256`: SHA-256 of the entire whitespace-normalized snippet (collapse runs of whitespace, strip trailing). The validator hashes full content; tampering after N characters is still detected.
+- The validator parses by HTML comment boundaries, not by markdown fence, so snippets may contain triple-backticks.
+- Inner fence language is free-form (`tsx`, `ts`, `py`, `text`, ...) for GitHub rendering.
+
+If the snippet expected at the cited region is not present at the working tree, the planner stops and revises the plan goal. Do not fabricate a "BEFORE" snippet that fits the proposed AFTER.
+
+The non-trivial plan must contain three sections enforced by `scripts/agent-validate-plan.sh` (when available):
+
+- `Acceptance Criteria` — every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.
+- `Existing Behaviors Preserved` — for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).
+- `Verification` — gate name and command(s).
+
+Status field whitelist: `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned quality scores, ✅ checkmarks, and bare `Ready for ...` stamps are forbidden.
+
 ## Acceptance Criteria
 
 - Feature behavior matches the request.

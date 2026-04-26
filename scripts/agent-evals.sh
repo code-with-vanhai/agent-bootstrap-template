@@ -78,6 +78,7 @@ fast_evals=(
   "tests/evals/verify-before-claim.sh"
   "tests/evals/root-cause-first.sh"
   "tests/evals/no-invented-gates.sh"
+  "tests/evals/plan-grounding.sh"
 )
 
 integration_evals=(

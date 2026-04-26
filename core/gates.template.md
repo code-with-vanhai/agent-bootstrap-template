@@ -122,6 +122,25 @@ Status: `{{CONFIGURED_OR_NOT_CONFIGURED}}`
 {{RELEASE_GATE_COMMANDS}}
 ```
 
+## AC Verification Taxonomy
+
+Every acceptance criterion in `.agent/runs/*/plan.md` must declare a Verification Method drawn from this enum. The validator at `scripts/agent-validate-plan.sh` (when available) enforces these classifications.
+
+| Method | Definition |
+|---|---|
+| `AUTOMATED-UNIT` | Vitest, Jest, or equivalent unit harness. Deterministic. No real layout. |
+| `AUTOMATED-INTEGRATION` | Real browser or Node integration (Playwright, Puppeteer, Testcontainers, etc.). |
+| `AUTOMATED-E2E` | Full user-flow E2E. |
+| `BUILD-OUTPUT` | File, size, manifest, or other artifact assertion against a build output. |
+| `TYPECHECK` | `tsc --noEmit` or equivalent type checker run. |
+| `MANUAL` | Human verification with documented residual risk. |
+
+**jsdom layout rule.** If acceptance behavior depends on real layout APIs (`clientHeight`, `getBoundingClientRect`, `scrollTop`, `IntersectionObserver`, computed CSS), it MUST NOT be classified as `AUTOMATED-UNIT` in a jsdom environment. Promote to `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, or `MANUAL` with documented residual risk.
+
+## Plan Discipline Command
+
+`scripts/agent-validate-plan.sh` is a plan discipline command, not a gate mode. It validates evidence blocks, banned self-claim patterns, AC verification classifications, and required sections in `.agent/runs/*/plan.md`. It does not replace `scripts/agent-eval.sh <mode>` and is not added to the gate enum.
+
 ## Acceptance Criteria
 
 A gate result must include:

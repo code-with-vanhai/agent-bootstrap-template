@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "version": "0.4.0",
+  "from_versions": ["0.3.0", "0.3.2"],
+  "to": "0.4.0",
+  "safe_overwrite": [
+    {
+      "source_glob": "core/commands/*.md",
+      "target_dir": ".agent/commands"
+    },
+    {
+      "source": "scripts/agent-validate.sh",
+      "target": "scripts/agent-validate.sh"
+    },
+    {
+      "source": "scripts/agent-validate-plan.sh",
+      "target": "scripts/agent-validate-plan.sh"
+    },
+    {
+      "source": "scripts/lib/__init__.py",
+      "target": "scripts/lib/__init__.py"
+    },
+    {
+      "source": "scripts/lib/validate_plan.py",
+      "target": "scripts/lib/validate_plan.py"
+    }
+  ],
+  "adapter_files": [],
+  "patches": [
+    {
+      "file": ".agent/rulebase.md",
+      "anchor": "If a rule cannot be satisfied, stop and report the blocker, the evidence gathered, and the remaining risk.",
+      "insert_after_first_match": "\n## Status Field Whitelist\n\nPlans, specs, and run artifacts MUST NOT include self-assigned quality scores, \u2705 / \u2713 checkmark approvals, or \"Ready for ___\" stamps unless paired with a fresh gate run reference.\n\nAllowed `Status:` values for run artifacts (`spec.md`, `plan.md`):\n\n- `Draft`\n- `Proposed`\n- `Verified with evidence: <gate-name> @ <UTC-timestamp> (exit=<code>)`\n\nBanned in plan/spec text (validator-enforced when `scripts/agent-validate-plan.sh` is available):\n\n- `Quality target: N/10`, `Score: N/10`, and similar self-assigned scores.\n- Bare `Ready for implementation`, `Ready for review`, `Ready for merge`, `Ready for production`.\n- Standalone `\u2705` / `\u2713` checkmarks on Status lines without verification evidence.\n\nVerification status is set only after a fresh gate run; previous-session memory does not count.\n",
+      "skip_if_contains": "## Status Field Whitelist"
+    },
+    {
+      "file": ".agent/workflows/feature-workflow.md",
+      "anchor": "7. Record durable lessons or decisions only when needed.",
+      "insert_after_first_match": "\n## Grounding Requirements\n\nThe planner re-reads every file it cites in the same planning turn. Stale session memory is not acceptable.\n\nEvery \"BEFORE\" / \"Existing\" / \"Current code\" quote in `spec.md` or `plan.md` MUST use this evidence block grammar:\n\n````md\n<!-- current-code path=<repo-relative-posix> lines=A-B ref=<short-sha> region_sha256=<full-hex> -->\n```<lang>\n<exact snippet>\n```\n<!-- /current-code -->\n````\n\nRules:\n\n- `path`: repo-root-relative POSIX. No `..`, no absolute paths.\n- `lines`: `A-B`, 1-indexed inclusive. Single line uses `A-A`.\n- `ref`: git short SHA (\u2265 7 chars) of the commit when the planner read the file.\n- `region_sha256`: SHA-256 of the entire whitespace-normalized snippet.\n- The validator parses by HTML comment boundaries, not by markdown fence, so snippets may contain triple-backticks.\n\nIf the snippet expected at the cited region is not present at the working tree, the planner stops and revises the plan goal. Do not fabricate a \"BEFORE\" snippet that fits the proposed AFTER.\n\nThe non-trivial plan must contain three sections enforced by `scripts/agent-validate-plan.sh` (when available):\n\n- `Acceptance Criteria` \u2014 every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.\n- `Existing Behaviors Preserved` \u2014 for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).\n- `Verification` \u2014 gate name and command(s).\n\nStatus field whitelist: `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned quality scores, \u2705 checkmarks, and bare `Ready for ...` stamps are forbidden.\n",
+      "skip_if_contains": "## Grounding Requirements"
+    },
+    {
+      "file": ".agent/workflows/review-workflow.md",
+      "anchor": "5. State verification gaps and residual risk.",
+      "insert_after_first_match": "\n## Plan/Spec Review\n\nWhen the review target is `.agent/runs/*/plan.md` or `spec.md`, apply these passes in order. Do not skip ahead while an earlier pass is failing.\n\n1. **Grounding pass first.** For every evidence block in the plan, re-read the cited file at the current working tree and verify the snippet matches exactly (whitespace-normalized). Mismatch is a P0 grounding defect; return the plan to the planner.\n2. **Behavior preservation pass.** Cross-check each `Existing Behaviors Preserved` entry against actual source. Missing or wrong behaviors are P1 defects.\n3. **Correctness pass.** Only after the first two passes are clean, evaluate the proposed AFTER for correctness, contracts, and risk.\n4. **Loop control.** If grounding defects send the plan back to the planner more than 3 rounds, escalate to a human reviewer instead of iterating.\n\nDo not iterate on solution quality while grounding is broken.\n\nIf `scripts/agent-validate-plan.sh` is available, run it first; treat its `High` findings as P0 / P1 mechanically before applying judgement on the rest of the plan.\n",
+      "skip_if_contains": "## Plan/Spec Review"
+    },
+    {
+      "file": ".agent/roles/planner.md",
+      "anchor": "8. Hand off to Implementer or Reviewer.",
+      "insert_after_first_match": "\n## Evidence Blocks\n\nQuote current code only inside an evidence block. The grammar is canonical in `.agent/workflows/feature-workflow.md`. Every block must:\n\n- Use repo-root-relative POSIX `path` (no `..`, no absolute paths).\n- Declare a 1-indexed inclusive `lines` range.\n- Pin the commit `ref` (git short SHA, \u2265 7 chars) the planner read.\n- Include `region_sha256` over the whitespace-normalized snippet.\n- Re-read the cited file in the same planning turn before writing the block. Stale memory is not acceptable.\n\nIf the snippet you expected is not present at the cited region, stop and revise the plan goal. Do not fabricate a BEFORE that fits the proposed AFTER.\n\n## Existing Behaviors Preserved\n\nFor each function or handler being modified, list its current side effects with evidence-block citations and classify each entry as one of:\n\n- `PRESERVED` \u2014 kept identical after the change.\n- `INTENTIONALLY REMOVED` \u2014 removed on purpose; include reason and consumer impact.\n- `BUG FIX` \u2014 current behavior is wrong; include root cause and test gap.\n\nAn entry without an evidence-block citation is a P0 plan defect.\n\n## AC Verification Method\n\nEvery acceptance criterion row must declare a Verification Method from this enum:\n\n- `AUTOMATED-UNIT` \u2014 Vitest/Jest/equivalent, deterministic, no real layout.\n- `AUTOMATED-INTEGRATION` \u2014 real browser/Node integration (Playwright, Puppeteer, Testcontainers).\n- `AUTOMATED-E2E` \u2014 full user-flow E2E.\n- `BUILD-OUTPUT` \u2014 file/size/manifest assertion against a build artifact.\n- `TYPECHECK` \u2014 `tsc --noEmit` or equivalent.\n- `MANUAL` \u2014 human verification with documented residual risk.\n\nIf acceptance behavior depends on real layout APIs (`clientHeight`, `getBoundingClientRect`, `scrollTop`, `IntersectionObserver`, computed CSS), it must NOT be classified as `AUTOMATED-UNIT` in a jsdom environment. Promote to `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, or `MANUAL` with documented residual risk.\n\n## Status Discipline\n\nA run artifact's `Status:` line uses one of: `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned quality scores, bare `Ready for ...` stamps, and \u2705 checkmarks on status lines are forbidden. Verification status is set only after a fresh gate run.\n",
+      "skip_if_contains": "## Evidence Blocks"
+    },
+    {
+      "file": ".agent/roles/reviewer.md",
+      "anchor": "5. Lead with findings ordered by severity.",
+      "insert_after_first_match": "\n## Plan/Spec Grounding Pass\n\nWhen the review target is a run artifact (`spec.md` or `plan.md`), apply these passes in order. Do not skip ahead while an earlier pass is failing.\n\n1. **Grounding pass.** For every evidence block in the plan, re-read the cited file at the current working tree and verify the snippet matches exactly (whitespace-normalized). Mismatch = P0 grounding defect; return the plan to the planner.\n2. **Behavior preservation pass.** Cross-check each `Existing Behaviors Preserved` entry against the actual source. Missing or wrong behaviors = P1 defect.\n3. **Correctness pass.** Only after the first two passes are clean, evaluate the proposed AFTER for correctness, contracts, and risk.\n4. **Loop control.** If grounding defects send the plan back to the planner more than 3 rounds, escalate to a human reviewer instead of iterating.\n\nIf `scripts/agent-validate-plan.sh` is available, run it first; treat its `High` findings as P0 / P1 mechanically before judgement on the rest of the plan.\n",
+      "skip_if_contains": "## Plan/Spec Grounding Pass"
+    },
+    {
+      "file": ".agent/gates.md",
+      "anchor": "Do not trade away primary correctness to improve auxiliary metrics.",
+      "insert_after_first_match": "\n## AC Verification Taxonomy\n\nEvery acceptance criterion in `.agent/runs/*/plan.md` must declare a Verification Method drawn from this enum. The validator at `scripts/agent-validate-plan.sh` (when available) enforces these classifications.\n\n| Method | Definition |\n|---|---|\n| `AUTOMATED-UNIT` | Vitest, Jest, or equivalent unit harness. Deterministic. No real layout. |\n| `AUTOMATED-INTEGRATION` | Real browser or Node integration (Playwright, Puppeteer, Testcontainers, etc.). |\n| `AUTOMATED-E2E` | Full user-flow E2E. |\n| `BUILD-OUTPUT` | File, size, manifest, or other artifact assertion against a build output. |\n| `TYPECHECK` | `tsc --noEmit` or equivalent type checker run. |\n| `MANUAL` | Human verification with documented residual risk. |\n\n**jsdom layout rule.** If acceptance behavior depends on real layout APIs (`clientHeight`, `getBoundingClientRect`, `scrollTop`, `IntersectionObserver`, computed CSS), it MUST NOT be classified as `AUTOMATED-UNIT` in a jsdom environment.\n\n## Plan Discipline Command\n\n`scripts/agent-validate-plan.sh` is a plan discipline command, not a gate mode. It validates evidence blocks, banned self-claim patterns, AC verification classifications, and required sections in `.agent/runs/*/plan.md`. It does not replace `scripts/agent-eval.sh <mode>` and is not added to the gate enum.\n",
+      "skip_if_contains": "## AC Verification Taxonomy"
+    }
+  ],
+  "generate_codex_command_wrappers": {
+    "enabled_when_feature_present": "native-skills",
+    "commands_source_glob": "core/commands/*.md",
+    "target_dir": ".agents/skills/agent-bootstrap"
+  },
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.4.0",
+      "synced_to_template_version": "0.4.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.4.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.4.0: grounded planning protocol (evidence blocks, behavior preservation, AC verification taxonomy, status whitelist) + scripts/agent-validate-plan.sh validator."
+    },
+    "merge_array_unique": {}
+  }
+}

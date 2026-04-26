@@ -10,6 +10,19 @@ Use this workflow for code review, architecture review, rulebase review, or risk
 4. Lead with actionable findings ordered by severity.
 5. State verification gaps and residual risk.
 
+## Plan/Spec Review
+
+When the review target is `.agent/runs/*/plan.md` or `spec.md`, apply these passes in order. Do not skip ahead while an earlier pass is failing.
+
+1. **Grounding pass first.** For every evidence block in the plan, re-read the cited file at the current working tree and verify the snippet matches exactly (whitespace-normalized). Mismatch is a P0 grounding defect; return the plan to the planner.
+2. **Behavior preservation pass.** Cross-check each `Existing Behaviors Preserved` entry against actual source. Missing or wrong behaviors are P1 defects.
+3. **Correctness pass.** Only after the first two passes are clean, evaluate the proposed AFTER for correctness, contracts, and risk.
+4. **Loop control.** If grounding defects send the plan back to the planner more than 3 rounds, escalate to a human reviewer instead of iterating.
+
+Do not iterate on solution quality while grounding is broken.
+
+If `scripts/agent-validate-plan.sh` is available, run it first; treat its `High` findings as P0 / P1 mechanically before applying judgement on the rest of the plan.
+
 ## Severity Guidance
 
 - Critical: data loss, security bypass, production outage, broken deploy, irreversible migration.

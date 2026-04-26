@@ -159,13 +159,38 @@ def load_migration(template_root, current, to_version):
     migration = read_json(path)
     if migration.get("schema_version") != 1:
         raise UsageError(f"unsupported migration schema_version: {migration.get('schema_version')}")
-    for key in ("version", "from", "to"):
+    for key in ("version", "to"):
         validate_version(migration.get(key), f"migration {key}")
-    if migration["from"] != current or migration["to"] != to_version or migration["version"] != to_version:
+
+    # `from` is optional when `from_versions: []` is provided; otherwise required.
+    from_versions = migration.get("from_versions")
+    if from_versions is not None:
+        if not isinstance(from_versions, list) or not from_versions:
+            raise UsageError("migration from_versions must be a non-empty array of semver strings")
+        for value in from_versions:
+            validate_version(value, "migration from_versions[]")
+
+    if migration.get("from") is not None:
+        validate_version(migration["from"], "migration from")
+
+    if from_versions is None and migration.get("from") is None:
+        raise UsageError("migration must declare either `from` or `from_versions`")
+
+    accepted_sources = set(from_versions or [])
+    if migration.get("from") is not None:
+        accepted_sources.add(migration["from"])
+
+    if current not in accepted_sources or migration["to"] != to_version or migration["version"] != to_version:
         raise NoPathError(
             f"migration metadata mismatch: current={current}, requested={to_version}, "
-            f"manifest from={migration['from']} to={migration['to']} version={migration['version']}"
+            f"manifest from={migration.get('from')} from_versions={from_versions} "
+            f"to={migration['to']} version={migration['version']}"
         )
+
+    # Normalize: downstream code reads migration['from'] when building the sync
+    # log entry and validating tag presence. Pin it to the actual source version
+    # the caller is migrating from.
+    migration["from"] = current
     return migration
 
 
@@ -595,10 +620,24 @@ def main(argv):
     migration = read_json(migration_path)
     if migration.get("schema_version") != 1:
         raise UsageError(f"unsupported migration schema_version: {migration.get('schema_version')}")
-    for key in ("version", "from", "to"):
+    for key in ("version", "to"):
         validate_version(migration.get(key), f"migration {key}")
 
-    for version in (migration["from"], migration["to"]):
+    candidate_sources = []
+    if migration.get("from") is not None:
+        validate_version(migration["from"], "migration from")
+        candidate_sources.append(migration["from"])
+    from_versions_pre = migration.get("from_versions")
+    if isinstance(from_versions_pre, list):
+        for value in from_versions_pre:
+            validate_version(value, "migration from_versions[]")
+            candidate_sources.append(value)
+    if not candidate_sources:
+        raise UsageError("migration must declare either `from` or `from_versions`")
+
+    if not tag_exists(template_root, migration["to"]):
+        raise UsageError(f"version {migration['to']} requires tag {tag_for(migration['to'])}; try git fetch --tags")
+    for version in candidate_sources:
         if not tag_exists(template_root, version):
             raise UsageError(f"version {version} requires tag {tag_for(version)}; try git fetch --tags")
 

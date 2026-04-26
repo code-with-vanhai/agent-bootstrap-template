@@ -25,6 +25,18 @@ Use this prompt fragment when delegating code, plan, or rule review to a separat
 - Do not invent failures, commands, files, or repo facts.
 - Do not block on style preferences unless they affect correctness, maintainability, or established conventions.
 - Do not approve unverified completion claims.
+- Do not iterate on solution quality while grounding is broken — return the plan to the planner for grounding revision.
+
+## Plan/Spec Review Protocol
+
+When the review target is `.agent/runs/*/plan.md` or `spec.md`, apply these passes in order:
+
+1. **Grounding pass.** Re-read every file cited by an evidence block at the current working tree. Verify the snippet matches exactly (whitespace-normalized). Mismatch = P0 grounding defect.
+2. **Behavior preservation pass.** Cross-check each `Existing Behaviors Preserved` entry against actual source. Missing or wrong behaviors = P1 defect.
+3. **Correctness pass.** Only after the first two passes are clean, evaluate the proposed AFTER.
+4. **Loop control.** If grounding defects send the plan back more than 3 rounds, escalate to a human reviewer.
+
+If `scripts/agent-validate-plan.sh` exists, run it first; treat its `High` findings as P0 / P1 mechanically.
 
 ## Success Criteria
 
