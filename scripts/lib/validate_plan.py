@@ -20,6 +20,11 @@ Checks:
 
   SECT-001 Non-trivial plan must contain `Acceptance Criteria`,
            `Existing Behaviors Preserved`, `Verification` sections.
+  BEH-001 If `Existing Behaviors Preserved` has any non-empty bullet, the plan
+          must contain at least one `<!-- current-code -->` evidence block.
+          Empty markers (`- none`, `- N/A`, ...) are tolerated.
+  BEH-002 (Medium) Each non-empty Existing Behaviors Preserved bullet should
+          carry an inline evidence-block citation marker.
   AC-001  Every AC table row declares a Verification Method enum value.
   AC-002  Layout-dependent ACs cannot be `AUTOMATED-UNIT` (jsdom rule).
 
@@ -351,15 +356,41 @@ def _parse_lines(raw: Optional[str]) -> Optional[Tuple[int, int]]:
 
 
 def _extract_snippet_from_body(body: str) -> str:
-    """Inside an evidence block, the inner code lives in a fenced block.
+    """Extract the snippet from inside an evidence block body.
 
-    We tolerate trailing whitespace and blank lines between the comment and
-    the fence, and pick the FIRST fenced block found.
+    The contract (see `core/workflows/feature-workflow.md`) says the validator
+    parses by HTML comment boundary, not by markdown fence, so the snippet may
+    contain triple-backticks. We achieve that here by stripping at most ONE
+    outer fence wrapper if the body opens with a fence and ends with the same-
+    width closing fence on its own line. Otherwise the body is returned as-is.
     """
 
-    for _start, _lang, snippet in _iter_fenced_code_blocks(body):
-        return snippet
-    return body.strip()
+    lines = body.splitlines()
+    # Skip leading blank lines.
+    start = 0
+    while start < len(lines) and lines[start].strip() == "":
+        start += 1
+    # Skip trailing blank lines.
+    end = len(lines)
+    while end > start and lines[end - 1].strip() == "":
+        end -= 1
+    if start >= end:
+        return ""
+
+    open_match = _FENCE_RE.match(lines[start].strip())
+    close_match = _FENCE_RE.match(lines[end - 1].strip()) if end - 1 > start else None
+    if (
+        open_match
+        and close_match
+        and open_match.group(1) == close_match.group(1)
+        # Closer must be a bare fence (no info string), to avoid swallowing a
+        # nested ```ts opener as the closer.
+        and close_match.group(2).strip() == ""
+    ):
+        return "\n".join(lines[start + 1 : end - 1])
+
+    # No clean wrapping fence; return the trimmed body verbatim.
+    return "\n".join(lines[start:end])
 
 
 # ---------------------------------------------------------------------------
@@ -367,11 +398,26 @@ def _extract_snippet_from_body(body: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+# `_LABEL_BOUNDARY` matches optional markdown emphasis (`**`, `*`, `__`, `_`)
+# or backticks before/after the label-colon junction. This makes SC checks
+# resilient to common bolded "Status: Ready" / "**Quality target:** 9/10"
+# variants we observed in the wild (BrainMap dogfood).
+_LABEL_BOUNDARY = r"(?:[`*_]+\s*)?"
+_COLON = r"(?:\s*[`*_]+)?\s*:\s*(?:[`*_]+\s*)?"
+
 SELF_CLAIM_PATTERNS = {
-    "SC-001": re.compile(r"Quality\s+target:?\s*\d+(?:\.\d+)?\s*/\s*10", re.IGNORECASE),
-    "SC-002": re.compile(r"\bScore:?\s*\d+(?:\.\d+)?\s*/\s*10", re.IGNORECASE),
+    "SC-001": re.compile(
+        r"Quality\s+target" + _COLON + r"\d+(?:\.\d+)?\s*/\s*10",
+        re.IGNORECASE,
+    ),
+    "SC-002": re.compile(
+        r"(?:^|[^A-Za-z])" + _LABEL_BOUNDARY + r"Score" + _COLON + r"\d+(?:\.\d+)?\s*/\s*10",
+        re.IGNORECASE,
+    ),
     "SC-003": re.compile(
-        r"^\s*Status:\s*(?:Ready|Done|Complete|Production-ready)\b.*",
+        r"^\s*" + _LABEL_BOUNDARY + r"Status"
+        + _COLON
+        + r"(?:Ready|Done|Complete|Production[- ]?ready)\b.*",
         re.IGNORECASE | re.MULTILINE,
     ),
     "SC-004": re.compile(
@@ -403,6 +449,24 @@ REQUIRED_SECTION_HEADINGS = (
     "Verification",
 )
 
+# Bullet entries that explicitly mark "no behaviors to preserve" are allowed
+# without citation. Anything else is treated as a real entry that must cite.
+_EMPTY_BEHAVIOR_MARKERS = (
+    "none",
+    "n/a",
+    "not applicable",
+    "(none)",
+    "no existing behavior",
+    "no behaviors to preserve",
+)
+
+# Tokens that count as "this bullet cites an evidence block" for BEH-002.
+# We accept either a current-code reference, a `path:line` style citation, or
+# a `lines=` attribute echo, since the grammar lives in the workflow.
+_CITATION_TOKENS_RE = re.compile(
+    r"(?:current-code\b|lines\s*=\s*\d+\s*-\s*\d+|`[^`]+:\d+(?:-\d+)?`|@[A-Za-z0-9_./\-]+:\d+(?:-\d+)?)"
+)
+
 AC_VERIFICATION_ENUM = {
     "AUTOMATED-UNIT",
     "AUTOMATED-INTEGRATION",
@@ -430,6 +494,33 @@ def section_present(plan_text: str, heading: str) -> bool:
         if match.group(2).strip().lower() == target:
             return True
     return False
+
+
+def section_body_lines(plan_text: str, heading: str) -> List[Tuple[int, str]]:
+    """Return (1-indexed line, content) pairs of the body under `heading`.
+
+    The body ends at the next heading of equal or shallower depth or EOF.
+    """
+
+    target = heading.strip().lower()
+    lines = plan_text.splitlines()
+    out: List[Tuple[int, str]] = []
+    in_section = False
+    section_depth = 0
+    for idx, line in enumerate(lines):
+        match = _HEADING_RE.match(line)
+        if match:
+            depth = len(match.group(1))
+            title = match.group(2).strip().lower()
+            if title == target:
+                in_section = True
+                section_depth = depth
+                continue
+            if in_section and depth <= section_depth:
+                break
+        if in_section:
+            out.append((idx + 1, line))
+    return out
 
 
 def find_ac_table(plan_text: str) -> Optional[Tuple[int, List[List[str]]]]:
@@ -770,6 +861,54 @@ def validate_plan(
         )
 
     # ------------------------------------------------------------------
+    # BEH-001 / BEH-002 - Existing Behaviors Preserved must cite evidence
+    # ------------------------------------------------------------------
+    behavior_body = section_body_lines(text, "Existing Behaviors Preserved")
+    behavior_bullets: List[Tuple[int, str]] = []
+    for line_no, line in behavior_body:
+        stripped = line.lstrip()
+        if not stripped.startswith(("-", "*", "+")):
+            continue
+        bullet = stripped[1:].strip()
+        if not bullet:
+            continue
+        if bullet.lower().rstrip(".") in _EMPTY_BEHAVIOR_MARKERS:
+            continue
+        behavior_bullets.append((line_no, bullet))
+
+    if behavior_bullets and not blocks:
+        findings.append(
+            Finding(
+                "BEH-001",
+                SEVERITY_HIGH,
+                (
+                    "Existing Behaviors Preserved lists "
+                    f"{len(behavior_bullets)} entr"
+                    f"{'y' if len(behavior_bullets) == 1 else 'ies'} "
+                    "but the plan contains no `<!-- current-code -->` evidence "
+                    "block. Each behavior must be cited."
+                ),
+                plan.path,
+                behavior_bullets[0][0],
+            )
+        )
+    else:
+        for line_no, bullet in behavior_bullets:
+            if not _CITATION_TOKENS_RE.search(bullet):
+                findings.append(
+                    Finding(
+                        "BEH-002",
+                        SEVERITY_MEDIUM,
+                        (
+                            "Existing Behaviors Preserved entry has no inline "
+                            "evidence-block citation (current-code/lines=A-B/`path:line`)"
+                        ),
+                        plan.path,
+                        line_no,
+                    )
+                )
+
+    # ------------------------------------------------------------------
     # AC verification method classification (AC-001 + AC-002)
     # ------------------------------------------------------------------
     ac_table = find_ac_table(text)
@@ -853,6 +992,48 @@ def filter_for_exit(findings: List[Finding], strict: bool) -> List[Finding]:
     return [f for f in findings if f.severity == SEVERITY_HIGH]
 
 
+_MIN_TEMPLATE_VERSION = (0, 4, 0)
+
+
+def _semver_tuple(version: str) -> Tuple[int, int, int]:
+    """Parse `MAJOR.MINOR.PATCH(-pre)` into a comparable tuple.
+
+    Pre-release suffixes are dropped for the comparison; we only need the
+    numeric prefix to decide whether a repo has synced to >= 0.4.0.
+    """
+
+    core = version.split("-", 1)[0].split("+", 1)[0]
+    parts = core.split(".")
+    out = []
+    for value in parts[:3]:
+        try:
+            out.append(int(value))
+        except ValueError:
+            out.append(0)
+    while len(out) < 3:
+        out.append(0)
+    return tuple(out[:3])  # type: ignore[return-value]
+
+
+def detect_target_template_version(repo_root: Path) -> Optional[str]:
+    """Read `.agent/manifest.json` if present and return the synced version.
+
+    Falls back through the same key order as `agent-sync.py`'s
+    `detect_current_version`: `synced_to_template_version` then
+    `instantiated_from_template_version`.
+    """
+
+    manifest_path = repo_root / ".agent" / "manifest.json"
+    data = _read_json(manifest_path)
+    if not data:
+        return None
+    for key in ("synced_to_template_version", "instantiated_from_template_version"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Validate .agent/runs/<slug>/plan.md and spec.md artifacts."
@@ -861,10 +1042,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--strict", action="store_true", help="Treat Medium findings as failures")
     parser.add_argument("--repo-root", help="Override repo root for context detection")
     parser.add_argument("--format", choices=("human", "github"), default="human")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Validate even if the target repo has not yet synced to template >= 0.4.0",
+    )
     args = parser.parse_args(argv)
 
     target = Path(args.target).resolve()
     repo_root = Path(args.repo_root).resolve() if args.repo_root else _detect_repo_root(target)
+
+    if not args.force:
+        synced_version = detect_target_template_version(repo_root)
+        if synced_version is not None and _semver_tuple(synced_version) < _MIN_TEMPLATE_VERSION:
+            min_str = ".".join(str(p) for p in _MIN_TEMPLATE_VERSION)
+            print(
+                f"SKIP: target repo template version {synced_version} < {min_str}; "
+                f"skipping plan validation. Pass --force to override.",
+                file=sys.stderr,
+            )
+            return 0
 
     plan_files = collect_plan_files(target)
     if not plan_files:

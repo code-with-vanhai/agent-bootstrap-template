@@ -16,6 +16,24 @@ fail() {
   failures=$((failures + 1))
 }
 
+# Detect Claude CLI conditions that make assertions meaningless (e.g. quota
+# exhaustion, auth errors). When detected, evals should SKIP instead of FAIL
+# so a depleted credit pool does not masquerade as a behavior regression.
+is_claude_unavailable_output() {
+  output="$1"
+  printf '%s' "$output" | grep -Eiq \
+    "(hit your (monthly )?(usage )?limit|usage limit (reached|exceeded)|rate limit (reached|exceeded)|limit.*resets|invalid api key|authentication.*failed|please (log ?in|authenticate)|credit balance is too low|quota exceeded|api error.*(401|403|429))"
+}
+
+skip_if_claude_unavailable() {
+  output="$1"
+  reason="${2:-claude CLI unavailable (quota/auth)}"
+  if is_claude_unavailable_output "$output"; then
+    printf 'SKIP: %s: %s\n' "$reason" "$(printf '%s' "$output" | head -n 1)"
+    finish_test_skip
+  fi
+}
+
 assert_contains() {
   output="$1"
   pattern="$2"
@@ -181,4 +199,10 @@ finish_test() {
     printf '\n%d assertion(s) failed.\n' "$failures" >&2
     exit 1
   fi
+}
+
+# Used by skip_if_claude_unavailable: exit 77 (conventional "skipped" code)
+# so scripts/agent-evals.sh can label the run as SKIP rather than PASS.
+finish_test_skip() {
+  exit 77
 }

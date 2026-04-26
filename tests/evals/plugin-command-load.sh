@@ -4,8 +4,17 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=tests/evals/test-helpers.sh
+source "$SCRIPT_DIR/test-helpers.sh"
+
 claude_bin="${CLAUDE_BIN:-claude}"
 timeout_seconds="${EVAL_TIMEOUT:-30}"
+
+if ! command -v "$claude_bin" >/dev/null 2>&1; then
+  printf 'SKIP: %s CLI not found; plugin command load eval was not run.\n' "$claude_bin"
+  finish_test_skip
+fi
 
 # Phase 1 eval only: verify Claude Code loads plugin commands from the
 # canonical custom path. This intentionally invokes a fake plugin-prefixed
@@ -37,6 +46,11 @@ set -e
 if [ "$status" = "124" ]; then
   printf 'FAIL: Claude command load probe timed out after %s seconds.\n' "$timeout_seconds" >&2
   exit 1
+fi
+
+if is_claude_unavailable_output "$(cat "$output_file")"; then
+  printf 'SKIP: claude CLI unavailable (quota/auth): %s\n' "$(head -n 1 "$output_file")"
+  finish_test_skip
 fi
 
 if grep -Eq 'Loaded [0-9]+ commands from plugin agent-bootstrap custom path: .*/core/commands' "$debug_file"; then

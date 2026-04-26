@@ -20,8 +20,7 @@ Trivial change to `helloWorld` return value.
 
 ## Existing Behaviors Preserved
 
-- `helloWorld` currently returns `"ok"` (PRESERVED until AFTER step). Citation:
-  evidence block above.
+- `helloWorld` currently returns `"ok"` at `src/app.ts:2-2` (PRESERVED until AFTER step).
 
 ## Verification
 

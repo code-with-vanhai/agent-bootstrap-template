@@ -116,10 +116,15 @@ Plan:
 - Affected areas:
 - Owner:
 - Steps:
+- Acceptance Criteria: (table with columns: ID | Criterion | Verification Method | Gate)
+- Existing Behaviors Preserved: (list with evidence-block citation per entry; classify PRESERVED | INTENTIONALLY REMOVED | BUG FIX)
+- Verification: (gate command(s) and expected exit code; status remains Draft/Proposed until a fresh gate run produces evidence)
 - Required gates:
 - Docs/tests/contracts to update:
 - Risks:
 ```
+
+The `Acceptance Criteria`, `Existing Behaviors Preserved`, and `Verification` sections are required by the validator (`scripts/agent-validate-plan.sh`). Omitting any of them is a P0 plan defect.
 
 ## Limits
 

@@ -296,6 +296,208 @@ class LintPackTest(unittest.TestCase):
         self.assertIn("LP-003", {f.check_id for f in mv3})
 
 
+class BoldedSelfClaimTest(unittest.TestCase):
+    """Regression coverage for the BrainMap dogfood: bold labels around the colon."""
+
+    def setUp(self):
+        self.repo = TempRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def _validate(self, body: str):
+        text = "## Plan\n\n" + body + "\n\n## Verification\n\nnone\n"
+        plan = self.repo.write(".agent/runs/b/plan.md", text)
+        ctx = validate_plan.detect_repo_context(self.repo.tmp)
+        return validate_plan.validate_plan(
+            validate_plan.PlanFile(plan, text), ctx, strict=False
+        )
+
+    def test_bold_quality_target_flagged(self):
+        codes = {f.check_id for f in self._validate("**Quality target:** 9.5/10 \u2705")}
+        self.assertIn("SC-001", codes)
+
+    def test_bold_status_ready_flagged(self):
+        codes = {f.check_id for f in self._validate("**Status:** Ready for implementation")}
+        self.assertIn("SC-003", codes)
+
+    def test_backtick_score_flagged(self):
+        codes = {f.check_id for f in self._validate("`Score:` 7/10")}
+        self.assertIn("SC-002", codes)
+
+
+class BehaviorPreservedTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = TempRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def _validate(self, behavior_section: str, evidence_block: str = "") -> list:
+        text = textwrap.dedent(
+            """\
+            # Plan
+
+            ## Acceptance Criteria
+
+            | # | Criterion | Verification Method |
+            |---|---|---|
+            | 1 | works | `MANUAL` |
+
+            {evidence}
+
+            ## Existing Behaviors Preserved
+
+            {behavior}
+
+            ## Verification
+
+            ```bash
+            none
+            ```
+            """
+        ).format(evidence=evidence_block, behavior=behavior_section)
+        plan = self.repo.write(".agent/runs/x/plan.md", text)
+        ctx = validate_plan.detect_repo_context(self.repo.tmp)
+        return validate_plan.validate_plan(
+            validate_plan.PlanFile(plan, text), ctx, strict=False
+        )
+
+    def test_none_marker_does_not_require_citation(self):
+        codes = {f.check_id for f in self._validate("- none")}
+        self.assertNotIn("BEH-001", codes)
+        self.assertNotIn("BEH-002", codes)
+
+    def test_real_bullet_without_evidence_block_flags_beh001(self):
+        codes = {f.check_id for f in self._validate(
+            "- handler emits an analytics event before redirecting"
+        )}
+        self.assertIn("BEH-001", codes)
+
+    def test_real_bullet_with_evidence_block_no_inline_cite_flags_beh002_only(self):
+        # Provide an evidence block somewhere so BEH-001 does not fire, but
+        # the bullet itself has no inline citation token.
+        self.repo.write("src/x.ts", "console.log(1)\nconsole.log(2)\n")
+        evidence = (
+            "<!-- current-code path=src/x.ts lines=1-1 ref=deadbeef "
+            "region_sha256=" + _sha256_normalized("console.log(1)") + " -->\n"
+            "```ts\nconsole.log(1)\n```\n"
+            "<!-- /current-code -->\n"
+        )
+        findings = self._validate(
+            "- handler emits an analytics event before redirecting",
+            evidence_block=evidence,
+        )
+        codes = {f.check_id for f in findings}
+        self.assertNotIn("BEH-001", codes)
+        self.assertIn("BEH-002", codes)
+
+    def test_bullet_with_inline_citation_passes(self):
+        self.repo.write("src/x.ts", "console.log(1)\n")
+        evidence = (
+            "<!-- current-code path=src/x.ts lines=1-1 ref=deadbeef "
+            "region_sha256=" + _sha256_normalized("console.log(1)") + " -->\n"
+            "```ts\nconsole.log(1)\n```\n"
+            "<!-- /current-code -->\n"
+        )
+        findings = self._validate(
+            "- handler emits an analytics event (`src/x.ts:1-1`) before redirect",
+            evidence_block=evidence,
+        )
+        codes = {f.check_id for f in findings}
+        self.assertNotIn("BEH-001", codes)
+        self.assertNotIn("BEH-002", codes)
+
+
+class TargetVersionSkipTest(unittest.TestCase):
+    """Validator must skip when target repo synced version is < 0.4.0."""
+
+    def setUp(self):
+        self.repo = TempRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def _write_manifest(self, version: str):
+        path = self.repo.tmp / ".agent" / "manifest.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps({"synced_to_template_version": version}),
+            encoding="utf-8",
+        )
+
+    def _write_plan_with_high_findings(self) -> Path:
+        text = "# Plan\n\n(missing required sections)\n"
+        return self.repo.write(".agent/runs/x/plan.md", text)
+
+    def test_old_version_skips(self):
+        self._write_manifest("0.3.0")
+        plan = self._write_plan_with_high_findings()
+        rc = validate_plan.main([str(plan), "--repo-root", str(self.repo.tmp)])
+        self.assertEqual(rc, 0)
+
+    def test_force_flag_overrides(self):
+        self._write_manifest("0.3.0")
+        plan = self._write_plan_with_high_findings()
+        rc = validate_plan.main([str(plan), "--repo-root", str(self.repo.tmp), "--force"])
+        self.assertEqual(rc, 1)
+
+    def test_current_version_validates(self):
+        self._write_manifest("0.4.0")
+        plan = self._write_plan_with_high_findings()
+        rc = validate_plan.main([str(plan), "--repo-root", str(self.repo.tmp)])
+        self.assertEqual(rc, 1)
+
+
+class TripleBacktickSnippetTest(unittest.TestCase):
+    """Evidence snippets containing inner triple-backticks must round-trip."""
+
+    def setUp(self):
+        self.repo = TempRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def test_inner_fence_preserved_via_outer_fence_of_higher_width(self):
+        # Source file content contains a triple-backtick line.
+        snippet = "```ts\nconsole.log(1)\n```"
+        self.repo.write("src/code.md", snippet + "\n")
+        ref = self.repo.commit_all("with fence content")
+
+        sha = _sha256_normalized(snippet)
+        # Use a quad-backtick outer fence to wrap a snippet with inner ```ts.
+        block = (
+            f"<!-- current-code path=src/code.md lines=1-3 ref={ref} "
+            f"region_sha256={sha} -->\n"
+            "````md\n"
+            f"{snippet}\n"
+            "````\n"
+            "<!-- /current-code -->\n"
+        )
+        text = textwrap.dedent(
+            """\
+            # Plan
+
+            {block}
+
+            ## Acceptance Criteria
+
+            | # | Criterion | Verification Method |
+            |---|---|---|
+            | 1 | x | `MANUAL` |
+
+            ## Existing Behaviors Preserved
+
+            - none
+
+            ## Verification
+
+            ```bash
+            none
+            ```
+            """
+        ).format(block=block)
+        plan = self.repo.write(".agent/runs/x/plan.md", text)
+        ctx = validate_plan.detect_repo_context(self.repo.tmp)
+        findings = validate_plan.validate_plan(
+            validate_plan.PlanFile(plan, text), ctx, strict=False
+        )
+        ev_high = [f for f in findings if f.check_id.startswith("EV-") and f.severity == "High"]
+        self.assertEqual(ev_high, [], f"unexpected High EV findings: {ev_high}")
+
+
 class SectionsAndAcTest(unittest.TestCase):
     def setUp(self):
         self.repo = TempRepo()

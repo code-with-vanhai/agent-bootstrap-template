@@ -147,37 +147,118 @@ run_sync_clean() {
   printf 'PASS: [%s] idempotent re-apply\n' "$label"
 }
 
-run_sync_customized() {
-  local label="customized"
+run_sync_customized_rulebase() {
+  local label="customized-rulebase"
   local fixture
   fixture="$(setup_fixture "$label" "0.3.0")"
 
-  # Inject a small user customization that does NOT collide with anchors.
   cat >> "$fixture/.agent/rulebase.md" <<'EOF'
 
 ## Local Project Notes
 
-This rulebase is customized for the fixture project. The lines below are
-preserved across syncs.
-
 - Custom rule: never deploy on Friday.
 EOF
   ( cd "$fixture" && git -c user.email=t@t -c user.name=Test add . && \
-    git -c user.email=t@t -c user.name=Test commit -q -m "user customization" )
+    git -c user.email=t@t -c user.name=Test commit -q -m "rulebase customization" )
 
   AGENT_SYNC_NOW=2026-04-26T00:00:00Z \
     "$root/scripts/agent-sync.sh" --target "$fixture" --to 0.4.0 --apply
 
-  # User customization preserved.
   assert_file_contains "$fixture/.agent/rulebase.md" "Custom rule: never deploy on Friday." \
-    "[$label] user customization preserved"
-  # Patch still applied.
+    "[$label] customization preserved"
   assert_file_contains "$fixture/.agent/rulebase.md" "## Status Field Whitelist" \
     "[$label] Status Field Whitelist patch applied alongside customization"
 }
 
+run_sync_customized_gates() {
+  local label="customized-gates"
+  local fixture
+  fixture="$(setup_fixture "$label" "0.3.0")"
+
+  cat >> "$fixture/.agent/gates.md" <<'EOF'
+
+## Local Project Gate Mapping
+
+- `frontend` -> `pnpm test:web`
+- `backend`  -> `pnpm test:api`
+EOF
+  ( cd "$fixture" && git -c user.email=t@t -c user.name=Test add . && \
+    git -c user.email=t@t -c user.name=Test commit -q -m "gate customization" )
+
+  AGENT_SYNC_NOW=2026-04-26T00:00:00Z \
+    "$root/scripts/agent-sync.sh" --target "$fixture" --to 0.4.0 --apply
+
+  assert_file_contains "$fixture/.agent/gates.md" "pnpm test:web" \
+    "[$label] custom frontend gate mapping preserved"
+  assert_file_contains "$fixture/.agent/gates.md" "pnpm test:api" \
+    "[$label] custom backend gate mapping preserved"
+  assert_file_contains "$fixture/.agent/gates.md" "## AC Verification Taxonomy" \
+    "[$label] AC Verification Taxonomy patch applied alongside customization"
+  assert_file_contains "$fixture/.agent/gates.md" "## Plan Discipline Command" \
+    "[$label] Plan Discipline Command patch applied alongside customization"
+}
+
+run_sync_customized_roles() {
+  local label="customized-roles"
+  local fixture
+  fixture="$(setup_fixture "$label" "0.3.0")"
+
+  # Append role-specific local guidance to planner + reviewer.
+  cat >> "$fixture/.agent/roles/planner.md" <<'EOF'
+
+## Local Planning Notes
+
+- Always confirm cron ownership with the on-call rotation before scheduling jobs.
+EOF
+  cat >> "$fixture/.agent/roles/reviewer.md" <<'EOF'
+
+## Local Review Notes
+
+- Block any change that touches `infra/terraform/` without infra-team sign-off.
+EOF
+  cat >> "$fixture/.agent/workflows/feature-workflow.md" <<'EOF'
+
+## Local Workflow Notes
+
+- Run `pnpm i18n:check` before merging UI strings.
+EOF
+  cat >> "$fixture/.agent/workflows/review-workflow.md" <<'EOF'
+
+## Local Review Workflow Notes
+
+- Reviewers must spot-check generated migrations against the staging dataset.
+EOF
+  ( cd "$fixture" && git -c user.email=t@t -c user.name=Test add . && \
+    git -c user.email=t@t -c user.name=Test commit -q -m "role/workflow customization" )
+
+  AGENT_SYNC_NOW=2026-04-26T00:00:00Z \
+    "$root/scripts/agent-sync.sh" --target "$fixture" --to 0.4.0 --apply
+
+  # Customizations preserved.
+  assert_file_contains "$fixture/.agent/roles/planner.md" "on-call rotation" \
+    "[$label] planner customization preserved"
+  assert_file_contains "$fixture/.agent/roles/reviewer.md" "infra-team sign-off" \
+    "[$label] reviewer customization preserved"
+  assert_file_contains "$fixture/.agent/workflows/feature-workflow.md" "pnpm i18n:check" \
+    "[$label] feature-workflow customization preserved"
+  assert_file_contains "$fixture/.agent/workflows/review-workflow.md" "staging dataset" \
+    "[$label] review-workflow customization preserved"
+
+  # Patches still applied.
+  assert_file_contains "$fixture/.agent/roles/planner.md" "## Evidence Blocks" \
+    "[$label] planner Evidence Blocks patch applied"
+  assert_file_contains "$fixture/.agent/roles/reviewer.md" "## Plan/Spec Grounding Pass" \
+    "[$label] reviewer Plan/Spec Grounding Pass patch applied"
+  assert_file_contains "$fixture/.agent/workflows/feature-workflow.md" "## Grounding Requirements" \
+    "[$label] feature-workflow Grounding Requirements patch applied"
+  assert_file_contains "$fixture/.agent/workflows/review-workflow.md" "## Plan/Spec Review" \
+    "[$label] review-workflow Plan/Spec Review patch applied"
+}
+
 run_sync_clean 0.3.0
 run_sync_clean 0.3.2
-run_sync_customized
+run_sync_customized_rulebase
+run_sync_customized_gates
+run_sync_customized_roles
 
 printf '\nAll 0.4.0 migration assertions passed.\n'

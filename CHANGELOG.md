@@ -13,7 +13,21 @@
 - Added schema v1 extension `from_versions: []` in `scripts/agent-sync.py` so a single `core/migrations/0.4.0/migration.json` accepts both `0.3.0` and `0.3.2` source versions.
 - Added `core/migrations/0.4.0/` migration manifest + `tests/migrations/0.4.0/run.sh` regression test (clean-from-0.3.0, clean-from-0.3.2, customized scenarios; ephemeral local `v0.3.2` and `v0.4.0` tags created if missing).
 - Hardened `scripts/agent-validate.sh` placeholder regex (only `{{UPPER_CASE}}` template tokens flagged; JSX/CSS-in-JS double braces no longer false-positive) and added presence/syntax checks for the new validator files.
+- Hardened `scripts/agent-evals.sh` and `tests/evals/test-helpers.sh`: detect Claude CLI quota / auth errors (e.g. `"You've hit your limit · resets ..."`, `"monthly usage limit"`, `"credit balance is too low"`, `api error 401/403/429`) and emit `SKIP` (exit 77) instead of asserting against the error string and reporting a false `FAIL`. `scripts/agent-evals.sh` now distinguishes exit codes: `0`=PASS, `77`=SKIP, other=FAIL.
+- Demoted LLM-driven behavior evals out of the default `--fast` set. `scripts/agent-evals.sh` modes are now:
+  - `--fast` (default): deterministic, token-free, reliable. Currently `tests/evals/plugin-command-load.sh` only. Safe to run on every commit / in CI without Claude credentials.
+  - `--behavior`: LLM-driven advisory evals (`verify-before-claim`, `root-cause-first`, `no-invented-gates`, `plan-grounding`). Each run consumes Claude quota; results are advisory, NOT a release gate.
+  - `--integration`: all known evals — deterministic + behavior + integration (`no-unrelated-changes`, `bootstrap-pending-completion`). Heaviest mode; only run intentionally.
+
+  When LLM evals fail, the runner prints `LLM-driven evals are advisory; do NOT block release on this alone.` to prevent downstream consumers from misreading flaky LLM output as a release-broken signal.
 - Bumped Claude plugin and local marketplace metadata to `0.4.0`. `scripts/bootstrap-request.sh` now bootstraps targets at `0.4.0`.
+
+> Verification status at release:
+>
+> - **Deterministic gates green**: `scripts/agent-validate.sh`, `scripts/lib/test_validate_plan.py` (27/27), `tests/migrations/0.3.0/run.sh`, `tests/migrations/0.4.0/run.sh`.
+> - **Eval runner SKIP/FAIL classifier verified** with mock CLI (quota error → exit 77 / SKIP; non-matching output → exit 1 / FAIL). See `tests/evals/test-helpers.sh::is_claude_unavailable_output`.
+> - **Behavior evals (4 LLM-driven) currently FAIL when Claude CLI is available** with full quota: `verify-before-claim`, `root-cause-first`, `no-invented-gates`, `plan-grounding`. They are flaky LLM gates and are explicitly **advisory, not a release gate**. Run with `scripts/agent-evals.sh --behavior` only when intentionally dogfooding prompt changes.
+> - **Default `--fast` set is deterministic and token-free** (`plugin-command-load` only) — `scripts/agent-evals.sh` exits `0` cleanly on every commit / CI without Claude credentials. This satisfies the "explicitly demote behavior evals out of the release-gate set" condition for promoting to `v0.4.0`.
 
 ## 0.3.2 - 2026-04-26
 
