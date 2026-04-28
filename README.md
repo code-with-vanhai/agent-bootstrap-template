@@ -155,8 +155,16 @@ Complete .agent/bootstrap-pending.md
 bash scripts/agent-validate.sh
 ```
 
-5. Review the generated `.agent/` files and thin adapters.
-6. Commit the generated agent system only after the repo-specific facts, gates, dangerous operations, and ownership boundaries are correct.
+5. Optionally run candidate gate discovery:
+
+```bash
+bash scripts/agent-gate-discover.sh --write-suggestions
+```
+
+Review `.agent/gate-suggestions.json` before promoting any candidate into `.agent/gates.md` and `scripts/agent-eval.sh`.
+
+6. Review the generated `.agent/` files and thin adapters.
+7. Commit the generated agent system only after the repo-specific facts, gates, dangerous operations, and ownership boundaries are correct.
 
 Manual fallback for harnesses where you want the agent to do the full instantiation:
 
@@ -190,6 +198,7 @@ repo/
 │   └── workflows/
 ├── scripts/
 │   ├── agent-eval.sh
+│   ├── agent-gate-discover.sh
 │   └── agent-validate.sh
 ├── AGENTS.md
 ├── CLAUDE.md
@@ -232,17 +241,45 @@ Run generated-repo validation from the target repo:
 bash scripts/agent-validate.sh
 ```
 
+Discover candidate gates from checked-in package, build, task, and CI files:
+
+```bash
+bash scripts/agent-gate-discover.sh --write-suggestions
+```
+
+The output is advisory JSON. Review each `candidate` before editing
+`.agent/gates.md` or `scripts/agent-eval.sh`.
+
 Run template-source validation from this repo:
 
 ```bash
 bash scripts/agent-validate.sh
 ```
 
+The validator also supports explicit modes and structured output:
+
+```bash
+python3 scripts/lib/validate_agent_system.py --mode template --format json
+python3 scripts/lib/validate_agent_system.py --mode generated --format github
+```
+
+This repository includes a GitHub Actions workflow at `.github/workflows/ci.yml`
+that runs the same deterministic checks on `ubuntu-latest` with Python 3.11:
+template validation, Python unit tests, provider helper tests, deterministic
+fast evals, and migration fixtures. It does not run LLM-driven behavior evals or
+require provider credentials.
+
+Generated repositories can use `core/github/agent-template-ci.example.yml` as a
+starting point. The example validates generated agent files and treats
+`scripts/agent-eval.sh fast` exit code `2` as "not configured" rather than a
+false CI failure.
+
 Run optional headless behavior evals from this repo. Both Claude Code and Codex CLI are supported; pick one with `--provider` or `AGENT_LLM_PROVIDER`. The eval runner exits 0 with `SKIP` when the active provider's CLI is missing or quota/auth-blocked. Evals are intentionally not wired into validation or CI by default.
 
 ```bash
 scripts/agent-evals.sh --fast                     # default (claude); deterministic, token-free
 scripts/agent-evals.sh --fast --provider codex    # codex variant
+scripts/agent-evals.sh --fast --artifact-dir /tmp/agent-eval-artifacts
 scripts/agent-evals.sh --integration              # all evals (heaviest; consumes quota)
 ```
 

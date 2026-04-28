@@ -56,6 +56,8 @@ cp "$TEMPLATE_ROOT/scripts/lib/__init__.py" \
    "$project_dir/scripts/lib/__init__.py"
 cp "$TEMPLATE_ROOT/scripts/lib/validate_plan.py" \
    "$project_dir/scripts/lib/validate_plan.py"
+cp -R "$TEMPLATE_ROOT/scripts/lib/plan_validation" \
+   "$project_dir/scripts/lib/plan_validation"
 chmod +x "$project_dir/scripts/agent-validate-plan.sh"
 
 ( cd "$project_dir" && git add . && git -c user.email=t@t -c user.name=t commit -q -m "fixture" )

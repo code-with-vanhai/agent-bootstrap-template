@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  template:
+    name: Template validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Shell syntax
+        run: |
+          set -euo pipefail
+          bash -n bin/agent-bootstrap
+          for f in scripts/*.sh tests/evals/*.sh tests/lib/*.sh tests/migrations/*/run.sh; do
+            bash -n "$f"
+          done
+
+      - name: Template validator
+        run: bash scripts/agent-validate.sh
+
+      - name: Python unit tests
+        run: |
+          python3 -m unittest scripts.lib.test_gate_discovery
+          python3 -m unittest scripts.lib.test_validate_agent_system
+          python3 -m unittest scripts.lib.test_render_template
+          python3 -m unittest scripts.lib.test_validate_plan
+
+      - name: Provider helper tests
+        run: bash tests/lib/test_llm_provider.sh
+
+      - name: Eval artifact tests
+        run: bash tests/lib/test_agent_evals_artifacts.sh
+
+      - name: Deterministic evals
+        run: bash scripts/agent-evals.sh --fast
+
+      - name: Migration fixtures
+        run: |
+          set -euo pipefail
+          for f in tests/migrations/*/run.sh; do
+            bash "$f"
+          done

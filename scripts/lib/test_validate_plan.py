@@ -1111,5 +1111,55 @@ class ConditionalTableChecksTest(unittest.TestCase):
         self.assertNotIn("HARNESS-001", codes)
 
 
+class CompatibilityWrapperTest(unittest.TestCase):
+    def test_validate_plan_wrapper_reexports_public_symbols(self):
+        expected = [
+            "Finding",
+            "RepoContext",
+            "EvidenceBlock",
+            "MarkdownTable",
+            "PlanFile",
+            "normalize_whitespace",
+            "detect_repo_context",
+            "parse_evidence_blocks",
+            "find_table_under_section",
+            "collect_plan_files",
+            "validate_plan",
+            "filter_for_exit",
+            "detect_target_template_version",
+            "main",
+        ]
+        for name in expected:
+            self.assertTrue(hasattr(validate_plan, name), name)
+
+    def test_cli_human_and_github_output_contract(self):
+        repo = TempRepo()
+        self.addCleanup(repo.cleanup)
+        plan = repo.write(".agent/runs/x/plan.md", "# Plan\n\nNo required sections.\n")
+        cmd = [
+            sys.executable,
+            str(ROOT / "scripts" / "lib" / "validate_plan.py"),
+            "--force",
+            "--repo-root",
+            str(repo.tmp),
+            str(plan),
+        ]
+
+        human = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertEqual(human.returncode, 1)
+        self.assertIn("SECT-001", human.stdout)
+        self.assertIn("Summary: 1 High, 0 Medium", human.stdout)
+
+        github = subprocess.run(
+            cmd[:1] + [cmd[1], "--format", "github"] + cmd[2:],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertEqual(github.returncode, 1)
+        self.assertIn("::error", github.stdout)
+        self.assertIn("SECT-001 severity=High", github.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

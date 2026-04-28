@@ -10,6 +10,7 @@ The generated target repo should have these baseline files:
 .agent/                  # canonical agent instructions
 .agent/roles/prompts/    # prompt fragments for delegated agent work
 scripts/agent-eval.sh    # repo-specific verification gates
+scripts/agent-gate-discover.sh # evidence-backed candidate gate discovery
 scripts/agent-validate.sh # mechanical validation guardrail
 AGENTS.md / CLAUDE.md / Cursor rules / other thin adapters
 ```
@@ -147,6 +148,7 @@ Requirements:
 - Scan the repo before generating files.
 - Create .agent/ as the canonical instruction source.
 - Create scripts/agent-eval.sh and scripts/agent-validate.sh.
+- Create scripts/agent-gate-discover.sh for candidate gate discovery.
 - Create thin adapters for common tools unless existing adapters should be preserved.
 - Preserve behavior-shaping sections in rulebase and gates.
 - Create .agent/roles/prompts/ subagent prompt fragments.
@@ -195,6 +197,7 @@ repo/
 │   └── workflows/
 ├── scripts/
 │   ├── agent-eval.sh
+│   ├── agent-gate-discover.sh
 │   └── agent-validate.sh
 ├── AGENTS.md
 ├── CLAUDE.md
@@ -213,6 +216,17 @@ Optional generated skill layouts:
 ```
 
 Use only the layout supported by the user's tool setup.
+
+Candidate gate discovery is available after script-first bootstrap:
+
+```bash
+bash scripts/agent-gate-discover.sh --write-suggestions
+```
+
+This writes `.agent/gate-suggestions.json` only when `.agent/` already exists.
+The suggestions are evidence-backed candidates from checked-in package, build,
+task, and CI files. They are not configured gates until reviewed and copied into
+both `.agent/gates.md` and `scripts/agent-eval.sh`.
 
 Optional generated files:
 
@@ -257,10 +271,21 @@ The validator checks:
 - No `{{PLACEHOLDER}}` tokens remain.
 - `.agent/manifest.json` is valid JSON.
 - `scripts/agent-eval.sh` has valid shell syntax.
+- `scripts/agent-gate-discover.sh` and its Python helper are present.
 - Generated adapters point to `.agent/`.
 - Optional GitHub PR template and worktree workflow are validated only when present.
 
 The same script also supports template-source validation. When run from this repository root, it validates source files such as `core/skills/`, `core/github/PULL_REQUEST_TEMPLATE.md`, and `core/workflows/worktree-workflow.md`.
+
+For tooling, call the structured validator directly:
+
+```bash
+python3 scripts/lib/validate_agent_system.py --mode auto --format json
+python3 scripts/lib/validate_agent_system.py --mode generated --format github
+```
+
+`scripts/agent-validate.sh` remains the compatibility wrapper and preserves
+`AGENT_ROOT` for validating a generated repo from another working directory.
 
 Then run a configured gate when appropriate:
 
@@ -270,6 +295,29 @@ bash scripts/agent-eval.sh fast
 
 If a gate is marked `not configured`, do not treat that as a failure by itself. Review whether the LLM correctly scanned the repo and documented why no command exists.
 
+To get evidence-backed candidate commands without editing configured gates:
+
+```bash
+bash scripts/agent-gate-discover.sh --write-suggestions
+```
+
+Review `.agent/gate-suggestions.json`; do not treat candidates as configured
+until `.agent/gates.md` and `scripts/agent-eval.sh` have both been updated.
+
+## CI
+
+The template source repository includes `.github/workflows/ci.yml`, which runs
+only deterministic checks: shell syntax, `scripts/agent-validate.sh`, Python
+unit tests, provider helper tests, `scripts/agent-evals.sh --fast`, and migration
+fixtures. It uses `ubuntu-latest` with Python 3.11 and does not require LLM
+credentials.
+
+Generated repositories can copy `core/github/agent-template-ci.example.yml` to
+`.github/workflows/agent-system.yml`. That workflow validates generated agent
+files and runs `scripts/agent-eval.sh fast` when configured. Exit code `2` from
+the fast gate is treated as "not configured" so a freshly bootstrapped repo does
+not fail CI solely because no real gate has been promoted yet.
+
 ## Testing Agent Behavior
 
 This template also includes optional behavior evals for the template itself. Both Claude Code and Codex CLI are supported as of 0.5.0; pick a provider with `--provider` or `AGENT_LLM_PROVIDER` (default `claude`):
@@ -277,10 +325,16 @@ This template also includes optional behavior evals for the template itself. Bot
 ```bash
 scripts/agent-evals.sh --fast                     # default (claude); deterministic, token-free
 scripts/agent-evals.sh --fast --provider codex    # codex variant
+scripts/agent-evals.sh --fast --artifact-dir /tmp/agent-eval-artifacts
 scripts/agent-evals.sh --integration              # all evals (heaviest; consumes provider quota)
 ```
 
 Behavior evals are separate from validation. They invoke a headless LLM CLI (`claude -p` or `codex exec`), can consume model tokens, and may be sensitive to model or harness changes. By default, the eval runner exits 0 with a `SKIP` message when the active provider's CLI is not installed or quota/auth-blocked.
+
+Use `--artifact-dir <path>` or `EVAL_ARTIFACT_DIR=<path>` to keep per-eval
+metadata and output for debugging. `--artifact-dir` takes precedence over the
+environment variable. Be careful uploading artifacts from behavior evals because
+they can contain model output.
 
 If your CLI requires extra args in headless mode, pass them through the per-provider env var:
 

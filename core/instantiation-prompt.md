@@ -154,8 +154,9 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/workflows/*.md` | `.agent/workflows/*.md` | Copy and trim only when repo scope justifies it |
 | `core/workflows/worktree-workflow.md` | `.agent/workflows/worktree-workflow.md` | Optional only; copy when user opts into worktree workflow |
 | `core/manifest.template.json` | `.agent/manifest.json` | Fill placeholders; keep valid JSON |
-| `scripts/agent-validate.sh` | `scripts/agent-validate.sh` | Copy verbatim unless target repo has path constraints |
+| `scripts/agent-validate.sh`, `scripts/lib/validate_agent_system.py` | `scripts/agent-validate.sh`, `scripts/lib/validate_agent_system.py` | Copy verbatim unless target repo has path constraints |
 | `scripts/agent-eval.template.sh` | `scripts/agent-eval.sh` | Customize commands from checked-in repo evidence |
+| `scripts/agent-gate-discover.sh`, `scripts/lib/gate_discovery.py` | `scripts/agent-gate-discover.sh`, `scripts/lib/gate_discovery.py` | Optional candidate discovery only; never promote suggestions without evidence review |
 | `adapters/AGENTS.md` | `AGENTS.md` | Thin adapter; preserve relevant existing instructions |
 | `adapters/CLAUDE.md` | `CLAUDE.md` | Thin adapter; preserve relevant existing instructions |
 | `adapters/GEMINI.md` | `GEMINI.md` | Thin adapter; preserve relevant existing instructions |
@@ -182,6 +183,7 @@ bash scripts/agent-validate.sh
 ```
 
 - Run `bash -n scripts/agent-eval.sh`.
+- Optionally run `bash scripts/agent-gate-discover.sh --write-suggestions` and review `.agent/gate-suggestions.json`; suggestions are candidates, not configured gates.
 - Check that no `{{PLACEHOLDER}}` tokens remain in `.agent/`, adapters, or generated scripts.
 - Confirm `manifest.json` is valid JSON.
 - Confirm generated adapters require re-reading `.agent/rulebase.md` for coding tasks.

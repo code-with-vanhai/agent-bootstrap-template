@@ -100,6 +100,10 @@ assert_not_contains() {
 run_llm() {
   prompt="$1"
   workdir="${2:-$PWD}"
+  if [ -n "${EVAL_CURRENT_ARTIFACT_DIR:-}" ]; then
+    mkdir -p "$EVAL_CURRENT_ARTIFACT_DIR"
+    printf '%s\n' "$prompt" >"$EVAL_CURRENT_ARTIFACT_DIR/prompt.md"
+  fi
   llm_provider_run "${AGENT_LLM_PROVIDER:-claude}" "$prompt" "$workdir"
 }
 

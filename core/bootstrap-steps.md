@@ -36,11 +36,12 @@ The agent should complete only the parts that require repository understanding:
 2. Scan checked-in repository files before editing generated agent files.
 3. Fill `.agent/project-profile.md` with observed stack, runtime, public surface, dangerous operations, and repository map.
 4. Fill `.agent/gates.md` and `scripts/agent-eval.sh` only with commands found in package/build files, task files, or CI.
-5. Fill `.agent/ownership.md` with real path boundaries.
-6. Fill `.agent/manifest.json` with confirmed project metadata.
-7. Preserve existing adapter instructions when relevant.
-8. Run `bash scripts/agent-validate.sh`.
-9. Delete `.agent/bootstrap-pending.md` only after the generated agent system is complete.
+5. Optionally run `bash scripts/agent-gate-discover.sh --write-suggestions`, then promote only reviewed candidates into `.agent/gates.md` and `scripts/agent-eval.sh`.
+6. Fill `.agent/ownership.md` with real path boundaries.
+7. Fill `.agent/manifest.json` with confirmed project metadata.
+8. Preserve existing adapter instructions when relevant.
+9. Run `bash scripts/agent-validate.sh`.
+10. Delete `.agent/bootstrap-pending.md` only after the generated agent system is complete.
 
 Unknown facts must remain `not confirmed` or `not configured`. Do not use package-manager or framework convention as evidence.
 

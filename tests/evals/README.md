@@ -47,6 +47,9 @@ Options:
 - `--integration`: deterministic + behavior + integration evals. Heaviest mode.
 - `--provider <claude|codex>`: pick a provider for this run.
 - `--timeout <sec>`: per-eval timeout, default `300`.
+- `--artifact-dir <path>`: persist per-eval `metadata.json`, `output.txt`,
+  and prompt snapshots when an eval calls `run_llm`. This overrides
+  `EVAL_ARTIFACT_DIR` when both are set.
 - `--verbose`: print full agent output on assertion failures.
 
 ## Per-provider env vars
@@ -97,12 +100,30 @@ prompts focused.
 Do not wire these into CI unless the repo owner explicitly accepts the cost
 and flakiness tradeoff.
 
+## Artifacts
+
+Use `--artifact-dir <path>` or `EVAL_ARTIFACT_DIR=<path>` to persist eval
+debugging artifacts. CLI flag precedence wins over the environment variable.
+Each selected eval gets its own directory with:
+
+- `metadata.json`: eval name, provider, mode, result classification
+  (`PASS`, `SKIP`, or `FAIL`), exit code, timestamps, duration, and whether
+  artifact output was truncated.
+- `output.txt`: combined stdout/stderr from the eval script.
+- `prompt.md`: prompt snapshot when the eval routes through `run_llm`.
+
+Artifact capture is intended for debugging. Behavior eval artifacts can include
+model output, so avoid uploading them from credentialed runs unless the repo
+owner has accepted that exposure.
+
 ## Included Evals
 
 ### Deterministic (`--fast`, no LLM call)
 
 - `plugin-command-load.sh`: verifies Claude Code loads plugin commands from the canonical `core/commands/` custom path. Provider-specific: SKIPs cleanly with reason `plugin probe is Claude-Code-specific (provider=<x>)` when `provider != claude` (no Codex equivalent surface).
+- `bootstrap-render-fixture.sh`: verifies `bootstrap-request.sh` renders placeholders literally for a temp target path containing spaces and `&`, leaves no placeholders, and writes valid manifest JSON.
 - `codex-harness-fixture.sh`: verifies `bootstrap-request.sh --harness codex --features full` produces the expected `.agents/skills/agent-bootstrap/<name>/SKILL.md` tree (7 core skills + 9 generated commands). Pure filesystem check, runs under any provider.
+- `security-gate-fixture.sh`: verifies generated `scripts/agent-eval.sh security` reports `not configured` when `gitleaks` is missing and invokes `gitleaks dir .` when a compatible scanner is present.
 
 ### Behavior (`--behavior`, LLM-driven, advisory)
 

@@ -60,12 +60,21 @@ case "$gate" in
     not_configured
     ;;
   security)
-    # Replace with security-sensitive checks.
+    # Replace with repo-specific security-sensitive checks after scanning.
     # Examples:
     # run npm audit --audit-level high
     # run semgrep --config auto
     # run scripts/check-authz.sh
-    not_configured
+    if command -v gitleaks >/dev/null 2>&1; then
+      if gitleaks dir --help >/dev/null 2>&1; then
+        run gitleaks dir .
+      else
+        run gitleaks detect --source .
+      fi
+    else
+      printf 'No secret scanner command found. Install/configure gitleaks or keep the security gate not configured.\n' >&2
+      not_configured
+    fi
     ;;
   release)
     # Replace with release candidate checks.

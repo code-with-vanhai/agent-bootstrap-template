@@ -17,6 +17,7 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] At least one real gate command is configured for code repositories, or all gates are marked `not configured` with evidence for docs/template repos.
 - [ ] Every configured gate command was found in a checked-in source: package/build file, Makefile/justfile/Taskfile, CI workflow, or equivalent.
 - [ ] No gate command was invented from convention alone.
+- [ ] `.agent/gate-suggestions.json`, if present, is treated as candidate evidence and not as configured gates.
 - [ ] `.agent/gates.md` preserves verification discipline rules: no completion claims without fresh evidence, and no invented gates or commands.
 - [ ] `scripts/agent-eval.sh` has valid shell syntax.
 
@@ -37,6 +38,7 @@ Use this checklist before reporting that agent-system instantiation is complete.
 - [ ] If commands were generated, `.agent/commands/` contains bootstrap, plan, bugfix, implement, refactor, review, security-review, verify, and release-check prompts.
 - [ ] If commands were generated, command prompts are thin pointers to `.agent/workflows/`, `.agent/gates.md`, and `.agent/roles/`.
 - [ ] `scripts/agent-eval.sh` exists and is executable when the filesystem supports executable bits.
+- [ ] `scripts/agent-gate-discover.sh` exists and is executable when the filesystem supports executable bits.
 - [ ] `scripts/agent-validate.sh` exists and is executable when the filesystem supports executable bits.
 - [ ] `.agent/runs/*` is not required for bootstrap; create run artifacts only for real non-trivial tasks.
 

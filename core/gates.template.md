@@ -20,6 +20,10 @@ Before reporting that work is complete, fixed, passing, or ready:
 
 Do not use a previous run, another agent's summary, package-manager convention, or manual inspection as a substitute for fresh gate evidence.
 
+When secret-adjacent files or behavior are touched, run the configured security
+gate. If the repo has no scanner configured, report `not configured` and the
+residual risk rather than treating manual inspection as a pass.
+
 ## Gate Rationalization Checks
 
 | Excuse | Reality |
@@ -49,6 +53,11 @@ Gate names are a stable convention. Do not add a new mode unless `scripts/agent-
 ## Configured Commands
 
 Replace these with repo-specific commands after scanning.
+
+`scripts/agent-gate-discover.sh` may be used to write `.agent/gate-suggestions.json`
+from checked-in package, build, task, and CI files. Treat those entries as
+`candidate` suggestions only. A command is not configured until a human or agent
+has reviewed the evidence and updated both this file and `scripts/agent-eval.sh`.
 
 ### `changed`
 

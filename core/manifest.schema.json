@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Bootstrap Manifest",
+  "type": "object",
+  "required": [
+    "template_version",
+    "canonical_root",
+    "features_enabled",
+    "project",
+    "canonical_files",
+    "verification",
+    "tool_adapters",
+    "notes"
+  ],
+  "properties": {
+    "template_version": { "type": "string" },
+    "instantiated_from_template_version": { "type": "string" },
+    "synced_to_template_version": { "type": "string" },
+    "instantiated_at": { "type": "string" },
+    "llm_tool_used": { "type": "string" },
+    "canonical_root": { "const": ".agent" },
+    "generated_for_repo": { "type": "string" },
+    "source_template": { "type": "string" },
+    "features_enabled": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "primary_language", "package_manager", "frameworks", "deployment_targets"],
+      "properties": {
+        "name": { "type": "string" },
+        "primary_language": { "type": "string" },
+        "package_manager": { "type": "string" },
+        "frameworks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "deployment_targets": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "canonical_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["entrypoint", "default_gate", "full_gate", "gate_modes", "known_not_configured_gates"],
+      "properties": {
+        "entrypoint": { "const": "scripts/agent-eval.sh" },
+        "default_gate": { "type": "string" },
+        "full_gate": { "type": "string" },
+        "gate_modes": {
+          "type": "array",
+          "items": {
+            "enum": ["changed", "fast", "frontend", "backend", "shared", "e2e", "full", "security", "release"]
+          }
+        },
+        "known_not_configured_gates": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "tool_adapters": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

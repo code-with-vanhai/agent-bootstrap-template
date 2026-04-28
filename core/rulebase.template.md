@@ -22,6 +22,9 @@ Agents should optimize for:
 - Update tests when behavior changes.
 - Update docs when API, schema, CLI, workflow, or user-visible behavior changes.
 - Report any gate that could not be run and why.
+- Treat secret scanning as required evidence when touching `.env`, credentials,
+  tokens, private keys, CI secrets, auth config, or logging paths that could
+  expose secret values. If no scanner is configured, report the gap.
 
 ## Discipline Gates
 
