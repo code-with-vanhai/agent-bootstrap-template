@@ -215,7 +215,7 @@ for eval_script in "${evals[@]}"; do
       printf 'PASS: %s\n' "$eval_script"
       ;;
     77)
-      printf 'SKIP: %s (%s CLI unavailable)\n' "$eval_script" "$provider"
+      printf 'SKIP: %s (see eval output above for reason; common causes: %s CLI unavailable, quota/auth, or eval is provider-incompatible)\n' "$eval_script" "$provider"
       skipped=$((skipped + 1))
       ;;
     *)
@@ -235,7 +235,7 @@ if [ "$failures" -gt 0 ]; then
 fi
 
 if [ "$skipped" -gt 0 ]; then
-  printf '\nEvals (mode=%s): %d skipped (%s CLI unavailable or quota exhausted); remaining passed.\n' "$mode" "$skipped" "$provider"
+  printf '\nEvals (mode=%s): %d skipped (see per-eval reasons above; provider=%s); remaining passed.\n' "$mode" "$skipped" "$provider"
 else
   printf '\nAll selected evals passed (mode=%s).\n' "$mode"
 fi

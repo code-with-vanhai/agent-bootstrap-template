@@ -52,7 +52,7 @@ ensure_tag() {
 
 # Required by the 0.4.0 setup migration preflight.
 ensure_tag "0.3.2" "499eb163bdc4cf5de39f7572a538af418828be4c" "ephemeral_v032_created"
-ensure_tag "0.4.0" "2bb93a0602fb4f2af4b325ceff20c6b88ff49972" "ephemeral_v040_created"
+ensure_tag "0.4.0" "2bb93a0ea9870eccdba1c195f7e65ed367a58ed7" "ephemeral_v040_created"
 
 # Required by the 0.5.0 migration preflight while the release commit is still
 # in progress. The real maintainer-created tag replaces this after merge.

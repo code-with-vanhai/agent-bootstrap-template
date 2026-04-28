@@ -4,8 +4,21 @@
 
 This migration accepts both `0.3.0` and `0.3.2` as source versions through a single
 `migration.json` using the schema v1 extension `from_versions: ["0.3.0", "0.3.2"]`.
-The `0.3.2` release was a metadata-only version drift fix; the rendered `.agent/`
-content is byte-identical to `0.3.0`, so a single migration covers both sources.
+
+`0.3.2` was originally framed as a metadata-only drift fix, but the audit in
+commit `2ee1d15` established that `git diff v0.3.0 v0.3.2 -- core/` actually
+covers ~940 lines of grounded-planning content that ships in `.agent/`
+(rulebase, workflows, planner/reviewer roles, gates). The 0.4.0 migration's
+`safe_overwrite` + `patches` arrays are correct for both 0.3.0 and 0.3.2
+sources because the patches use anchor `skip_if_contains` markers that
+no-op when the 0.3.2 content is already present, and `safe_overwrite` only
+overwrites when ours==theirs.
+
+DO NOT reconstruct a 0.3.2 fixture by patching a 0.3.0 manifest's
+`synced_to_template_version` field — that produces a misleading fixture
+that hides the real ~940-line content delta. Use `tests/migrations/0.3.0/after/`
+synced through `agent-sync.sh --to 0.4.0` (genuine 0.3.0 → 0.4.0 path) or
+build from `git checkout v0.3.2`.
 
 ## What this migration ships
 
