@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.0 - 2026-04-28
+
+- Added LLM provider abstraction so eval and bootstrap tooling can target Claude Code or Codex CLI:
+  - `scripts/lib/llm_provider.sh` registry with 5 functions (`llm_provider_is_known`, `llm_provider_default_bin`, `llm_provider_bin`, `llm_provider_run`, `llm_provider_is_unavailable`).
+  - Per-provider invocation contracts: Claude continues to call `claude -p <prompt> [CLAUDE_EXTRA_ARGS]`; Codex calls `codex exec --skip-git-repo-check --color never --sandbox workspace-write [CODEX_EXTRA_ARGS] <prompt>` (verified against codex-cli 0.124.0).
+  - New env vars: `AGENT_LLM_PROVIDER` (default `claude`), `CODEX_BIN` (default `codex`), `CODEX_EXTRA_ARGS` (default empty). Existing `CLAUDE_BIN` / `CLAUDE_EXTRA_ARGS` unchanged.
+  - 49-case unit suite at `tests/lib/test_llm_provider.sh` (was 29 in 0.4.0; +20 codex-branch cases) covers env-override, bin resolution, regex match/non-match for both providers, mock-CLI argv ordering, and `CODEX_EXTRA_ARGS` placement before the prompt.
+- Added `--provider <claude|codex>` flag to `scripts/agent-evals.sh` with strict precedence `--provider` > `AGENT_LLM_PROVIDER` env > default `claude`. Unknown providers fail fast with `Unknown LLM provider: <name>` and exit 2.
+- Provider-aware SKIP and missing-CLI wording: `<provider> CLI not found` / `<provider> CLI unavailable (quota/auth): <line>`. Default-provider wording (`claude`) preserved byte-for-byte from 0.4.0; new wording only appears when `provider != claude`.
+- Migrated 6 provider-portable evals (`verify-before-claim`, `root-cause-first`, `no-invented-gates`, `no-unrelated-changes`, `bootstrap-pending-completion`, `plan-grounding`) off Claude-specific helpers to `run_llm` / `skip_if_llm_unavailable`. The `tests/evals/test-helpers.sh::run_claude` and `skip_if_claude_unavailable` shims are retained pinned to claude for back-compat with downstream test code.
+- `tests/evals/plugin-command-load.sh` continues to PASS under the default Claude provider; SKIPs cleanly with reason `plugin probe is Claude-Code-specific (provider=<x>)` when `provider != claude`. The probe is intentionally Claude-Code-specific (no Codex equivalent surface).
+- Added `tests/evals/codex-harness-fixture.sh` deterministic eval (filesystem-only; no LLM CLI invoked) that asserts `bootstrap-request.sh --harness codex --features full` produces every expected `.agents/skills/agent-bootstrap/<name>/SKILL.md` for the 7 `core/skills/` entries plus 9 `core/commands/` entries. Now part of the default `--fast` deterministic set, so the set grows from 1 eval (0.4.0) to 2 evals (0.5.0); both are token-free.
+- Checked-in mocks: `tests/evals/mocks/{claude-quota,claude-misaligned,codex-quota,codex-auth}.sh`. Existing `claude-quota.sh` is preserved byte-for-byte; the three new mocks complete the FAIL/SKIP coverage matrix (claude misaligned-output FAIL, codex quota SKIP, codex auth SKIP).
+- Path-normalization fix in `scripts/agent-evals.sh`: relative `CLAUDE_BIN` / `CODEX_BIN` (e.g. `tests/evals/mocks/claude-quota.sh`) are normalized to absolute against the repo root before being exported to eval children. Without this, eval helpers `cd` into temp project dirs and the relative path ENOENTs even though the repo-root precheck succeeded. Bare-name bins (no slash) are left untouched so PATH lookup still works.
+- Pre-existing `tests/migrations/0.4.0/run.sh` regression fix (commit `2ee1d15`): dropped the misleading `clean-from-0.3.2` scenario which faked a 0.3.2 fixture by patching only the manifest's `synced_to_template_version`, even though `git diff v0.3.0 v0.3.2 -- core/` shows ~940 lines of grounded-planning content changed. The v0.3.2 ephemeral-tag fallback now pins to the real v0.3.2 commit `499eb163` if the tag is missing locally, with a clear `git fetch --tags` hint if neither tag nor commit is reachable.
+- Added `core/migrations/0.5.0/migration.json` no-op manifest. Existing 0.4.0 repos sync to 0.5.0 receiving only a manifest update plus the standard sync-log audit entry; no downstream content files are patched. New `core/migrations/0.5.0/README.md` documents the no-op contract and the upgrade path.
+- Added `tests/migrations/0.5.0/run.sh` regression test covering `clean-from-0.4.0` + idempotency. Builds a genuine 0.4.0 fixture by syncing the canonical 0.3.0 baseline through 0.4.0 first (with a commit between syncs because `agent-sync.py:648-649` rejects dirty worktrees), then asserts the no-op contract: `git status --short` after `--to 0.5.0 --apply` shows EXACTLY `.agent/manifest.json` AND `.agent/sync-log.md` modified, and nothing else.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.5.0`.
+
+> **Upgrade-path note for 0.3.x users.** The 0.5.0 migration accepts `from_versions: ["0.4.0"]` only. Repos still on 0.3.0 or 0.3.2 must run a two-step upgrade — `agent-sync.sh --to 0.4.0 --apply` first, then `agent-sync.sh --to 0.5.0 --apply`. Single-step `0.3.x → 0.5.0` is rejected by `agent-sync.py` with `migration metadata mismatch` (no migration walker exists by design). See `core/migrations/0.5.0/README.md`.
+
+> Verification status at release:
+>
+> - **Deterministic gates green**: `scripts/agent-validate.sh`, `scripts/lib/test_validate_plan.py` (27/27), `tests/lib/test_llm_provider.sh` (49/49), `tests/migrations/0.3.0/run.sh`, `tests/migrations/0.4.0/run.sh`, `tests/migrations/0.5.0/run.sh`.
+> - **Provider routing verified** end-to-end with mock CLIs (claude quota → 4 SKIP, codex quota → 4 SKIP, codex misaligned auth → SKIP, claude misaligned-output → FAIL); env precedence (`--provider` overrides `AGENT_LLM_PROVIDER`) verified.
+> - **No-op migration contract verified** by `tests/migrations/0.5.0/run.sh` asserting `git status --short` post-sync shows exactly `.agent/manifest.json` + `.agent/sync-log.md`.
+> - **Behavior evals (4 LLM-driven) remain advisory, NOT a release gate.** Same classification as 0.4.0; the provider abstraction does not change their flakiness profile.
+> - **Default `--fast` set is deterministic and token-free** (`plugin-command-load` + `codex-harness-fixture`) — `scripts/agent-evals.sh` exits 0 cleanly on every commit / CI without Claude or Codex credentials.
+
 ## 0.4.0 - 2026-04-26
 
 - Added grounded planning protocol enforced through plan/spec artifacts:

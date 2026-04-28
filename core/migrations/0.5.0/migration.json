@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "version": "0.5.0",
+  "from_versions": ["0.4.0"],
+  "to": "0.5.0",
+  "safe_overwrite": [],
+  "patches": [],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.5.0",
+      "synced_to_template_version": "0.5.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.5.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.5.0: LLM provider abstraction (Claude + Codex switchable). New env vars AGENT_LLM_PROVIDER, CODEX_BIN, CODEX_EXTRA_ARGS. Provider-portable evals migrated to run_llm; plugin-command-load.sh stays Claude-Code-specific. No downstream content files modified by this migration."
+    },
+    "merge_array_unique": {}
+  }
+}

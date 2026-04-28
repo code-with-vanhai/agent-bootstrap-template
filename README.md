@@ -238,14 +238,15 @@ Run template-source validation from this repo:
 bash scripts/agent-validate.sh
 ```
 
-Run optional headless behavior evals from this repo when the Claude CLI is available and the cost/flakiness tradeoff is acceptable:
+Run optional headless behavior evals from this repo. Both Claude Code and Codex CLI are supported; pick one with `--provider` or `AGENT_LLM_PROVIDER`. The eval runner exits 0 with `SKIP` when the active provider's CLI is missing or quota/auth-blocked. Evals are intentionally not wired into validation or CI by default.
 
 ```bash
-scripts/agent-evals.sh --fast
-scripts/agent-evals.sh --integration
+scripts/agent-evals.sh --fast                     # default (claude); deterministic, token-free
+scripts/agent-evals.sh --fast --provider codex    # codex variant
+scripts/agent-evals.sh --integration              # all evals (heaviest; consumes quota)
 ```
 
-The eval runner exits 0 with `SKIP` when the Claude CLI is missing. Evals are intentionally not wired into validation or CI by default.
+See `tests/evals/README.md` for the provider matrix, per-provider env vars (`CLAUDE_BIN`, `CLAUDE_EXTRA_ARGS`, `CODEX_BIN`, `CODEX_EXTRA_ARGS`), the SKIP/FAIL classifier, and the included eval list.
 
 ## Upgrade Policy
 

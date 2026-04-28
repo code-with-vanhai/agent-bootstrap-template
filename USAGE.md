@@ -272,34 +272,26 @@ If a gate is marked `not configured`, do not treat that as a failure by itself. 
 
 ## Testing Agent Behavior
 
-This template also includes optional behavior evals for the template itself:
+This template also includes optional behavior evals for the template itself. Both Claude Code and Codex CLI are supported as of 0.5.0; pick a provider with `--provider` or `AGENT_LLM_PROVIDER` (default `claude`):
 
 ```bash
-scripts/agent-evals.sh --fast
-scripts/agent-evals.sh --integration
+scripts/agent-evals.sh --fast                     # default (claude); deterministic, token-free
+scripts/agent-evals.sh --fast --provider codex    # codex variant
+scripts/agent-evals.sh --integration              # all evals (heaviest; consumes provider quota)
 ```
 
-Behavior evals are separate from validation. They invoke `claude -p`, can consume model tokens, and may be sensitive to model or harness changes. By default, the eval runner exits 0 with a `SKIP` message when the Claude CLI is not installed.
+Behavior evals are separate from validation. They invoke a headless LLM CLI (`claude -p` or `codex exec`), can consume model tokens, and may be sensitive to model or harness changes. By default, the eval runner exits 0 with a `SKIP` message when the active provider's CLI is not installed or quota/auth-blocked.
 
-If your Claude CLI requires explicit tool permissions in headless mode, pass them through `CLAUDE_EXTRA_ARGS`, for example:
+If your CLI requires extra args in headless mode, pass them through the per-provider env var:
 
 ```bash
 CLAUDE_EXTRA_ARGS="--allowedTools Bash,Read,Edit,Write" scripts/agent-evals.sh --integration
+CODEX_EXTRA_ARGS="--sandbox read-only" scripts/agent-evals.sh --behavior --provider codex
 ```
 
 Do not add these evals to CI unless the repo owner explicitly accepts the cost and flakiness tradeoff.
 
-Included fast evals:
-
-- `plugin-command-load.sh`: verifies Claude loads plugin commands from the canonical `core/commands/` custom path.
-- `verify-before-claim.sh`: rejects completion claims without fresh verification evidence.
-- `root-cause-first.sh`: starts bugfix work with root-cause investigation.
-- `no-invented-gates.sh`: refuses to invent conventional test commands when gates are not configured.
-
-Included integration evals:
-
-- `no-unrelated-changes.sh`: verifies the agent edits only the requested bug file when offered tempting cleanup.
-- `bootstrap-pending-completion.sh`: verifies script-first bootstrap can be completed by the agent and pass generated validation.
+See `tests/evals/README.md` for the authoritative provider matrix, the full eval list, and the SKIP/FAIL classifier.
 
 ## Review Checklist
 
