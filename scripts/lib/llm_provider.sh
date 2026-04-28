@@ -11,9 +11,7 @@
 #   llm_provider_run              <name> <prompt> <workdir>
 #   llm_provider_is_unavailable   <name> <output>
 #
-# PR-1 status: only the `claude` branch is implemented. The `codex` branch
-# in every function returns "Unknown LLM provider: codex" / nonzero exit.
-# PR-2 will fill in the codex branch.
+# PR-2 status: claude + codex branches both implemented.
 #
 # Bash 3 compatible (macOS default shell): no associative arrays, no `[[`
 # unless inside `case` patterns.
@@ -21,7 +19,7 @@
 # Returns 0 if `<name>` is a registered provider, 1 otherwise.
 llm_provider_is_known() {
   case "$1" in
-    claude) return 0 ;;
+    claude|codex) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -31,6 +29,7 @@ llm_provider_is_known() {
 llm_provider_default_bin() {
   case "$1" in
     claude) printf 'claude' ;;
+    codex)  printf 'codex'  ;;
     *) return 1 ;;
   esac
 }
@@ -42,6 +41,7 @@ llm_provider_default_bin() {
 llm_provider_bin() {
   case "$1" in
     claude) printf '%s' "${CLAUDE_BIN:-claude}" ;;
+    codex)  printf '%s' "${CODEX_BIN:-codex}"   ;;
     *) return 1 ;;
   esac
 }
@@ -72,11 +72,45 @@ _llm_invoke_claude() {
   fi
 }
 
+# Codex CLI invocation. Verified against codex-cli 0.124.0:
+#   codex exec [OPTIONS] [PROMPT]
+# Flags:
+#   --skip-git-repo-check   allow runs in temp dirs not under a git repo
+#   --color never           strip ANSI escapes that would confuse assert regexes
+#   --sandbox workspace-write  required so integration evals can mutate temp
+#                              repos. Default codex sandbox is read-only;
+#                              users tightening can override via
+#                              CODEX_EXTRA_ARGS="--sandbox read-only".
+# CODEX_EXTRA_ARGS is positioned BEFORE the prompt (review #3) so users can
+# pass --config / --sandbox overrides without registry edits.
+_llm_invoke_codex() {
+  prompt="$1"
+  workdir="$2"
+  bin="$(llm_provider_bin codex)"
+
+  if command -v timeout >/dev/null 2>&1; then
+    if [ -n "${CODEX_EXTRA_ARGS:-}" ]; then
+      # shellcheck disable=SC2086
+      (cd "$workdir" && timeout "$EVAL_TIMEOUT" "$bin" exec --skip-git-repo-check --color never --sandbox workspace-write $CODEX_EXTRA_ARGS "$prompt")
+    else
+      (cd "$workdir" && timeout "$EVAL_TIMEOUT" "$bin" exec --skip-git-repo-check --color never --sandbox workspace-write "$prompt")
+    fi
+  else
+    if [ -n "${CODEX_EXTRA_ARGS:-}" ]; then
+      # shellcheck disable=SC2086
+      (cd "$workdir" && "$bin" exec --skip-git-repo-check --color never --sandbox workspace-write $CODEX_EXTRA_ARGS "$prompt")
+    else
+      (cd "$workdir" && "$bin" exec --skip-git-repo-check --color never --sandbox workspace-write "$prompt")
+    fi
+  fi
+}
+
 # Dispatch <name> <prompt> <workdir> to the per-provider invoke function.
 # Returns 2 with a stderr message if `<name>` is unknown.
 llm_provider_run() {
   case "$1" in
     claude) _llm_invoke_claude "$2" "$3" ;;
+    codex)  _llm_invoke_codex  "$2" "$3" ;;
     *) printf 'Unknown LLM provider: %s\n' "$1" >&2; return 2 ;;
   esac
 }
@@ -95,6 +129,14 @@ llm_provider_is_unavailable() {
     claude)
       printf '%s' "$output" | grep -Eiq \
         "(hit your (monthly )?(usage )?limit|usage limit (reached|exceeded)|rate limit (reached|exceeded)|limit.*resets|invalid api key|authentication.*failed|please (log ?in|authenticate)|credit balance is too low|quota exceeded|api error.*(401|403|429))"
+      ;;
+    codex)
+      # Conservative initial set per Q2 (partially open): no production
+      # 401/403/429 sample available at PR-2 ship time. Generic OpenAI
+      # API error contract terms + Codex auth/login phrasing. Expand as
+      # real samples surface; tracked in Q2-followup.md.
+      printf '%s' "$output" | grep -Eiq \
+        "(rate limit|usage limit|quota exceeded|insufficient (credits|quota)|invalid api key|authentication (error|failed)|please (log ?in|sign ?in|authenticate)|http (status )?(401|403|429)|too many requests)"
       ;;
     *) return 1 ;;
   esac

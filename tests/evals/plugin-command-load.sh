@@ -8,6 +8,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=tests/evals/test-helpers.sh
 source "$SCRIPT_DIR/test-helpers.sh"
 
+# This eval uses Claude-Code-specific flags (`--plugin-dir`, `--debug-file`,
+# `--print`) and has no Codex equivalent. Under any non-claude provider,
+# SKIP cleanly so an explicit `--provider codex` run does not FAIL on a
+# probe that physically cannot work outside Claude Code. The deterministic
+# replacement for codex is `tests/evals/codex-harness-fixture.sh`.
+if [ "${AGENT_LLM_PROVIDER:-claude}" != "claude" ]; then
+  printf 'SKIP: plugin probe is Claude-Code-specific (provider=%s)\n' "${AGENT_LLM_PROVIDER:-claude}"
+  finish_test_skip
+fi
+
 claude_bin="${CLAUDE_BIN:-claude}"
 timeout_seconds="${EVAL_TIMEOUT:-30}"
 
