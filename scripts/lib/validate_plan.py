@@ -1064,6 +1064,11 @@ def validate_plan(
                     )
                 )
 
+    # `spec.md` participates in evidence/self-claim/lint validation, but the
+    # sections and decision-completeness tables below are plan.md contracts.
+    if plan.path.name == "spec.md":
+        return findings
+
     # ------------------------------------------------------------------
     # Required sections (SECT-001)
     # ------------------------------------------------------------------

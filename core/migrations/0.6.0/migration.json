@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "version": "0.6.0",
+  "from_versions": ["0.5.0"],
+  "to": "0.6.0",
+  "safe_overwrite": [
+    {
+      "source": "core/commands/plan.md",
+      "target": ".agent/commands/plan.md"
+    },
+    {
+      "source": "scripts/agent-validate-plan.sh",
+      "target": "scripts/agent-validate-plan.sh"
+    },
+    {
+      "source": "scripts/lib/validate_plan.py",
+      "target": "scripts/lib/validate_plan.py"
+    }
+  ],
+  "patches": [
+    {
+      "file": ".agent/workflows/feature-workflow.md",
+      "anchor": "Status field whitelist: `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned quality scores, \u2705 checkmarks, and bare `Ready for ...` stamps are forbidden.",
+      "insert_after_first_match": "\n## Decision Completeness (0.6.0)\n\nThe required-section list above is superseded for repos synced to 0.6.0. Non-trivial plans must contain four validator-enforced sections:\n\n- `Implementation Plan` -- concrete implementation steps. Do not leave behavior-affecting choices as `consider`, `maybe`, `could`, `or add`, or similar hedges; make the decision explicit, or move the question to `Open Questions` with a resolution.\n- `Acceptance Criteria` -- every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.\n- `Existing Behaviors Preserved` -- for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).\n- `Verification` -- gate name and command(s).\n\n`Open Questions` is optional. If present, each `- Q:` bullet must have a following `- RESOLVED:` or `- DEFERRED:` bullet. For `Status: Proposed`, unresolved questions are rejected; for `Status: Draft`, unresolved questions are warnings.\n\nWhen adding enum/status/error-code/message literals, include a `Contract Value Table` section with columns `Literal`, `Producer`, `Consumer`, `User-facing behavior`, and `Test`.\n\nWhen touching separate lifecycle boundaries, include a `Compatibility Matrix` section covering old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.\n\nWhen adding, updating, or preserving tests, include a `Test Delta` section with columns `Test`, `Action`, and `Why`; action is one of `KEEP`, `UPDATE`, or `ADD`.\n\nEvery non-empty `Risks` bullet must include `Mitigation:` in the same bullet.\n",
+      "skip_if_contains": "## Decision Completeness (0.6.0)"
+    },
+    {
+      "file": ".agent/roles/planner.md",
+      "anchor": "If the snippet you expected is not present at the cited region, stop and revise the plan goal. Do not fabricate a BEFORE that fits the proposed AFTER.",
+      "insert_after_first_match": "\n## Decision Lock\n\nNon-trivial plans should not hand unresolved behavior choices to the implementer.\n\nUse an `Open Questions` section only when a real ambiguity must be recorded. Each entry must be resolved or explicitly deferred:\n\n```md\n- Q: <question>\n  - RESOLVED: <binding decision>\n```\n\nor:\n\n```md\n- Q: <question>\n  - DEFERRED: <why this is out of scope>\n```\n\nFor `Status: Proposed`, unresolved open questions are plan defects. For `Status: Draft`, unresolved open questions are warnings.\n\n`Implementation Plan` bullets must be concrete. Do not write behavior-affecting steps like `consider adding...`, `maybe use...`, or `update X or add Y`; choose the path, or move the question to `Open Questions`.\n\nWhen adding enum values, status values, error codes, message literals, or similar contract values, include a `Contract Value Table` section that names literal, producer, consumer, user-facing behavior, and test. When adding a literal to an existing field, cite the existing naming convention with an evidence block.\n\nWhen touching a boundary with separate lifecycles, include a `Compatibility Matrix` section. Cover old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.\n\nWhen adding, updating, or preserving tests, include a `Test Delta` section with columns `Test`, `Action`, and `Why`; action is one of `KEEP`, `UPDATE`, or `ADD`.\n\nEvery non-empty `Risks` bullet must include `Mitigation:` in the same bullet.\n",
+      "skip_if_contains": "## Decision Lock"
+    },
+    {
+      "file": ".agent/roles/planner.md",
+      "anchor": "Use this shape for non-trivial work:",
+      "insert_after_first_match": "\n\n0.6.0 note: generated `plan.md` files must use Markdown headings, not only the legacy bullet sketch below. Required headings are `Implementation Plan`, `Acceptance Criteria`, `Existing Behaviors Preserved`, and `Verification`; see `.agent/commands/plan.md` and `.agent/workflows/feature-workflow.md` for the canonical shape.\n",
+      "skip_if_contains": "0.6.0 note: generated `plan.md` files must use Markdown headings"
+    },
+    {
+      "file": ".agent/roles/prompts/planner-subagent.md",
+      "anchor": "## Output Format",
+      "insert_after_first_match": "\n## Planning Discipline (0.6.0)\n\nFor non-trivial work, the produced `plan.md` must contain:\n\n- `Implementation Plan` -- concrete implementation steps. Do not leave behavior-affecting choices as `consider`, `maybe`, `could`, `or add`, or similar hedges; resolve the choice or move it to `Open Questions`.\n- `Acceptance Criteria` -- every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.\n- `Existing Behaviors Preserved` -- for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).\n- `Verification` -- gate name and command(s).\n\n`Open Questions` is optional. If present, each `- Q:` bullet must have a following `- RESOLVED:` or `- DEFERRED:` bullet. For `Status: Proposed`, unresolved questions are plan defects.\n\nWhen adding enum/status/error-code/message literals, include a `Contract Value Table` section and cite existing naming conventions with an evidence block. For cross-boundary changes, include a `Compatibility Matrix` section. When adding/updating/keeping tests, include a `Test Delta` section. Non-empty `Risks` bullets must include `Mitigation:`.\n\nUse Markdown section headings in generated plan files; bullet-only summaries are not valid non-trivial `plan.md` output.\n",
+      "skip_if_contains": "## Planning Discipline (0.6.0)"
+    },
+    {
+      "file": ".agent/gates.md",
+      "anchor": "`scripts/agent-validate-plan.sh` is a plan discipline command, not a gate mode. It validates evidence blocks, banned self-claim patterns, AC verification classifications, and required sections in `.agent/runs/*/plan.md`. It does not replace `scripts/agent-eval.sh <mode>` and is not added to the gate enum.",
+      "insert_after_first_match": "\n0.6.0 addendum: the same command also validates decision-lock checks, conditional plan tables, risk mitigations, and literal-target AC completeness.\n",
+      "skip_if_contains": "0.6.0 addendum: the same command also validates decision-lock checks"
+    }
+  ],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.6.0",
+      "synced_to_template_version": "0.6.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.6.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.6.0: plan decision-completeness enforcement. Adds Implementation Plan decision lock, Open Questions resolution checks, Contract Value Table, Compatibility Matrix, Test Delta, risk mitigation checks, and stronger AC literal/documentation validation."
+    },
+    "merge_array_unique": {}
+  }
+}

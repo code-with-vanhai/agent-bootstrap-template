@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.0 - 2026-04-28
+
+- Strengthened plan decision-completeness discipline so generated plans bind implementers instead of leaving behavior-affecting choices open:
+  - `Implementation Plan` is now a required validator section for non-trivial plans.
+  - Optional `Open Questions` entries must use `- Q:` with a following `- RESOLVED:` or `- DEFERRED:` bullet. Unresolved questions are Medium in `Draft` plans and High in `Proposed` / verified plans.
+  - `Implementation Plan` bullets are checked for behavior-affecting hedges such as `consider adding`, `maybe`, `could`, `or add`, and `or use`.
+  - Acceptance criteria that mention codes/statuses/enums must name literal targets in backticks, and documentation/comment criteria cannot be verified by `TYPECHECK` alone.
+- Added conditional plan table checks backed by a reusable `find_table_under_section(...)` parser:
+  - `Contract Value Table` is required for contract literal changes and must include literal, producer, consumer, user-facing behavior, and test columns.
+  - `Compatibility Matrix` is required when `Affected Areas` spans separate lifecycle boundaries, covering old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.
+  - `Test Delta` is required when a plan adds/updates/keeps tests, with action limited to `KEEP`, `UPDATE`, or `ADD`.
+  - Non-empty `Risks` bullets must include `Mitigation:`.
+- Expanded validator unit coverage from 37 to 50 tests, including positive/negative cases for every new check and run-directory validation with `spec.md`.
+- Added `core/migrations/0.6.0/` content migration from 0.5.0 to 0.6.0. The migration updates downstream planner/workflow/validator files and patches `.agent/gates.md` additively to preserve repo-specific gate mappings.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.6.0`.
+
+> **Upgrade-path note.** The 0.6.0 migration accepts `from_versions: ["0.5.0"]` only. Repos on earlier versions must sync one release at a time: 0.4.0, then 0.5.0, then 0.6.0.
+
+> Verification status at release:
+>
+> - **Deterministic gates green**: `scripts/agent-validate.sh`, `scripts/lib/test_validate_plan.py` (50/50), `scripts/agent-evals.sh --fast`, `tests/migrations/0.6.0/run.sh`.
+> - **Migration contract verified** by `tests/migrations/0.6.0/run.sh`: a genuine 0.5.0 fixture syncs to 0.6.0, receives the updated planner/workflow/validator content, and re-apply is idempotent.
+
 ## 0.5.0 - 2026-04-28
 
 - Added LLM provider abstraction so eval and bootstrap tooling can target Claude Code or Codex CLI:

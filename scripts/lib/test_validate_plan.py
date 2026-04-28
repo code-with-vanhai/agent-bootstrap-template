@@ -527,6 +527,15 @@ class SectionsAndAcTest(unittest.TestCase):
         codes = {f.check_id for f in findings}
         self.assertIn("SECT-001", codes)
 
+    def test_spec_file_does_not_require_plan_sections(self):
+        text = "# Spec\n\nProblem: do a thing.\n"
+        spec = self.repo.write(".agent/runs/m/spec.md", text)
+        findings = validate_plan.validate_plan(
+            validate_plan.PlanFile(spec, text), self._ctx(), strict=False,
+        )
+        codes = {f.check_id for f in findings}
+        self.assertNotIn("SECT-001", codes)
+
     def test_unknown_method_flags_ac001(self):
         text = textwrap.dedent(
             """\
