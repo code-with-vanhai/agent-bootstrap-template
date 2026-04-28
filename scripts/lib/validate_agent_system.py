@@ -27,6 +27,12 @@ EXPECTED_SKILLS = (
     "no-secret-leakage",
 )
 PLACEHOLDER_RE = re.compile(r"{{[A-Z][A-Z0-9_]*}}")
+GENERATED_TEXT_ROOTS = (".agent", "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursor", ".github")
+GENERATED_SCAN_EXCLUDED_DIRS = {"__pycache__"}
+GENERATED_SCAN_EXCLUDED_SUFFIXES = {".pyc"}
+# Excluding bytecode is the load-bearing defense here: Python const-folds
+# adjacent string literals and stores the joined value in .pyc files.
+BOOTSTRAP_COMPLETION_MARKER = "not confirmed - complete " + ".agent/bootstrap-pending.md"
 
 
 @dataclass
@@ -54,6 +60,23 @@ def resolve_root(start: Path) -> tuple[Path, str]:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def generated_text_files(root: Path) -> list[Path]:
+    files: list[Path] = []
+    for rel in GENERATED_TEXT_ROOTS:
+        path = root / rel
+        if path.is_file():
+            files.append(path)
+        elif path.is_dir():
+            files.extend(
+                item
+                for item in path.rglob("*")
+                if item.is_file()
+                and not GENERATED_SCAN_EXCLUDED_DIRS.intersection(item.parts)
+                and item.suffix not in GENERATED_SCAN_EXCLUDED_SUFFIXES
+            )
+    return files
 
 
 class AgentSystemValidator:
@@ -287,20 +310,11 @@ class AgentSystemValidator:
         return isinstance(data, dict) and feature in (data.get("features_enabled") or [])
 
     def check_placeholders(self) -> None:
-        roots = [".agent", "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursor", ".github", "scripts"]
         matches: list[str] = []
-        for rel in roots:
-            path = self.root / rel
-            if path.is_file():
-                files = [path]
-            elif path.is_dir():
-                files = [item for item in path.rglob("*") if item.is_file()]
-            else:
-                continue
-            for item in files:
-                text = read_text(item)
-                if PLACEHOLDER_RE.search(text):
-                    matches.append(item.relative_to(self.root).as_posix())
+        for item in generated_text_files(self.root):
+            text = read_text(item)
+            if PLACEHOLDER_RE.search(text):
+                matches.append(item.relative_to(self.root).as_posix())
         if matches:
             self.fail("placeholders remain in generated agent files: " + ", ".join(matches[:5]))
         else:
@@ -311,12 +325,9 @@ class AgentSystemValidator:
             self.check_placeholders()
             if not (self.root / ".agent/bootstrap-pending.md").is_file():
                 marker_matches = []
-                for rel in (".agent", "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursor", ".github", "scripts"):
-                    path = self.root / rel
-                    files = [path] if path.is_file() else [item for item in path.rglob("*") if item.is_file()] if path.is_dir() else []
-                    for item in files:
-                        if "not confirmed - complete .agent/bootstrap-pending.md" in read_text(item):
-                            marker_matches.append(item.relative_to(self.root).as_posix())
+                for item in generated_text_files(self.root):
+                    if BOOTSTRAP_COMPLETION_MARKER in read_text(item):
+                        marker_matches.append(item.relative_to(self.root).as_posix())
                 if marker_matches:
                     self.fail("bootstrap completion markers remain after .agent/bootstrap-pending.md was removed")
                 else:

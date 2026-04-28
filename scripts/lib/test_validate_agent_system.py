@@ -37,6 +37,23 @@ class AgentSystemValidatorTest(unittest.TestCase):
         )
         return target
 
+    def complete_bootstrap_fixture(self, target: Path) -> None:
+        marker = "not confirmed - complete .agent/bootstrap-pending.md"
+        for root in (target / ".agent", target / "AGENTS.md", target / ".cursor", target / ".github"):
+            if root.is_file():
+                files = [root]
+            elif root.is_dir():
+                files = [item for item in root.rglob("*") if item.is_file()]
+            else:
+                continue
+            for item in files:
+                text = item.read_text(encoding="utf-8", errors="replace")
+                if marker in text:
+                    item.write_text(text.replace(marker, "confirmed by test fixture"), encoding="utf-8")
+        pending = target / ".agent" / "bootstrap-pending.md"
+        if pending.exists():
+            pending.unlink()
+
     def run_validator(self, *args: str, cwd: Path = ROOT, root: Path | None = None):
         env = os.environ.copy()
         if root is not None:
@@ -77,6 +94,20 @@ class AgentSystemValidatorTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["mode"], "generated")
+        self.assertEqual(payload["failure_count"], 0)
+
+    def test_generated_post_bootstrap_ignores_validator_source_and_pycache(self):
+        target = self.make_target()
+        self.complete_bootstrap_fixture(target)
+        subprocess.run(
+            [sys.executable, "-m", "py_compile", str(target / "scripts/lib/validate_agent_system.py")],
+            check=True,
+        )
+
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
         self.assertEqual(payload["failure_count"], 0)
 
     def test_missing_adapter_pointer_fails_without_traceback(self):

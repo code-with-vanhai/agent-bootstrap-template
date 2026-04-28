@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "version": "0.8.1",
+  "from_versions": ["0.8.0"],
+  "to": "0.8.1",
+  "safe_overwrite": [
+    {
+      "source": "scripts/lib/validate_agent_system.py",
+      "target": "scripts/lib/validate_agent_system.py"
+    }
+  ],
+  "patches": [],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.8.1",
+      "synced_to_template_version": "0.8.1"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.8.1"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.8.1: fixes generated validator bootstrap-marker false positives from validator source and Python bytecode caches."
+    },
+    "merge_array_unique": {}
+  }
+}

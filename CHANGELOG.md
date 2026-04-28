@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.1 - 2026-04-28
+
+- Fixed generated-repo validation false positives after bootstrap completion. The structured validator no longer scans `scripts/` for bootstrap completion markers, which prevented it from matching its own marker-check source literal.
+- Added generated text scan filtering for Python bytecode/cache files so `__pycache__/*.pyc` files cannot trip placeholder or bootstrap-marker checks.
+- Added a regression test that completes a generated fixture, compiles `scripts/lib/validate_agent_system.py` to create bytecode cache, and verifies generated validation still passes.
+- Added `core/migrations/0.8.1/` to sync the validator patch from 0.8.0 to 0.8.1.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.8.1`.
+
+> **Upgrade-path note.** The 0.8.1 migration accepts `from_versions: ["0.8.0"]` only. Repos on earlier versions must sync one release at a time through 0.8.0 before applying 0.8.1.
+
+> Verification status before tagging:
+>
+> - **Validator regression green**: `scripts.lib.test_validate_agent_system` now covers post-bootstrap generated repos with validator source and `.pyc` cache present.
+> - **Deterministic unit gates green**: `scripts.lib.test_gate_discovery`, `scripts.lib.test_render_template`, `scripts.lib.test_validate_agent_system`, and `scripts.lib.test_validate_plan`.
+> - **Generated validator green**: `scripts/agent-validate.sh`.
+
 ## 0.8.0 - 2026-04-28
 
 - Replaced `scripts/bootstrap-request.sh` token rendering with the stdlib Python renderer in `scripts/lib/render_template.py`, removing `sed -i` replacement hazards for paths and token values containing `/`, `&`, `?`, backslashes, quotes, or newlines.
