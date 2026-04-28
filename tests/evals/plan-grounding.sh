@@ -86,7 +86,7 @@ emit.
 EOF
 )"
 
-  output="$(run_claude "$prompt" "$project_dir" 2>&1 || true)"
+  output="$(run_llm "$prompt" "$project_dir" 2>&1 || true)"
 
   if [ "$EVAL_VERBOSE" = "1" ]; then
     printf '\n--- %s ---\n%s\n' "$description" "$output"
@@ -97,19 +97,19 @@ EOF
 
 # --- bad-stale-snippet --------------------------------------------------
 output="$(run_review "$FIXTURES_DIR/grounding-bad-stale-snippet/plan.md" "bad-stale-snippet")"
-skip_if_claude_unavailable "$output"
+skip_if_llm_unavailable "$output"
 assert_contains "$output" "EV-003|EV-005|snippet does not match|region_sha256" \
   "bad-stale-snippet plan flagged with EV-003/EV-005 (snippet/sha mismatch)"
 
 # --- bad-fictional-line -------------------------------------------------
 output="$(run_review "$FIXTURES_DIR/grounding-bad-fictional-line/plan.md" "bad-fictional-line")"
-skip_if_claude_unavailable "$output"
+skip_if_llm_unavailable "$output"
 assert_contains "$output" "EV-002|EV-003|out of range|does not exist" \
   "bad-fictional-line plan flagged with EV-002/EV-003 (path/range error)"
 
 # --- good ---------------------------------------------------------------
 output="$(run_review "$FIXTURES_DIR/grounding-good/plan.md" "good")"
-skip_if_claude_unavailable "$output"
+skip_if_llm_unavailable "$output"
 assert_not_contains "$output" "EV-002 \[High\]|EV-003 \[High\]|EV-005 \[High\]" \
   "good plan does not raise High EV-002/EV-003/EV-005"
 

@@ -7,6 +7,12 @@ EVAL_TIMEOUT="${EVAL_TIMEOUT:-300}"
 EVAL_VERBOSE="${EVAL_VERBOSE:-0}"
 failures="${failures:-0}"
 
+# Source the provider registry. PR-1 only routes claude; PR-2 will add codex.
+_test_helpers_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_repo_root="$(cd "$_test_helpers_dir/../.." && pwd)"
+# shellcheck source=../../scripts/lib/llm_provider.sh
+. "$_repo_root/scripts/lib/llm_provider.sh"
+
 pass() {
   printf 'PASS: %s\n' "$*"
 }
@@ -16,19 +22,43 @@ fail() {
   failures=$((failures + 1))
 }
 
-# Detect Claude CLI conditions that make assertions meaningless (e.g. quota
-# exhaustion, auth errors). When detected, evals should SKIP instead of FAIL
-# so a depleted credit pool does not masquerade as a behavior regression.
-is_claude_unavailable_output() {
+# Detect LLM-provider conditions that make assertions meaningless (e.g.
+# quota exhaustion, auth errors). When detected, evals should SKIP instead
+# of FAIL so a depleted credit pool does not masquerade as a behavior
+# regression.
+#
+# Provider-agnostic helper. Selects the regex via AGENT_LLM_PROVIDER
+# (default `claude`).
+#
+# Default reason wording is derived from the active provider so that under
+# the default provider (claude) the SKIP wording is byte-identical to the
+# 0.4.0 helper `skip_if_claude_unavailable`. This preserves PR-1's
+# zero-observable-behavior-delta contract.
+skip_if_llm_unavailable() {
   output="$1"
-  printf '%s' "$output" | grep -Eiq \
-    "(hit your (monthly )?(usage )?limit|usage limit (reached|exceeded)|rate limit (reached|exceeded)|limit.*resets|invalid api key|authentication.*failed|please (log ?in|authenticate)|credit balance is too low|quota exceeded|api error.*(401|403|429))"
+  provider="${AGENT_LLM_PROVIDER:-claude}"
+  reason="${2:-${provider} CLI unavailable (quota/auth)}"
+  if llm_provider_is_unavailable "$provider" "$output"; then
+    printf 'SKIP: %s: %s\n' "$reason" "$(printf '%s' "$output" | head -n 1)"
+    finish_test_skip
+  fi
 }
 
+# DEPRECATED: kept for back-compat with any out-of-tree caller. New code
+# should use llm_provider_is_unavailable directly. Pinned to claude so
+# this Claude-named function keeps Claude semantics regardless of
+# AGENT_LLM_PROVIDER (PR-1 reviewer adjustment).
+is_claude_unavailable_output() {
+  llm_provider_is_unavailable claude "$1"
+}
+
+# DEPRECATED: kept for back-compat. Pinned to claude regardless of
+# AGENT_LLM_PROVIDER for the same reason as is_claude_unavailable_output.
+# New code should use skip_if_llm_unavailable.
 skip_if_claude_unavailable() {
   output="$1"
   reason="${2:-claude CLI unavailable (quota/auth)}"
-  if is_claude_unavailable_output "$output"; then
+  if llm_provider_is_unavailable claude "$output"; then
     printf 'SKIP: %s: %s\n' "$reason" "$(printf '%s' "$output" | head -n 1)"
     finish_test_skip
   fi
@@ -64,25 +94,23 @@ assert_not_contains() {
   fi
 }
 
+# Provider-agnostic LLM invoker. Selects the provider via
+# AGENT_LLM_PROVIDER (default `claude`).
+#   Args: $1 = prompt, $2 = workdir (defaults to PWD)
+run_llm() {
+  prompt="$1"
+  workdir="${2:-$PWD}"
+  llm_provider_run "${AGENT_LLM_PROVIDER:-claude}" "$prompt" "$workdir"
+}
+
+# DEPRECATED: kept for back-compat with any out-of-tree caller. Pinned to
+# claude regardless of AGENT_LLM_PROVIDER so this Claude-named function
+# keeps Claude semantics (PR-1 reviewer adjustment). New code should use
+# run_llm.
 run_claude() {
   prompt="$1"
   workdir="${2:-$PWD}"
-
-  if command -v timeout >/dev/null 2>&1; then
-    if [ -n "${CLAUDE_EXTRA_ARGS:-}" ]; then
-      # shellcheck disable=SC2086
-      (cd "$workdir" && timeout "$EVAL_TIMEOUT" "$CLAUDE_BIN" -p "$prompt" $CLAUDE_EXTRA_ARGS)
-    else
-      (cd "$workdir" && timeout "$EVAL_TIMEOUT" "$CLAUDE_BIN" -p "$prompt")
-    fi
-  else
-    if [ -n "${CLAUDE_EXTRA_ARGS:-}" ]; then
-      # shellcheck disable=SC2086
-      (cd "$workdir" && "$CLAUDE_BIN" -p "$prompt" $CLAUDE_EXTRA_ARGS)
-    else
-      (cd "$workdir" && "$CLAUDE_BIN" -p "$prompt")
-    fi
-  fi
+  llm_provider_run claude "$prompt" "$workdir"
 }
 
 create_test_project() {

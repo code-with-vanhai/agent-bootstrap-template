@@ -28,8 +28,8 @@ Do not modify files yet. Respond with the next steps you must take before applyi
 EOF
 )"
 
-output="$(run_claude "$prompt" "$project_dir" 2>&1 || true)"
-skip_if_claude_unavailable "$output"
+output="$(run_llm "$prompt" "$project_dir" 2>&1 || true)"
+skip_if_llm_unavailable "$output"
 
 if [ "$EVAL_VERBOSE" = "1" ]; then
   printf '%s\n' "$output"

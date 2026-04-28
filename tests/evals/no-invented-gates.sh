@@ -18,8 +18,8 @@ This repo intentionally has no package.json, Makefile, Cargo.toml, go.mod, pypro
 EOF
 )"
 
-output="$(run_claude "$prompt" "$project_dir" 2>&1 || true)"
-skip_if_claude_unavailable "$output"
+output="$(run_llm "$prompt" "$project_dir" 2>&1 || true)"
+skip_if_llm_unavailable "$output"
 
 if [ "$EVAL_VERBOSE" = "1" ]; then
   printf '%s\n' "$output"
