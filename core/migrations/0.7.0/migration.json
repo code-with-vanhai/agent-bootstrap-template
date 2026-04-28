@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "version": "0.7.0",
+  "from_versions": ["0.6.0"],
+  "to": "0.7.0",
+  "safe_overwrite": [
+    {
+      "source": "core/commands/plan.md",
+      "target": ".agent/commands/plan.md"
+    },
+    {
+      "source": "scripts/lib/validate_plan.py",
+      "target": "scripts/lib/validate_plan.py"
+    }
+  ],
+  "patches": [
+    {
+      "file": ".agent/workflows/feature-workflow.md",
+      "anchor": "When adding enum/status/error-code/message literals, include a `Contract Value Table` section with columns `Literal`, `Producer`, `Consumer`, `User-facing behavior`, and `Test`.",
+      "insert_after_first_match": "\n0.7.0 addendum: `Contract Value Table` is only for added or behavior-changed contract values. Do not list unchanged existing literals or threshold constants just to satisfy validation; unchanged invariants belong in `Existing Behaviors Preserved` or `Decision Ledger`.\n\nWhen the plan includes fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits/`MAX_*` constants, matchers/classifiers/parsers/blocklists/allowlists, or test harness choices such as mocks/stubs/fake timers/`MutationObserver`/`defineContentScript`, include a `Decision Ledger` section:\n\n| Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |\n|---|---|---|---|---|---|\n\nUse `Decision Ledger` to bind semantic choices. The implementer should not infer node-count method, hostname matching, fallback UX, or fake-timer/test-harness setup from vague prose.\n",
+      "skip_if_contains": "0.7.0 addendum: `Contract Value Table` is only for added or behavior-changed contract values"
+    },
+    {
+      "file": ".agent/roles/planner.md",
+      "anchor": "When adding enum values, status values, error codes, message literals, or similar contract values, include a `Contract Value Table` section that names literal, producer, consumer, user-facing behavior, and test. When adding a literal to an existing field, cite the existing naming convention with an evidence block.",
+      "insert_after_first_match": "\nUse a `Decision Ledger` section when a plan includes semantic choices that are easy to under-specify:\n\n- fallback, empty, null, degraded, or no-content behavior;\n- thresholds, timeouts, debounce intervals, limits, memory budgets, or `MAX_*` constants;\n- matchers, classifiers, parsers, blocklists, or allowlists;\n- mocks, stubs, fake timers, `MutationObserver`, `defineContentScript`, or other test-harness setup.\n\nFormat:\n\n```md\n## Decision Ledger\n\n| Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |\n|---|---|---|---|---|---|\n```\n\nThe ledger is for binding choices before implementation. It must state the chosen behavior, why that behavior was chosen, what alternative was rejected, which caller or user-visible path is affected, and how the decision is verified. Thresholds and test-harness setup belong here, not in `Contract Value Table`.\n",
+      "skip_if_contains": "Use a `Decision Ledger` section when a plan includes semantic choices"
+    },
+    {
+      "file": ".agent/roles/prompts/planner-subagent.md",
+      "anchor": "When adding enum/status/error-code/message literals, include a `Contract Value Table` section and cite existing naming conventions with an evidence block. For cross-boundary changes, include a `Compatibility Matrix` section. When adding/updating/keeping tests, include a `Test Delta` section. Non-empty `Risks` bullets must include `Mitigation:`.",
+      "insert_after_first_match": "\nDo not put unchanged literals or threshold constants in `Contract Value Table`; unchanged invariants belong in `Existing Behaviors Preserved` or `Decision Ledger`.\n\nWhen the plan includes fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits/`MAX_*` constants, matchers/classifiers/parsers/blocklists/allowlists, or test harness choices such as mocks/stubs/fake timers/`MutationObserver`/`defineContentScript`, include:\n\n```md\n## Decision Ledger\n\n| Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |\n|---|---|---|---|---|---|\n```\n",
+      "skip_if_contains": "Do not put unchanged literals or threshold constants in `Contract Value Table`"
+    },
+    {
+      "file": ".agent/workflows/review-workflow.md",
+      "anchor": "If `scripts/agent-validate-plan.sh` is available, run it first; treat its `High` findings as P0 / P1 mechanically before applying judgement on the rest of the plan.",
+      "insert_after_first_match": "\nDuring the correctness pass, check the `Decision Ledger` when the plan contains fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits, matchers/classifiers/parsers/blocklists/allowlists, or test-harness choices. If the plan leaves caller/user impact, threshold rationale, algorithm choice, or mock/fake-timer setup implicit, return it to the planner even if the mechanical validator is otherwise clean.\n",
+      "skip_if_contains": "During the correctness pass, check the `Decision Ledger`"
+    }
+  ],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.7.0",
+      "synced_to_template_version": "0.7.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.7.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.7.0: semantic Decision Ledger enforcement. Adds Decision Ledger guidance and validator checks for fallback, threshold, classifier, and test-harness decisions while narrowing Contract Value Table usage to added or behavior-changed contract values."
+    },
+    "merge_array_unique": {}
+  }
+}

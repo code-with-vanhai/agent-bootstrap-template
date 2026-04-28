@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0 - 2026-04-28
+
+- Added semantic `Decision Ledger` planning guidance across planner, feature workflow, review workflow, planner-subagent prompt, and the `agent:plan` command. Plans that choose fallback behavior, thresholds, matchers/classifiers, or test-harness setup now have a dedicated table for chosen behavior, rationale, rejected alternatives, caller/user impact, and verification.
+- Expanded `scripts/lib/validate_plan.py` with `DEC-001`, `NUM-001`, `FALLBACK-001`, and `HARNESS-001` checks. These catch plans that leave semantic behavior decisions implicit even when grounding and conditional table checks pass.
+- Added `CVT-003` and narrowed `Contract Value Table` triggering so unchanged literals and threshold constants do not force a formal contract table. CVT is now reserved for added or behavior-changed enum/status/error-code/message contract values.
+- Added `core/migrations/0.7.0/` content migration from 0.6.0 to 0.7.0. The migration safe-overwrites the plan command and validator, then patches downstream planning/review docs additively.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.7.0`.
+
+> **Upgrade-path note.** The 0.7.0 migration accepts `from_versions: ["0.6.0"]` only. Repos on earlier versions must sync one release at a time: 0.4.0, then 0.5.0, then 0.6.0, then 0.7.0.
+
+> Verification status at release:
+>
+> - **Dogfood signal verified** against `brainmap-extension/docs/2026-04-28_chatgpt-renderer-crash-fix-plan.md`: before adding `Decision Ledger`, the new validator reported `0 High, 4 Medium` (`DEC-001`, `NUM-001`, `FALLBACK-001`, `HARNESS-001`); after revising the plan, strict validation reported `0 High, 0 Medium`.
+> - **Validator unit coverage expanded** from 50 to 59 tests (`scripts/lib/test_validate_plan.py`).
+> - **Deterministic gates green**: `scripts/agent-validate.sh`, `scripts/lib/test_validate_plan.py` (59/59), `scripts/agent-evals.sh --fast`, `tests/migrations/0.7.0/run.sh`.
+> - **Migration contract verified** by `tests/migrations/0.7.0/run.sh`: a genuine 0.6.0 fixture syncs to 0.7.0, receives the updated planner/review/validator content, and re-apply is idempotent.
+
 ## 0.6.0 - 2026-04-28
 
 - Strengthened plan decision-completeness discipline so generated plans bind implementers instead of leaving behavior-affecting choices open:
