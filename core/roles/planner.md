@@ -100,7 +100,13 @@ For `Status: Proposed`, unresolved open questions are plan defects. For `Status:
 
 `Implementation Plan` bullets must be concrete. Do not write behavior-affecting steps like `consider adding...`, `maybe use...`, or `update X or add Y`; choose the path, or move the question to `Open Questions`.
 
-When adding enum values, status values, error codes, message literals, or similar contract values, include a literal mapping table that names producer, consumer, user-facing behavior, and test. When adding a literal to an existing field, cite the existing naming convention with an evidence block.
+When adding enum values, status values, error codes, message literals, or similar contract values, include a `Contract Value Table` section that names literal, producer, consumer, user-facing behavior, and test. When adding a literal to an existing field, cite the existing naming convention with an evidence block.
+
+When touching a boundary with separate lifecycles, include a `Compatibility Matrix` section. Cover old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.
+
+When adding, updating, or preserving tests, include a `Test Delta` section with columns `Test`, `Action`, and `Why`; action is one of `KEEP`, `UPDATE`, or `ADD`.
+
+Every non-empty `Risks` bullet must include `Mitigation:` in the same bullet.
 
 ## Existing Behaviors Preserved
 
@@ -166,6 +172,8 @@ Gate command(s) and expected exit code. Status remains Draft/Proposed until a fr
 ## Docs/Tests/Contracts To Update
 
 ## Risks
+
+Use `- Risk: <risk>. Mitigation: <mitigation>.` for each non-empty bullet.
 ```
 
 The `Implementation Plan`, `Acceptance Criteria`, `Existing Behaviors Preserved`, and `Verification` sections are required by the validator (`scripts/agent-validate-plan.sh`). Omitting any of them is a P0 plan defect.

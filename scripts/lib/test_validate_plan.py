@@ -729,5 +729,247 @@ class DecisionCompletenessTest(unittest.TestCase):
         self.assertIn("AC-004", codes)
 
 
+class ConditionalTableChecksTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = TempRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def _ctx(self):
+        return validate_plan.detect_repo_context(self.repo.tmp)
+
+    def _validate(
+        self,
+        *,
+        affected_areas: str = "- shared helper",
+        implementation: str = "- Apply the decided change.",
+        ac_row: str = "| 1 | works | `MANUAL` |",
+        extra_sections: str = "",
+        risks: str = "- none",
+    ) -> list:
+        text = (
+            "# Plan\n\n"
+            "**Status:** Proposed\n\n"
+            "## Affected Areas\n\n"
+            f"{affected_areas}\n\n"
+            "## Implementation Plan\n\n"
+            f"{implementation}\n\n"
+            "## Acceptance Criteria\n\n"
+            "| # | Criterion | Verification Method |\n"
+            "|---|---|---|\n"
+            f"{ac_row}\n\n"
+            "## Existing Behaviors Preserved\n\n"
+            "- none\n\n"
+            f"{extra_sections.strip()}\n\n"
+            "## Risks\n\n"
+            f"{risks}\n\n"
+            "## Verification\n\n"
+            "```bash\n"
+            "ok\n"
+            "```\n"
+        )
+        plan = self.repo.write(".agent/runs/c/plan.md", text)
+        return validate_plan.validate_plan(
+            validate_plan.PlanFile(plan, text), self._ctx(), strict=False,
+        )
+
+    def test_find_table_under_section_returns_custom_table(self):
+        text = textwrap.dedent(
+            """\
+            # Plan
+
+            ## Custom Table
+
+            | Name | Value |
+            |---|---|
+            | a | b |
+
+            ## Next
+
+            | Other | Table |
+            |---|---|
+            | c | d |
+            """
+        )
+        table = validate_plan.find_table_under_section(text, "Custom Table")
+        self.assertIsNotNone(table)
+        assert table is not None
+        self.assertEqual(table.start_line, 5)
+        self.assertEqual(table.rows[0], ["Name", "Value"])
+        self.assertEqual(table.rows[2], ["a", "b"])
+
+    def test_contract_literal_without_value_table_flags_cvt001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                ac_row=(
+                    "| 1 | emits stable error code `NO_ACTIVE_TAB` "
+                    "for no active tab | `AUTOMATED-UNIT` |"
+                )
+            )
+        }
+        self.assertIn("CVT-001", codes)
+
+    def test_complete_contract_value_table_passes(self):
+        extra = textwrap.dedent(
+            """\
+            ## Contract Value Table
+
+            | Literal | Producer | Consumer | User-facing behavior | Test |
+            |---|---|---|---|---|
+            | `NO_ACTIVE_TAB` | `src/bg.ts` | `src/ui.tsx` | existing copy | `src/ui.test.tsx` |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                ac_row=(
+                    "| 1 | emits stable error code `NO_ACTIVE_TAB` "
+                    "for no active tab | `AUTOMATED-UNIT` |"
+                ),
+                extra_sections=extra,
+            )
+        }
+        self.assertNotIn("CVT-001", codes)
+        self.assertNotIn("CVT-002", codes)
+
+    def test_contract_value_table_missing_headers_flags_cvt002(self):
+        extra = textwrap.dedent(
+            """\
+            ## Contract Value Table
+
+            | Literal | Producer |
+            |---|---|
+            | `NO_ACTIVE_TAB` | `src/bg.ts` |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                ac_row=(
+                    "| 1 | emits stable error code `NO_ACTIVE_TAB` "
+                    "for no active tab | `AUTOMATED-UNIT` |"
+                ),
+                extra_sections=extra,
+            )
+        }
+        self.assertIn("CVT-002", codes)
+
+    def test_cross_boundary_without_compat_matrix_flags_compat001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                affected_areas="- background handler\n- side panel UI"
+            )
+        }
+        self.assertIn("COMPAT-001", codes)
+
+    def test_compat_matrix_missing_scenarios_flags_compat002(self):
+        extra = textwrap.dedent(
+            """\
+            ## Compatibility Matrix
+
+            | Scenario | Behavior | Test |
+            |---|---|---|
+            | old producer + new consumer | fallback works | manual |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                affected_areas="- background handler\n- side panel UI",
+                extra_sections=extra,
+            )
+        }
+        self.assertIn("COMPAT-002", codes)
+
+    def test_complete_compat_matrix_passes(self):
+        extra = textwrap.dedent(
+            """\
+            ## Compatibility Matrix
+
+            | Scenario | Behavior | Test |
+            |---|---|---|
+            | old producer + new consumer | fallback works | manual |
+            | new producer + old consumer | legacy string works | manual |
+            | unknown value | fall through to fallback | unit |
+            | empty value | fall through to fallback | unit |
+            | missing field | fall through to fallback | unit |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                affected_areas="- background handler\n- side panel UI",
+                extra_sections=extra,
+            )
+        }
+        self.assertNotIn("COMPAT-001", codes)
+        self.assertNotIn("COMPAT-002", codes)
+
+    def test_test_change_without_delta_flags_test001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(implementation="- Add tests for coded extraction.")
+        }
+        self.assertIn("TEST-001", codes)
+
+    def test_test_delta_invalid_action_flags_test002(self):
+        extra = textwrap.dedent(
+            """\
+            ## Test Delta
+
+            | Test | Action | Why |
+            |---|---|---|
+            | `src/ui.test.tsx` | `MAYBE` | covers branch |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Add tests for coded extraction.",
+                extra_sections=extra,
+            )
+        }
+        self.assertIn("TEST-002", codes)
+        self.assertNotIn("CVT-001", codes)
+
+    def test_complete_test_delta_passes(self):
+        extra = textwrap.dedent(
+            """\
+            ## Test Delta
+
+            | Test | Action | Why |
+            |---|---|---|
+            | `src/ui.test.tsx` | `ADD` | covers branch |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Add tests for coded extraction.",
+                extra_sections=extra,
+            )
+        }
+        self.assertNotIn("TEST-001", codes)
+        self.assertNotIn("TEST-002", codes)
+        self.assertNotIn("CVT-001", codes)
+
+    def test_risk_without_mitigation_flags_risk001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(risks="- Risk: rolling update mismatch.")
+        }
+        self.assertIn("RISK-001", codes)
+
+    def test_risk_with_mitigation_passes(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                risks="- Risk: rolling update mismatch. Mitigation: keep fallback."
+            )
+        }
+        self.assertNotIn("RISK-001", codes)
+
+
 if __name__ == "__main__":
     unittest.main()

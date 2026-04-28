@@ -35,6 +35,13 @@ Checks:
   AC-002  Layout-dependent ACs cannot be `AUTOMATED-UNIT` (jsdom rule).
   AC-003  ACs about codes/statuses/enums must name literal target values.
   AC-004  ACs about documentation/comments cannot be verified by TYPECHECK alone.
+  CVT-001 Contract value changes require a `Contract Value Table`.
+  CVT-002 `Contract Value Table` must include literal/producer/consumer/user/test headers.
+  COMPAT-001 Cross-boundary plans require a `Compatibility Matrix`.
+  COMPAT-002 `Compatibility Matrix` must cover rolling-update fallback scenarios.
+  TEST-001 Plans that add/update/keep tests require a `Test Delta` table.
+  TEST-002 `Test Delta` actions must be KEEP, UPDATE, or ADD.
+  RISK-001 Non-empty risk bullets must include a `Mitigation:` clause.
 
 The validator is repo-aware: React version + MV3 detection drive LP-002 and LP-003.
 
@@ -485,6 +492,21 @@ AC_VERIFICATION_ENUM = {
     "MANUAL",
 }
 
+_CONTRACT_EXCLUDED_LITERALS = AC_VERIFICATION_ENUM | {
+    "ADD",
+    "BUG",
+    "DEFERRED",
+    "DRAFT",
+    "INTENTIONALLY",
+    "KEEP",
+    "MANUAL",
+    "PRESERVED",
+    "PROPOSED",
+    "REMOVED",
+    "RESOLVED",
+    "UPDATE",
+}
+
 _STATUS_RE = re.compile(
     r"^\s*(?:\*\*)?Status(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+?)\s*$",
     re.IGNORECASE,
@@ -509,6 +531,25 @@ _HEDGED_IMPL_BULLET_RE = re.compile(
 )
 _AC_LITERAL_REQUIRED_RE = re.compile(r"\b(stable\s+code|error\s+code|status|enum)\b", re.IGNORECASE)
 _AC_DOCUMENTS_RE = re.compile(r"\b(documents?|documented|comments?)\b", re.IGNORECASE)
+_BACKTICK_LITERAL_RE = re.compile(r"`([^`\n]+)`")
+_IDENTIFIER_LITERAL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]*$")
+_SCREAMING_SNAKE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
+_CONTRACT_TRIGGER_RE = re.compile(
+    r"\b("
+    r"stable\s+code|error[- ]?code|status\s+value|enum|"
+    r"message\s+literal|i18n\s+key|localized\s+key|"
+    r"contract\s+value|literal\s+mapping|new\s+literal"
+    r")\b",
+    re.IGNORECASE,
+)
+_TEST_CHANGE_RE = re.compile(
+    r"\b(add|adds|adding|new|update|updates|updating|modify|modifies|"
+    r"keep|keeps|preserve|preserves)\b.{0,50}\btests?\b|"
+    r"\btests?\b.{0,50}\b(add|adds|adding|new|update|updates|updating|"
+    r"modify|modifies|keep|keeps|preserve|preserves)\b",
+    re.IGNORECASE,
+)
+_RISK_MITIGATION_RE = re.compile(r"\bMitigation\s*:", re.IGNORECASE)
 
 LAYOUT_API_TOKENS = (
     "clientHeight",
@@ -520,6 +561,13 @@ LAYOUT_API_TOKENS = (
 
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
+
+
+@dataclass
+class MarkdownTable:
+    start_line: int
+    rows: List[List[str]]
+    row_lines: List[int]
 
 
 def section_present(plan_text: str, heading: str) -> bool:
@@ -571,43 +619,166 @@ def _status_is_beyond_draft(status: Optional[str]) -> bool:
     return status.lower().startswith("proposed") or bool(_VERIFIED_PATTERN.search(status))
 
 
-def find_ac_table(plan_text: str) -> Optional[Tuple[int, List[List[str]]]]:
-    """Return (start_line, rows) of the first markdown table under
-    `Acceptance Criteria`. Each row is a list of cell strings.
+def find_table_under_section(plan_text: str, heading: str) -> Optional[MarkdownTable]:
+    """Return the first markdown table under `heading`, if one exists."""
 
-    Returns None if the section or table is missing.
-    """
-
-    lines = plan_text.splitlines()
-    in_section = False
     table_start: Optional[int] = None
     rows: List[List[str]] = []
-    for idx, line in enumerate(lines):
-        heading = _HEADING_RE.match(line)
-        if heading:
-            if heading.group(2).strip().lower() == "acceptance criteria":
-                in_section = True
-                continue
-            if in_section and table_start is None:
-                # Hit next heading without finding a table.
-                break
-            if in_section and table_start is not None:
-                # Section ended; stop.
-                break
-        if not in_section:
-            continue
+    row_lines: List[int] = []
+    for line_no, line in section_body_lines(plan_text, heading):
         stripped = line.strip()
         if stripped.startswith("|") and stripped.endswith("|"):
             cells = [cell.strip() for cell in stripped.strip("|").split("|")]
             if table_start is None:
-                table_start = idx + 1
+                table_start = line_no
             rows.append(cells)
+            row_lines.append(line_no)
         elif table_start is not None:
             # Table ended.
             break
     if table_start is None:
         return None
-    return table_start, rows
+    return MarkdownTable(start_line=table_start, rows=rows, row_lines=row_lines)
+
+
+def find_ac_table(plan_text: str) -> Optional[Tuple[int, List[List[str]]]]:
+    """Return (start_line, rows) for backward-compatible callers."""
+
+    table = find_table_under_section(plan_text, "Acceptance Criteria")
+    if table is None:
+        return None
+    return table.start_line, table.rows
+
+
+def _is_separator_row(row: List[str]) -> bool:
+    return all(set(c) <= set("-: ") for c in row)
+
+
+def _table_data_rows(table: MarkdownTable) -> List[Tuple[int, List[str]]]:
+    if not table.rows:
+        return []
+    first_data_row = 2 if len(table.rows) > 1 and _is_separator_row(table.rows[1]) else 1
+    return list(zip(table.row_lines[first_data_row:], table.rows[first_data_row:]))
+
+
+def _normalized_header(cell: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", cell.lower())
+
+
+def _find_header(headers: List[str], *tokens: str) -> Optional[int]:
+    for idx, header in enumerate(headers):
+        normalized = _normalized_header(header)
+        if all(token in normalized for token in tokens):
+            return idx
+    return None
+
+
+def _missing_contract_value_headers(table: MarkdownTable) -> List[str]:
+    headers = table.rows[0] if table.rows else []
+    required = [
+        ("Literal", ("literal",)),
+        ("Producer", ("producer",)),
+        ("Consumer", ("consumer",)),
+        ("User-facing behavior", ("user", "behavior")),
+        ("Test", ("test",)),
+    ]
+    return [
+        label
+        for label, tokens in required
+        if _find_header(headers, *tokens) is None
+    ]
+
+
+def _missing_test_delta_headers(table: MarkdownTable) -> List[str]:
+    headers = table.rows[0] if table.rows else []
+    required = [
+        ("Test", ("test",)),
+        ("Action", ("action",)),
+        ("Why", ("why",)),
+    ]
+    return [
+        label
+        for label, tokens in required
+        if _find_header(headers, *tokens) is None
+    ]
+
+
+def _candidate_contract_literals(plan_text: str) -> List[str]:
+    candidates: List[str] = []
+    for raw in _BACKTICK_LITERAL_RE.findall(_strip_fenced_blocks(plan_text)):
+        literal = raw.strip()
+        if not literal or not _IDENTIFIER_LITERAL_RE.match(literal):
+            continue
+        upper_literal = literal.upper()
+        if upper_literal in _CONTRACT_EXCLUDED_LITERALS:
+            continue
+        if "/" in literal or "\\" in literal:
+            continue
+        if re.search(r"\.(?:md|sh|py|ts|tsx|js|jsx|json|yaml|yml)$", literal):
+            continue
+        candidates.append(literal)
+    return candidates
+
+
+def _contract_value_table_required(plan_text: str) -> bool:
+    stripped = _strip_fenced_blocks(plan_text)
+    candidates = _candidate_contract_literals(stripped)
+    if not candidates:
+        return False
+    if _CONTRACT_TRIGGER_RE.search(stripped):
+        return True
+    return any(
+        _SCREAMING_SNAKE_RE.match(literal) and "_" in literal
+        for literal in candidates
+    )
+
+
+_BOUNDARY_GROUPS = (
+    ("background", re.compile(r"\b(background|service[- ]worker|sw)\b", re.IGNORECASE)),
+    ("ui", re.compile(r"\b(side[- ]?panel|frontend|ui|client|react)\b", re.IGNORECASE)),
+    ("content", re.compile(r"\b(content[- ]script|webpage|page\s+context)\b", re.IGNORECASE)),
+    ("server", re.compile(r"\b(server|backend|api)\b", re.IGNORECASE)),
+    ("extension", re.compile(r"\b(extension|browser\s+extension|chrome)\b", re.IGNORECASE)),
+    ("worker", re.compile(r"\b(web\s+worker|worker\s+thread|main\s+thread)\b", re.IGNORECASE)),
+)
+
+
+def _boundary_groups_in_affected_areas(plan_text: str) -> List[str]:
+    body = "\n".join(line for _line_no, line in section_body_lines(plan_text, "Affected Areas"))
+    return [name for name, pattern in _BOUNDARY_GROUPS if pattern.search(body)]
+
+
+_COMPAT_SCENARIOS = (
+    ("old producer + new consumer", ("old producer", "new consumer")),
+    ("new producer + old consumer", ("new producer", "old consumer")),
+    ("unknown value", ("unknown",)),
+    ("empty value", ("empty",)),
+    ("missing field", ("missing", "field")),
+)
+
+
+def _missing_compat_scenarios(table: MarkdownTable) -> List[str]:
+    row_texts = [" ".join(row).lower() for _line_no, row in _table_data_rows(table)]
+    missing: List[str] = []
+    for label, tokens in _COMPAT_SCENARIOS:
+        if not any(all(token in row_text for token in tokens) for row_text in row_texts):
+            missing.append(label)
+    return missing
+
+
+def _test_delta_required(plan_text: str) -> bool:
+    sections = (
+        "Implementation Plan",
+        "Acceptance Criteria",
+        "Docs/Tests/Contracts To Update",
+        "Docs/tests/contracts to update",
+    )
+    body = "\n".join(
+        line
+        for section in sections
+        for _line_no, line in section_body_lines(plan_text, section)
+    )
+    return bool(_TEST_CHANGE_RE.search(body))
 
 
 # ---------------------------------------------------------------------------
@@ -1015,13 +1186,12 @@ def validate_plan(
                 )
 
     # ------------------------------------------------------------------
-    # AC verification method classification (AC-001 + AC-002)
+    # AC verification method classification (AC-001..AC-004)
     # ------------------------------------------------------------------
-    ac_table = find_ac_table(text)
+    ac_table = find_table_under_section(text, "Acceptance Criteria")
     if ac_table is not None:
-        table_start, rows = ac_table
-        if len(rows) >= 2:
-            header_cells = [c.strip().lower() for c in rows[0]]
+        if len(ac_table.rows) >= 2:
+            header_cells = [c.strip().lower() for c in ac_table.rows[0]]
             method_col = None
             criterion_col = None
             for idx, cell in enumerate(header_cells):
@@ -1046,20 +1216,17 @@ def validate_plan(
                         SEVERITY_HIGH,
                         "Acceptance Criteria table has no Verification Method column",
                         plan.path,
-                        table_start,
+                        ac_table.start_line,
                     )
                 )
             else:
-                # rows[0] = header; rows[1] = separator (---|---|...) skip if so.
-                first_data_row = 2 if len(rows) > 1 and all(set(c) <= set("-: ") for c in rows[1]) else 1
-                for r_idx, row in enumerate(rows[first_data_row:], start=first_data_row):
+                for line_no, row in _table_data_rows(ac_table):
                     if method_col >= len(row):
                         continue
                     method_cell = row[method_col].strip()
                     # Strip backticks/code formatting.
                     method_token = method_cell.strip("`").upper()
                     method_token = method_token.split()[0] if method_token else ""
-                    line_no = table_start + r_idx
                     if method_token not in AC_VERIFICATION_ENUM:
                         findings.append(
                             Finding(
@@ -1116,6 +1283,154 @@ def validate_plan(
                                     line_no,
                                 )
                             )
+
+    # ------------------------------------------------------------------
+    # Contract Value Table conditional check (CVT-001 / CVT-002)
+    # ------------------------------------------------------------------
+    contract_table = find_table_under_section(text, "Contract Value Table")
+    if _contract_value_table_required(text):
+        if contract_table is None:
+            findings.append(
+                Finding(
+                    "CVT-001",
+                    SEVERITY_MEDIUM,
+                    (
+                        "plan adds/changes contract literals but has no "
+                        "`Contract Value Table` section"
+                    ),
+                    plan.path,
+                    1,
+                )
+            )
+        else:
+            missing_headers = _missing_contract_value_headers(contract_table)
+            if missing_headers:
+                findings.append(
+                    Finding(
+                        "CVT-002",
+                        SEVERITY_MEDIUM,
+                        (
+                            "`Contract Value Table` is missing required "
+                            f"headers: {', '.join(missing_headers)}"
+                        ),
+                        plan.path,
+                        contract_table.start_line,
+                    )
+                )
+
+    # ------------------------------------------------------------------
+    # Compatibility Matrix conditional check (COMPAT-001 / COMPAT-002)
+    # ------------------------------------------------------------------
+    boundary_groups = _boundary_groups_in_affected_areas(text)
+    if len(boundary_groups) >= 2:
+        compatibility_table = find_table_under_section(text, "Compatibility Matrix")
+        if compatibility_table is None:
+            findings.append(
+                Finding(
+                    "COMPAT-001",
+                    SEVERITY_MEDIUM,
+                    (
+                        "Affected Areas spans separate lifecycle boundaries "
+                        f"({', '.join(boundary_groups)}) but has no "
+                        "`Compatibility Matrix` section"
+                    ),
+                    plan.path,
+                    1,
+                )
+            )
+        else:
+            missing_scenarios = _missing_compat_scenarios(compatibility_table)
+            if missing_scenarios:
+                findings.append(
+                    Finding(
+                        "COMPAT-002",
+                        SEVERITY_MEDIUM,
+                        (
+                            "`Compatibility Matrix` is missing scenarios: "
+                            f"{', '.join(missing_scenarios)}"
+                        ),
+                        plan.path,
+                        compatibility_table.start_line,
+                    )
+                )
+
+    # ------------------------------------------------------------------
+    # Test Delta conditional check (TEST-001 / TEST-002)
+    # ------------------------------------------------------------------
+    test_delta_table = find_table_under_section(text, "Test Delta")
+    if _test_delta_required(text):
+        if test_delta_table is None:
+            findings.append(
+                Finding(
+                    "TEST-001",
+                    SEVERITY_MEDIUM,
+                    "plan changes test coverage but has no `Test Delta` table",
+                    plan.path,
+                    1,
+                )
+            )
+        else:
+            missing_headers = _missing_test_delta_headers(test_delta_table)
+            data_rows = _table_data_rows(test_delta_table)
+            if missing_headers or not data_rows:
+                detail = (
+                    f"missing headers: {', '.join(missing_headers)}"
+                    if missing_headers
+                    else "table has no data rows"
+                )
+                findings.append(
+                    Finding(
+                        "TEST-001",
+                        SEVERITY_MEDIUM,
+                        f"`Test Delta` is incomplete: {detail}",
+                        plan.path,
+                        test_delta_table.start_line,
+                    )
+                )
+            else:
+                action_col = _find_header(test_delta_table.rows[0], "action")
+                if action_col is not None:
+                    for line_no, row in data_rows:
+                        if action_col >= len(row):
+                            continue
+                        action = row[action_col].strip().strip("`").upper()
+                        if action not in {"KEEP", "UPDATE", "ADD"}:
+                            findings.append(
+                                Finding(
+                                    "TEST-002",
+                                    SEVERITY_MEDIUM,
+                                    (
+                                        "`Test Delta` action must be KEEP, "
+                                        f"UPDATE, or ADD; got {row[action_col]!r}"
+                                    ),
+                                    plan.path,
+                                    line_no,
+                                )
+                            )
+
+    # ------------------------------------------------------------------
+    # Risks require mitigation (RISK-001)
+    # ------------------------------------------------------------------
+    risk_body = section_body_lines(text, "Risks")
+    for line_no, line in risk_body:
+        stripped = line.lstrip()
+        if not stripped.startswith(("-", "*", "+")):
+            continue
+        bullet = stripped[1:].strip()
+        if not bullet:
+            continue
+        if bullet.lower().rstrip(".") in _EMPTY_BEHAVIOR_MARKERS:
+            continue
+        if not _RISK_MITIGATION_RE.search(bullet):
+            findings.append(
+                Finding(
+                    "RISK-001",
+                    SEVERITY_MEDIUM,
+                    "risk bullet must include a `Mitigation:` clause",
+                    plan.path,
+                    line_no,
+                )
+            )
 
     return findings
 

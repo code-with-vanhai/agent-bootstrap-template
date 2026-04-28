@@ -3,7 +3,8 @@
 #
 # This is NOT a gate mode (see core/gates.template.md). It enforces plan-level
 # grounding, banned self-claims, lint pack patterns, required sections,
-# decision-lock checks, and AC verification taxonomy.
+# decision-lock checks, conditional plan tables, risk mitigations, and AC
+# verification taxonomy.
 #
 # Usage:
 #   scripts/agent-validate-plan.sh <plan.md | .agent/runs/<slug>/>

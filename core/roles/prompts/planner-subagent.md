@@ -39,7 +39,7 @@ For non-trivial work, the produced `plan.md` must contain:
 
 `Open Questions` is optional. If present, each `- Q:` bullet must have a following `- RESOLVED:` or `- DEFERRED:` bullet. For `Status: Proposed`, unresolved questions are plan defects.
 
-When adding enum/status/error-code/message literals, include the literal mapping in the plan and cite existing naming conventions with an evidence block.
+When adding enum/status/error-code/message literals, include a `Contract Value Table` section and cite existing naming conventions with an evidence block. For cross-boundary changes, include a `Compatibility Matrix` section. When adding/updating/keeping tests, include a `Test Delta` section. Non-empty `Risks` bullets must include `Mitigation:`.
 
 ## Evidence Block Format
 

@@ -60,19 +60,33 @@ or:
 
 For `Status: Proposed` plans, unresolved open questions are rejected. For `Status: Draft`, unresolved open questions are warnings.
 
-When the plan adds or changes an enum, status, error code, message literal, or similar contract value, include a value table in the plan before implementation:
+When the plan adds or changes an enum, status, error code, message literal, or similar contract value, include a `Contract Value Table` section before implementation:
 
 | Literal | Producer | Consumer | User-facing behavior | Test |
 |---|---|---|---|---|
 | `EXAMPLE_CODE` | `path/to/producer.ts` | `path/to/consumer.ts` | Existing or intended visible behavior | `path/to/test.ts` |
 
-When the plan touches a boundary with separate lifecycles (for example background ↔ side panel, worker ↔ UI, server ↔ client, extension ↔ webpage), include a compatibility matrix covering old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.
+When the plan touches a boundary with separate lifecycles (for example background ↔ side panel, worker ↔ UI, server ↔ client, extension ↔ webpage), include a `Compatibility Matrix` section covering these rows:
 
-When the plan adds, updates, or preserves tests, include a test delta table:
+| Scenario | Behavior | Test |
+|---|---|---|
+| old producer + new consumer | Fallback/compat behavior | Gate or test |
+| new producer + old consumer | Fallback/compat behavior | Gate or test |
+| unknown value | Fallback/compat behavior | Gate or test |
+| empty value | Fallback/compat behavior | Gate or test |
+| missing field | Fallback/compat behavior | Gate or test |
+
+When the plan adds, updates, or preserves tests, include a `Test Delta` section:
 
 | Test | Action | Why |
 |---|---|---|
 | `path/to/existing.test.ts` | `KEEP` / `UPDATE` / `ADD` | Behavior or branch covered |
+
+Every non-empty `Risks` bullet must include `Mitigation:` in the same bullet:
+
+```md
+- Risk: <risk>. Mitigation: <mitigation>.
+```
 
 When adding a new literal to an existing field or contract, cite the current convention with an evidence block. Do not ask the implementer to infer naming or fallback behavior.
 
