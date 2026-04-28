@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Migration regression test for 0.3.0/0.3.2 -> 0.4.0.
+# Migration regression test for 0.3.0 -> 0.4.0.
 #
 # Strategy:
 #   1. Reuse tests/migrations/0.3.0/after/ as the canonical 0.3.0 baseline.
@@ -9,9 +9,20 @@
 #   3. Run sync and assert content rather than diff against a baked fixture
 #      tree. This avoids a fragile full-tree fixture for an in-progress release.
 #
+# Note on dropped clean-from-0.3.2 case:
+#   v0.3.2 was NOT a metadata-only release (`git diff v0.3.0 v0.3.2 -- core/`
+#   shows ~940 lines of grounded-planning content across 17 files including
+#   core/commands/plan.md). The earlier clean-from-0.3.2 scenario copied the
+#   0.3.0 fixture and merely patched the manifest's synced_to_template_version
+#   to 0.3.2, which produced a fixture whose content reflected 0.3.0 but
+#   claimed to be 0.3.2. agent-sync.py correctly flagged the inevitable
+#   ours-vs-base divergence as a conflict. Dropping the case rather than
+#   building a real 0.3.2 fixture (would require its own baseline tree) keeps
+#   the test honest. Migration semantics for repos genuinely synced to 0.3.2
+#   are still exercised in production when those users sync to 0.4.0.
+#
 # Coverage:
 #   - clean-from-0.3.0: source = 0.3.0 manifest, no customizations.
-#   - clean-from-0.3.2: source = 0.3.2 manifest, no customizations.
 #   - customized:       user edited rulebase.md before sync; safe_overwrite
 #                       preserves user edits (ours == theirs check) and the
 #                       patch is still applied because anchor still matches.
@@ -35,14 +46,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1) Ensure v0.3.2 and v0.4.0 tags exist at HEAD for the test (production
-#    code reads the template via the requested tag in multiple places).
-#    Delete the ephemeral tags on exit.
+# 1) Ensure v0.3.2 and v0.4.0 tags exist for the test. agent-sync.py's
+#    preflight requires a tag for every from_version in the migration
+#    chain, even when this test only exercises clean-from-0.3.0 -> 0.4.0:
+#    a 0.3.0 -> 0.4.0 sync still walks the chain through 0.3.2.
+#
+#    For v0.3.2: pin to the REAL v0.3.2 commit (499eb163) if reachable in
+#    local history. Do NOT fall back to v0.3.0's commit (the prior code
+#    did this on the false premise that v0.3.2 was metadata-only; see
+#    the header note above).
+#
+#    Ephemeral tags are deleted on exit.
 if ! git -C "$root" rev-parse --verify --quiet "v0.3.2^{commit}" >/dev/null; then
-  # 0.3.2 was a metadata-only release; core/* is byte-identical to 0.3.0.
-  # Pin the ephemeral tag to v0.3.0's commit to model that accurately.
-  v030_commit="$(git -C "$root" rev-parse "v0.3.0^{commit}")"
-  git -C "$root" tag v0.3.2 "$v030_commit"
+  v032_real_commit="499eb163bdc4cf5de39f7572a538af418828be4c"
+  if ! git -C "$root" rev-parse --verify --quiet "${v032_real_commit}^{commit}" >/dev/null; then
+    printf 'FAIL: v0.3.2 tag missing AND commit %s is not reachable locally.\n' "$v032_real_commit" >&2
+    printf '      Run `git fetch --tags` (or `git fetch origin %s`) and retry.\n' "$v032_real_commit" >&2
+    exit 1
+  fi
+  git -C "$root" tag v0.3.2 "$v032_real_commit"
   ephemeral_v032_created="1"
 fi
 if ! git -C "$root" rev-parse --verify --quiet "v0.4.0^{commit}" >/dev/null; then
@@ -64,9 +86,6 @@ with open(path, "r", encoding="utf-8") as fh:
     data = json.load(fh, object_pairs_hook=OrderedDict)
 data["template_version"] = version
 data["synced_to_template_version"] = version
-if version == "0.3.2":
-    # Repos newly bootstrapped at 0.3.2 also have instantiated_from_template_version=0.3.2.
-    data["instantiated_from_template_version"] = "0.3.2"
 with open(path, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=2)
     fh.write("\n")
@@ -256,7 +275,6 @@ EOF
 }
 
 run_sync_clean 0.3.0
-run_sync_clean 0.3.2
 run_sync_customized_rulebase
 run_sync_customized_gates
 run_sync_customized_roles
