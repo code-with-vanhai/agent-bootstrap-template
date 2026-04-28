@@ -23,6 +23,8 @@ Do not iterate on solution quality while grounding is broken.
 
 If `scripts/agent-validate-plan.sh` is available, run it first; treat its `High` findings as P0 / P1 mechanically before applying judgement on the rest of the plan.
 
+During the correctness pass, check the `Decision Ledger` when the plan contains fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits, matchers/classifiers/parsers/blocklists/allowlists, or test-harness choices. If the plan leaves caller/user impact, threshold rationale, algorithm choice, or mock/fake-timer setup implicit, return it to the planner even if the mechanical validator is otherwise clean.
+
 ## Severity Guidance
 
 - Critical: data loss, security bypass, production outage, broken deploy, irreversible migration.
@@ -42,4 +44,3 @@ Open questions:
 Verification gaps:
 - ...
 ```
-

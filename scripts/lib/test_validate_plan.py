@@ -979,6 +979,137 @@ class ConditionalTableChecksTest(unittest.TestCase):
         }
         self.assertNotIn("RISK-001", codes)
 
+    def test_threshold_without_decision_ledger_flags_dec_and_num(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Add `MAX_DOM_NODES` threshold before extraction."
+            )
+        }
+        self.assertIn("DEC-001", codes)
+        self.assertIn("NUM-001", codes)
+        self.assertNotIn("CVT-001", codes)
+
+    def test_threshold_with_decision_ledger_passes_num(self):
+        extra = textwrap.dedent(
+            """\
+            ## Decision Ledger
+
+            | Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |
+            |---|---|---|---|---|---|
+            | `MAX_DOM_NODES` threshold | Use `MAX_DOM_NODES = 15000` before cloning | Prevents large-DOM allocation | No guard | Large pages return empty content | `page-extractor-size-guard.test.ts` |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Add `MAX_DOM_NODES` threshold before extraction.",
+                extra_sections=extra,
+            )
+        }
+        self.assertNotIn("DEC-001", codes)
+        self.assertNotIn("NUM-001", codes)
+        self.assertNotIn("CVT-001", codes)
+
+    def test_empty_fallback_without_decision_ledger_flags_fallback(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Return empty extraction fallback when parsing fails."
+            )
+        }
+        self.assertIn("DEC-001", codes)
+        self.assertIn("FALLBACK-001", codes)
+
+    def test_empty_fallback_with_user_impact_passes_fallback(self):
+        extra = textwrap.dedent(
+            """\
+            ## Decision Ledger
+
+            | Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |
+            |---|---|---|---|---|---|
+            | Empty extraction fallback | Return empty article content on parser failure | Keeps content script from throwing | Propagate raw exception | Side panel shows existing no-content path | `pre-cache.test.tsx` |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Return empty extraction fallback when parsing fails.",
+                extra_sections=extra,
+            )
+        }
+        self.assertNotIn("DEC-001", codes)
+        self.assertNotIn("FALLBACK-001", codes)
+
+    def test_harness_without_decision_ledger_flags_harness001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Use a defineContentScript stub with fake timers for the content-script harness."
+            )
+        }
+        self.assertIn("DEC-001", codes)
+        self.assertIn("HARNESS-001", codes)
+
+    def test_harness_with_setup_details_passes_harness001(self):
+        extra = textwrap.dedent(
+            """\
+            ## Decision Ledger
+
+            | Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |
+            |---|---|---|---|---|---|
+            | content-script harness | Stub `defineContentScript` in the test before dynamic import, then run `config.main()` with fake timers | Matches WXT auto-import behavior | Global chrome override | Test setup remains isolated | `content-streaming.test.ts` |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Use a defineContentScript stub with fake timers for the content-script harness.",
+                extra_sections=extra,
+            )
+        }
+        self.assertNotIn("DEC-001", codes)
+        self.assertNotIn("HARNESS-001", codes)
+
+    def test_existing_screaming_snake_literals_do_not_trigger_cvt_without_contract_context(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Preserve `EXTRACT_PAGE` and `CACHE_CONTENT` message names."
+            )
+        }
+        self.assertNotIn("CVT-001", codes)
+
+    def test_cvt_preserved_only_flags_cvt003(self):
+        extra = textwrap.dedent(
+            """\
+            ## Contract Value Table
+
+            | Literal | Producer | Consumer | User-facing behavior | Test |
+            |---|---|---|---|---|
+            | `EXTRACT_PAGE` | unchanged literal | unchanged consumer | no change | existing invariant |
+            | `CACHE_CONTENT` | preserved literal | unchanged consumer | no change | existing invariant |
+            """
+        )
+        codes = {
+            f.check_id
+            for f in self._validate(extra_sections=extra)
+        }
+        self.assertIn("CVT-003", codes)
+
+    def test_doc_only_plan_does_not_require_decision_ledger(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Update README wording for the documented workflow.",
+                ac_row="| 1 | README wording is clearer | `MANUAL` |",
+            )
+        }
+        self.assertNotIn("DEC-001", codes)
+        self.assertNotIn("NUM-001", codes)
+        self.assertNotIn("FALLBACK-001", codes)
+        self.assertNotIn("HARNESS-001", codes)
+
 
 if __name__ == "__main__":
     unittest.main()

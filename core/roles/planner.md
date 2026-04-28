@@ -102,6 +102,24 @@ For `Status: Proposed`, unresolved open questions are plan defects. For `Status:
 
 When adding enum values, status values, error codes, message literals, or similar contract values, include a `Contract Value Table` section that names literal, producer, consumer, user-facing behavior, and test. When adding a literal to an existing field, cite the existing naming convention with an evidence block.
 
+Use a `Decision Ledger` section when a plan includes semantic choices that are easy to under-specify:
+
+- fallback, empty, null, degraded, or no-content behavior;
+- thresholds, timeouts, debounce intervals, limits, memory budgets, or `MAX_*` constants;
+- matchers, classifiers, parsers, blocklists, or allowlists;
+- mocks, stubs, fake timers, `MutationObserver`, `defineContentScript`, or other test-harness setup.
+
+Format:
+
+```md
+## Decision Ledger
+
+| Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |
+|---|---|---|---|---|---|
+```
+
+The ledger is for binding choices before implementation. It must state the chosen behavior, why that behavior was chosen, what alternative was rejected, which caller or user-visible path is affected, and how the decision is verified. Thresholds and test-harness setup belong here, not in `Contract Value Table`.
+
 When touching a boundary with separate lifecycles, include a `Compatibility Matrix` section. Cover old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.
 
 When adding, updating, or preserving tests, include a `Test Delta` section with columns `Test`, `Action`, and `Why`; action is one of `KEEP`, `UPDATE`, or `ADD`.

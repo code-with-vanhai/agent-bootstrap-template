@@ -39,7 +39,18 @@ For non-trivial work, the produced `plan.md` must contain:
 
 `Open Questions` is optional. If present, each `- Q:` bullet must have a following `- RESOLVED:` or `- DEFERRED:` bullet. For `Status: Proposed`, unresolved questions are plan defects.
 
-When adding enum/status/error-code/message literals, include a `Contract Value Table` section and cite existing naming conventions with an evidence block. For cross-boundary changes, include a `Compatibility Matrix` section. When adding/updating/keeping tests, include a `Test Delta` section. Non-empty `Risks` bullets must include `Mitigation:`.
+When adding enum/status/error-code/message literals, include a `Contract Value Table` section and cite existing naming conventions with an evidence block. Do not put unchanged literals or threshold constants in `Contract Value Table`.
+
+When the plan includes fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits/`MAX_*` constants, matchers/classifiers/parsers/blocklists/allowlists, or test harness choices such as mocks/stubs/fake timers/`MutationObserver`/`defineContentScript`, include:
+
+```md
+## Decision Ledger
+
+| Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |
+|---|---|---|---|---|---|
+```
+
+For cross-boundary changes, include a `Compatibility Matrix` section. When adding/updating/keeping tests, include a `Test Delta` section. Non-empty `Risks` bullets must include `Mitigation:`.
 
 ## Evidence Block Format
 

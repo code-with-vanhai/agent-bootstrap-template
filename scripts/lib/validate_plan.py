@@ -37,11 +37,16 @@ Checks:
   AC-004  ACs about documentation/comments cannot be verified by TYPECHECK alone.
   CVT-001 Contract value changes require a `Contract Value Table`.
   CVT-002 `Contract Value Table` must include literal/producer/consumer/user/test headers.
+  CVT-003 `Contract Value Table` should not list only preserved/unchanged literals.
   COMPAT-001 Cross-boundary plans require a `Compatibility Matrix`.
   COMPAT-002 `Compatibility Matrix` must cover rolling-update fallback scenarios.
   TEST-001 Plans that add/update/keep tests require a `Test Delta` table.
   TEST-002 `Test Delta` actions must be KEEP, UPDATE, or ADD.
   RISK-001 Non-empty risk bullets must include a `Mitigation:` clause.
+  DEC-001 Semantic decision triggers require a `Decision Ledger`.
+  NUM-001 Threshold/timeout/limit decisions require rationale + verification.
+  FALLBACK-001 Fallback/null/empty/degraded behavior requires caller/user impact.
+  HARNESS-001 Test-harness decisions require explicit setup details.
 
 The validator is repo-aware: React version + MV3 detection drive LP-002 and LP-003.
 
@@ -533,7 +538,6 @@ _AC_LITERAL_REQUIRED_RE = re.compile(r"\b(stable\s+code|error\s+code|status|enum
 _AC_DOCUMENTS_RE = re.compile(r"\b(documents?|documented|comments?)\b", re.IGNORECASE)
 _BACKTICK_LITERAL_RE = re.compile(r"`([^`\n]+)`")
 _IDENTIFIER_LITERAL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]*$")
-_SCREAMING_SNAKE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
 _CONTRACT_TRIGGER_RE = re.compile(
     r"\b("
     r"stable\s+code|error[- ]?code|status\s+value|enum|"
@@ -550,6 +554,43 @@ _TEST_CHANGE_RE = re.compile(
     re.IGNORECASE,
 )
 _RISK_MITIGATION_RE = re.compile(r"\bMitigation\s*:", re.IGNORECASE)
+_NUMERIC_DECISION_TRIGGER_RE = re.compile(
+    r"\b("
+    r"threshold|timeout|debounce|limit|budget|quota|memory|heap|"
+    r"nodes?|length|size|count|ms|mb|kb|"
+    r"MAX_[A-Z0-9_]+|[A-Z0-9_]+_(?:LIMIT|TIMEOUT|MS|DELAY|SIZE|LENGTH|COUNT)"
+    r")\b",
+    re.IGNORECASE,
+)
+_FALLBACK_DECISION_TRIGGER_RE = re.compile(
+    r"\b(fallback|empty|null|degraded|degrade|no[- ]content|too[- ]large)\b",
+    re.IGNORECASE,
+)
+_HARNESS_DECISION_TRIGGER_RE = re.compile(
+    r"\b("
+    r"mock|stub|fake\s*timers?|fake[- ]timer|vi\.useFakeTimers|"
+    r"runAllTimersAsync|MutationObserver|defineContentScript|"
+    r"content[- ]script\s+(?:test|harness)|test\s+harness"
+    r")\b",
+    re.IGNORECASE,
+)
+_DECISION_TRIGGER_RE = re.compile(
+    r"\b("
+    r"fallback|empty|null|degraded|degrade|no[- ]content|too[- ]large|"
+    r"threshold|timeout|debounce|limit|budget|quota|memory|heap|"
+    r"nodes?|length|size|count|ms|mb|kb|MAX_[A-Z0-9_]+|"
+    r"[A-Z0-9_]+_(?:LIMIT|TIMEOUT|MS|DELAY|SIZE|LENGTH|COUNT)|"
+    r"matcher|matching|classifier|classify|parser|parse|blocklist|allowlist|"
+    r"mock|stub|fake\s*timers?|fake[- ]timer|vi\.useFakeTimers|"
+    r"runAllTimersAsync|MutationObserver|defineContentScript|"
+    r"content[- ]script\s+(?:test|harness)|test\s+harness"
+    r")\b",
+    re.IGNORECASE,
+)
+_PRESERVED_CVT_ROW_RE = re.compile(
+    r"\b(unchanged|no\s+change|not\s+changed|preserved\s+literal|existing\s+invariant)\b",
+    re.IGNORECASE,
+)
 
 LAYOUT_API_TOKENS = (
     "clientHeight",
@@ -703,6 +744,79 @@ def _missing_test_delta_headers(table: MarkdownTable) -> List[str]:
     ]
 
 
+def _missing_decision_ledger_headers(table: MarkdownTable) -> List[str]:
+    headers = table.rows[0] if table.rows else []
+    required = [
+        ("Decision", ("decision",)),
+        ("Chosen Behavior", ("chosen", "behavior")),
+        ("Rationale", ("rationale",)),
+        ("Alternatives Rejected", ("alternatives", "rejected")),
+        ("Caller/User Impact", ("caller", "impact")),
+        ("Verification", ("verification",)),
+    ]
+    return [
+        label
+        for label, tokens in required
+        if _find_header(headers, *tokens) is None
+    ]
+
+
+def _semantic_decision_text(plan_text: str) -> str:
+    sections = (
+        "Implementation Plan",
+        "Acceptance Criteria",
+        "Risks",
+        "Test Delta",
+    )
+    body = "\n".join(
+        line
+        for section in sections
+        for _line_no, line in section_body_lines(plan_text, section)
+    )
+    return _strip_fenced_blocks(body)
+
+
+def _cell_nonempty(cell: str) -> bool:
+    value = cell.strip().strip("`").strip()
+    return value not in {"", "-", "—", "n/a", "N/A", "none", "None"}
+
+
+def _decision_row_satisfies(
+    table: MarkdownTable,
+    trigger: re.Pattern[str],
+    required_headers: Tuple[str, ...],
+) -> bool:
+    if not table.rows:
+        return False
+    header_indices = {
+        header: _find_header(table.rows[0], *header.split("."))
+        for header in required_headers
+    }
+    if any(idx is None for idx in header_indices.values()):
+        return False
+    for _line_no, row in _table_data_rows(table):
+        row_text = " | ".join(row)
+        if not trigger.search(row_text):
+            continue
+        if all(
+            idx < len(row) and _cell_nonempty(row[idx])
+            for idx in header_indices.values()
+            if idx is not None
+        ):
+            return True
+    return False
+
+
+def _cvt_rows_look_preserved_only(table: MarkdownTable) -> bool:
+    rows = _table_data_rows(table)
+    if not rows:
+        return False
+    return all(
+        _PRESERVED_CVT_ROW_RE.search(" | ".join(row))
+        for _line_no, row in rows
+    )
+
+
 def _candidate_contract_literals(plan_text: str) -> List[str]:
     candidates: List[str] = []
     for raw in _BACKTICK_LITERAL_RE.findall(_strip_fenced_blocks(plan_text)):
@@ -725,12 +839,7 @@ def _contract_value_table_required(plan_text: str) -> bool:
     candidates = _candidate_contract_literals(stripped)
     if not candidates:
         return False
-    if _CONTRACT_TRIGGER_RE.search(stripped):
-        return True
-    return any(
-        _SCREAMING_SNAKE_RE.match(literal) and "_" in literal
-        for literal in candidates
-    )
+    return bool(_CONTRACT_TRIGGER_RE.search(stripped))
 
 
 _BOUNDARY_GROUPS = (
@@ -1290,7 +1399,101 @@ def validate_plan(
                             )
 
     # ------------------------------------------------------------------
-    # Contract Value Table conditional check (CVT-001 / CVT-002)
+    # Decision Ledger semantic decision checks (DEC-001 / NUM-001 /
+    # FALLBACK-001 / HARNESS-001)
+    # ------------------------------------------------------------------
+    decision_text = _semantic_decision_text(text)
+    decision_table = find_table_under_section(text, "Decision Ledger")
+    decision_table_missing_or_incomplete = (
+        decision_table is None
+        or bool(_missing_decision_ledger_headers(decision_table))
+        or not _table_data_rows(decision_table)
+    )
+    if _DECISION_TRIGGER_RE.search(decision_text) and decision_table_missing_or_incomplete:
+        detail = (
+            "missing `Decision Ledger` section"
+            if decision_table is None
+            else "`Decision Ledger` has missing headers or no data rows"
+        )
+        findings.append(
+            Finding(
+                "DEC-001",
+                SEVERITY_MEDIUM,
+                (
+                    "plan contains semantic decision triggers "
+                    "(fallback/threshold/matcher/test harness) but has "
+                    f"{detail}"
+                ),
+                plan.path,
+                1 if decision_table is None else decision_table.start_line,
+            )
+        )
+
+    if _NUMERIC_DECISION_TRIGGER_RE.search(decision_text) and not (
+        decision_table
+        and _decision_row_satisfies(
+            decision_table,
+            _NUMERIC_DECISION_TRIGGER_RE,
+            ("rationale", "verification"),
+        )
+    ):
+        findings.append(
+            Finding(
+                "NUM-001",
+                SEVERITY_MEDIUM,
+                (
+                    "threshold/timeout/limit decisions must have a "
+                    "`Decision Ledger` row with rationale and verification"
+                ),
+                plan.path,
+                1 if decision_table is None else decision_table.start_line,
+            )
+        )
+
+    if _FALLBACK_DECISION_TRIGGER_RE.search(decision_text) and not (
+        decision_table
+        and _decision_row_satisfies(
+            decision_table,
+            _FALLBACK_DECISION_TRIGGER_RE,
+            ("caller.impact",),
+        )
+    ):
+        findings.append(
+            Finding(
+                "FALLBACK-001",
+                SEVERITY_MEDIUM,
+                (
+                    "fallback/empty/null/degraded behavior must have a "
+                    "`Decision Ledger` row with caller/user impact"
+                ),
+                plan.path,
+                1 if decision_table is None else decision_table.start_line,
+            )
+        )
+
+    if _HARNESS_DECISION_TRIGGER_RE.search(decision_text) and not (
+        decision_table
+        and _decision_row_satisfies(
+            decision_table,
+            _HARNESS_DECISION_TRIGGER_RE,
+            ("chosen.behavior", "verification"),
+        )
+    ):
+        findings.append(
+            Finding(
+                "HARNESS-001",
+                SEVERITY_MEDIUM,
+                (
+                    "mock/stub/fake-timer/content-script test harness decisions "
+                    "must have a `Decision Ledger` row with setup details and verification"
+                ),
+                plan.path,
+                1 if decision_table is None else decision_table.start_line,
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Contract Value Table conditional check (CVT-001 / CVT-002 / CVT-003)
     # ------------------------------------------------------------------
     contract_table = find_table_under_section(text, "Contract Value Table")
     if _contract_value_table_required(text):
@@ -1322,6 +1525,20 @@ def validate_plan(
                         contract_table.start_line,
                     )
                 )
+    if contract_table is not None and _cvt_rows_look_preserved_only(contract_table):
+        findings.append(
+            Finding(
+                "CVT-003",
+                SEVERITY_MEDIUM,
+                (
+                    "`Contract Value Table` appears to list only preserved or "
+                    "unchanged literals; move unchanged invariants to "
+                    "`Existing Behaviors Preserved` or `Decision Ledger`"
+                ),
+                plan.path,
+                contract_table.start_line,
+            )
+        )
 
     # ------------------------------------------------------------------
     # Compatibility Matrix conditional check (COMPAT-001 / COMPAT-002)

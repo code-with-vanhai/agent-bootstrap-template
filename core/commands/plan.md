@@ -34,7 +34,9 @@ Before quoting any current code (BEFORE / Existing / Current snippet), you MUST:
 7. Include an `Implementation Plan` section with concrete steps. Do not leave behavior-affecting choices as `consider`, `maybe`, `could`, `or add`, or similar hedges.
 8. If an `Open Questions` section is present, each `- Q:` bullet must be followed by `- RESOLVED:` or `- DEFERRED:`.
 9. If adding enum/status/error-code/message literals, include a literal mapping table and cite the existing naming convention with an evidence block.
-10. If touching separate lifecycle boundaries, include a `Compatibility Matrix` section. If adding/updating/keeping tests, include a `Test Delta` section.
-11. Every non-empty `Risks` bullet must include `Mitigation:`.
+10. Do not put unchanged literals or threshold constants in `Contract Value Table`; unchanged invariants belong in `Existing Behaviors Preserved` or `Decision Ledger`.
+11. Include a `Decision Ledger` when the plan includes fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits/`MAX_*`, matchers/classifiers/parsers/blocklists/allowlists, or test harness choices such as mocks/stubs/fake timers/`MutationObserver`/`defineContentScript`.
+12. If touching separate lifecycle boundaries, include a `Compatibility Matrix` section. If adding/updating/keeping tests, include a `Test Delta` section.
+13. Every non-empty `Risks` bullet must include `Mitigation:`.
 
 A plan that quotes non-existent code or omits the sections above is rejected at review, regardless of how sensible the AFTER section is. The repo's `scripts/agent-validate-plan.sh` enforces these requirements mechanically when present.

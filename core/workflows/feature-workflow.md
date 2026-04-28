@@ -66,6 +66,16 @@ When the plan adds or changes an enum, status, error code, message literal, or s
 |---|---|---|---|---|
 | `EXAMPLE_CODE` | `path/to/producer.ts` | `path/to/consumer.ts` | Existing or intended visible behavior | `path/to/test.ts` |
 
+`Contract Value Table` is only for added or behavior-changed contract values. Do not list unchanged existing literals just to satisfy validation; unchanged invariants belong in `Existing Behaviors Preserved` or `Decision Ledger`.
+
+When the plan includes fallback/empty/null/degraded behavior, thresholds/timeouts/debounce/limits/`MAX_*` constants, matchers/classifiers/parsers/blocklists/allowlists, or test harness choices such as mocks/stubs/fake timers/`MutationObserver`/`defineContentScript`, include a `Decision Ledger` section:
+
+| Decision | Chosen Behavior | Rationale | Alternatives Rejected | Caller/User Impact | Verification |
+|---|---|---|---|---|---|
+| DOM-size guard threshold | Use `MAX_DOM_NODES = 15000` before cloning | Prevents heavy-page allocations | Clone then catch OOM-like failure | On-demand clipping gets existing empty-content path | `page-extractor-size-guard.test.ts` |
+
+Use `Decision Ledger` to bind semantic choices. The implementer should not infer node-count method, hostname matching, fallback UX, or fake-timer/test-harness setup from vague prose.
+
 When the plan touches a boundary with separate lifecycles (for example background ↔ side panel, worker ↔ UI, server ↔ client, extension ↔ webpage), include a `Compatibility Matrix` section covering these rows:
 
 | Scenario | Behavior | Test |
