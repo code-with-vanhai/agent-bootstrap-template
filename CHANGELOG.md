@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.8.0 - 2026-04-28
+
+- Replaced `scripts/bootstrap-request.sh` token rendering with the stdlib Python renderer in `scripts/lib/render_template.py`, removing `sed -i` replacement hazards for paths and token values containing `/`, `&`, `?`, backslashes, quotes, or newlines.
+- Added source CI and generated-repo CI examples. The source workflow runs deterministic validation, Python unit tests, provider helper tests, fast evals, artifact checks, and migration fixtures without LLM credentials.
+- Added opt-in eval artifact persistence to `scripts/agent-evals.sh` with `--artifact-dir` / `EVAL_ARTIFACT_DIR`, per-eval `metadata.json`, `output.txt`, prompt snapshots when available, and `PASS` / `SKIP` / `FAIL` classification.
+- Added secret-scanning guidance and the `no-secret-leakage` skill. The generated `security` gate now runs `gitleaks dir .` when supported, falls back to `gitleaks detect --source .`, and remains `not configured` when no scanner exists.
+- Added evidence-backed candidate gate discovery through `scripts/agent-gate-discover.sh` and `scripts/lib/gate_discovery.py`. Discovery reads checked-in package/build/task/CI files and writes `.agent/gate-suggestions.json` only when requested; it never edits `.agent/gates.md`.
+- Split the plan validator into the `scripts/lib/plan_validation/` package while preserving `scripts/lib/validate_plan.py` as a compatibility wrapper that re-exports the public symbols used by tests and downstream callers.
+- Replaced the shell implementation of `scripts/agent-validate.sh` with a structured Python validator at `scripts/lib/validate_agent_system.py`, preserving the wrapper command, `AGENT_ROOT`, auto template/generated mode detection, and human output while adding `--mode` and `--format human|github|json`.
+- Added `core/manifest.schema.json` and stdlib manifest structure checks for generated repos.
+- Added `core/migrations/0.8.0/` content migration from 0.7.0 to 0.8.0. The migration lists every new `scripts/lib/plan_validation/*` file individually in `safe_overwrite` and does not add directory overwrite semantics.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.8.0`.
+
+> **Upgrade-path note.** The 0.8.0 migration accepts `from_versions: ["0.7.0"]` only. Repos on earlier versions must sync one release at a time: 0.4.0, then 0.5.0, then 0.6.0, then 0.7.0, then 0.8.0.
+
+> Verification status before tagging:
+>
+> - **Deterministic gates green**: shell syntax checks, `scripts/agent-validate.sh`, Python unit tests (75/75), `tests/lib/test_llm_provider.sh` (49/49), `tests/lib/test_agent_evals_artifacts.sh`, and `scripts/agent-evals.sh --fast`.
+> - **Generated-repo smoke verified**: full Codex bootstrap, `AGENT_ROOT` validation, and `scripts/agent-gate-discover.sh --write-suggestions`.
+> - **Migration fixtures green through 0.7.0**. `tests/migrations/0.8.0/run.sh` is present and intentionally skips before the `v0.8.0` tag exists because `agent-sync.py` reads release content from tags.
+
 ## 0.7.0 - 2026-04-28
 
 - Added semantic `Decision Ledger` planning guidance across planner, feature workflow, review workflow, planner-subagent prompt, and the `agent:plan` command. Plans that choose fallback behavior, thresholds, matchers/classifiers, or test-harness setup now have a dedicated table for chosen behavior, rationale, rejected alternatives, caller/user impact, and verification.

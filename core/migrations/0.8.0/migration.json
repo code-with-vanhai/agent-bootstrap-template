@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "version": "0.8.0",
+  "from_versions": ["0.7.0"],
+  "to": "0.8.0",
+  "safe_overwrite": [
+    {
+      "source": "scripts/agent-validate.sh",
+      "target": "scripts/agent-validate.sh"
+    },
+    {
+      "source": "scripts/agent-gate-discover.sh",
+      "target": "scripts/agent-gate-discover.sh"
+    },
+    {
+      "source": "scripts/agent-eval.template.sh",
+      "target": "scripts/agent-eval.sh"
+    },
+    {
+      "source": "scripts/lib/validate_agent_system.py",
+      "target": "scripts/lib/validate_agent_system.py"
+    },
+    {
+      "source": "scripts/lib/gate_discovery.py",
+      "target": "scripts/lib/gate_discovery.py"
+    },
+    {
+      "source": "scripts/lib/validate_plan.py",
+      "target": "scripts/lib/validate_plan.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/__init__.py",
+      "target": "scripts/lib/plan_validation/__init__.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/cli.py",
+      "target": "scripts/lib/plan_validation/cli.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/evidence.py",
+      "target": "scripts/lib/plan_validation/evidence.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/git_utils.py",
+      "target": "scripts/lib/plan_validation/git_utils.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/markdown.py",
+      "target": "scripts/lib/plan_validation/markdown.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/models.py",
+      "target": "scripts/lib/plan_validation/models.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/repo_context.py",
+      "target": "scripts/lib/plan_validation/repo_context.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/tables.py",
+      "target": "scripts/lib/plan_validation/tables.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/validator.py",
+      "target": "scripts/lib/plan_validation/validator.py"
+    }
+  ],
+  "patches": [
+    {
+      "file": ".agent/rulebase.md",
+      "anchor": "- Report any gate that could not be run and why.",
+      "insert_after_first_match": "- Treat secret scanning as required evidence when touching `.env`, credentials,\n  tokens, private keys, CI secrets, auth config, or logging paths that could\n  expose secret values. If no scanner is configured, report the gap.\n",
+      "skip_if_contains": "Treat secret scanning as required evidence"
+    },
+    {
+      "file": ".agent/gates.md",
+      "anchor": "Do not use a previous run, another agent's summary, package-manager convention, or manual inspection as a substitute for fresh gate evidence.",
+      "insert_after_first_match": "\nWhen secret-adjacent files or behavior are touched, run the configured security\ngate. If the repo has no scanner configured, report `not configured` and the\nresidual risk rather than treating manual inspection as a pass.\n",
+      "skip_if_contains": "When secret-adjacent files or behavior are touched"
+    },
+    {
+      "file": ".agent/gates.md",
+      "anchor": "Replace these with repo-specific commands after scanning.",
+      "insert_after_first_match": "\n`scripts/agent-gate-discover.sh` may be used to write `.agent/gate-suggestions.json`\nfrom checked-in package, build, task, and CI files. Treat those entries as\n`candidate` suggestions only. A command is not configured until a human or agent\nhas reviewed the evidence and updated both this file and `scripts/agent-eval.sh`.\n",
+      "skip_if_contains": "scripts/agent-gate-discover.sh"
+    }
+  ],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.8.0",
+      "synced_to_template_version": "0.8.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.8.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.8.0: safe literal bootstrap rendering, source CI examples, eval artifacts, secret scanning guidance, gate discovery candidates, modular plan validation, and structured agent-system validation."
+    },
+    "merge_array_unique": {}
+  }
+}
