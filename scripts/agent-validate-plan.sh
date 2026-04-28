@@ -2,8 +2,8 @@
 # Plan discipline command: validates `.agent/runs/<slug>/plan.md` and `spec.md`.
 #
 # This is NOT a gate mode (see core/gates.template.md). It enforces plan-level
-# grounding, banned self-claims, lint pack patterns, required sections, and
-# AC verification taxonomy.
+# grounding, banned self-claims, lint pack patterns, required sections,
+# decision-lock checks, and AC verification taxonomy.
 #
 # Usage:
 #   scripts/agent-validate-plan.sh <plan.md | .agent/runs/<slug>/>

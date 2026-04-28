@@ -12,6 +12,10 @@ Trivial change to `helloWorld` return value.
 ```
 <!-- /current-code -->
 
+## Implementation Plan
+
+- Update `helloWorld` to return the planned string.
+
 ## Acceptance Criteria
 
 | # | Criterion | Verification Method |

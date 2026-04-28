@@ -14,6 +14,10 @@ P0 defect (EV-002 / EV-003).
 ```
 <!-- /current-code -->
 
+## Implementation Plan
+
+- Update the scroll container according to the cited current code.
+
 ## Acceptance Criteria
 
 | # | Criterion | Verification Method |

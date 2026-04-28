@@ -139,7 +139,7 @@ Every acceptance criterion in `.agent/runs/*/plan.md` must declare a Verificatio
 
 ## Plan Discipline Command
 
-`scripts/agent-validate-plan.sh` is a plan discipline command, not a gate mode. It validates evidence blocks, banned self-claim patterns, AC verification classifications, and required sections in `.agent/runs/*/plan.md`. It does not replace `scripts/agent-eval.sh <mode>` and is not added to the gate enum.
+`scripts/agent-validate-plan.sh` is a plan discipline command, not a gate mode. It validates evidence blocks, banned self-claim patterns, required sections, decision-lock checks, and AC verification classifications in `.agent/runs/*/plan.md`. It does not replace `scripts/agent-eval.sh <mode>` and is not added to the gate enum.
 
 ## Acceptance Criteria
 

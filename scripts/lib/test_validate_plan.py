@@ -105,6 +105,10 @@ class EvidenceBlockTest(unittest.TestCase):
         if sections:
             sections_md = textwrap.dedent(
                 """\
+                ## Implementation Plan
+
+                - Apply the decided change.
+
                 ## Acceptance Criteria
 
                 | # | Criterion | Verification Method |
@@ -334,6 +338,10 @@ class BehaviorPreservedTest(unittest.TestCase):
             """\
             # Plan
 
+            ## Implementation Plan
+
+            - Apply the decided change.
+
             ## Acceptance Criteria
 
             | # | Criterion | Verification Method |
@@ -472,6 +480,10 @@ class TripleBacktickSnippetTest(unittest.TestCase):
 
             {block}
 
+            ## Implementation Plan
+
+            - Apply the decided change.
+
             ## Acceptance Criteria
 
             | # | Criterion | Verification Method |
@@ -520,6 +532,10 @@ class SectionsAndAcTest(unittest.TestCase):
             """\
             # Plan
 
+            ## Implementation Plan
+
+            - Apply the decided change.
+
             ## Acceptance Criteria
 
             | # | Criterion | Verification Method |
@@ -549,6 +565,10 @@ class SectionsAndAcTest(unittest.TestCase):
             """\
             # Plan
 
+            ## Implementation Plan
+
+            - Apply the decided change.
+
             ## Acceptance Criteria
 
             | # | Criterion | Verification Method |
@@ -572,6 +592,141 @@ class SectionsAndAcTest(unittest.TestCase):
         )
         codes = {f.check_id for f in findings}
         self.assertIn("AC-002", codes)
+
+
+class DecisionCompletenessTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = TempRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def _ctx(self):
+        return validate_plan.detect_repo_context(self.repo.tmp)
+
+    def _validate(
+        self,
+        *,
+        status: str = "Proposed",
+        implementation: str = "- Apply the decided change.",
+        open_questions: str = "",
+        ac_row: str = "| 1 | works | `MANUAL` |",
+    ) -> list:
+        open_questions_section = ""
+        if open_questions:
+            open_questions_section = (
+                "\n## Open Questions\n\n" + open_questions.rstrip() + "\n"
+            )
+        text = textwrap.dedent(
+            f"""\
+            # Plan
+
+            **Status:** {status}
+
+            ## Implementation Plan
+
+            {implementation}
+            {open_questions_section}
+            ## Acceptance Criteria
+
+            | # | Criterion | Verification Method |
+            |---|---|---|
+            {ac_row}
+
+            ## Existing Behaviors Preserved
+
+            - none
+
+            ## Verification
+
+            ```bash
+            ok
+            ```
+            """
+        )
+        plan = self.repo.write(".agent/runs/d/plan.md", text)
+        return validate_plan.validate_plan(
+            validate_plan.PlanFile(plan, text), self._ctx(), strict=False,
+        )
+
+    def test_open_questions_absent_does_not_flag_oq001(self):
+        codes = {f.check_id for f in self._validate()}
+        self.assertNotIn("OQ-001", codes)
+
+    def test_open_question_with_resolution_passes(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                open_questions=(
+                    "- Q: Which field owns the code?\n"
+                    "  - RESOLVED: `SAVE_ERROR.code` owns it."
+                )
+            )
+        }
+        self.assertNotIn("OQ-001", codes)
+
+    def test_unresolved_open_question_is_medium_in_draft(self):
+        findings = self._validate(
+            status="Draft",
+            open_questions="- Q: Which field owns the code?",
+        )
+        oq = [f for f in findings if f.check_id == "OQ-001"]
+        self.assertEqual([f.severity for f in oq], ["Medium"])
+
+    def test_unresolved_open_question_is_high_in_proposed(self):
+        findings = self._validate(open_questions="- Q: Which field owns the code?")
+        oq = [f for f in findings if f.check_id == "OQ-001"]
+        self.assertEqual([f.severity for f in oq], ["High"])
+
+    def test_hedged_implementation_bullet_flags_impl001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(implementation="- Consider adding a fallback mapper.")
+        }
+        self.assertIn("IMPL-001", codes)
+
+    def test_non_hedged_implementation_bullet_passes_impl001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Handle the case where the fallback mapper receives an unknown code."
+            )
+        }
+        self.assertNotIn("IMPL-001", codes)
+
+    def test_consider_the_case_wording_passes_impl001(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                implementation="- Consider the case where the mapper receives an unknown code."
+            )
+        }
+        self.assertNotIn("IMPL-001", codes)
+
+    def test_ac_code_or_status_needs_literal_target(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                ac_row="| 1 | emits a stable code for no active tab | `AUTOMATED-UNIT` |"
+            )
+        }
+        self.assertIn("AC-003", codes)
+
+    def test_ac_code_literal_target_passes_ac003(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                ac_row="| 1 | emits stable code `NO_ACTIVE_TAB` for no active tab | `AUTOMATED-UNIT` |"
+            )
+        }
+        self.assertNotIn("AC-003", codes)
+
+    def test_ac_documentation_cannot_be_typecheck_only(self):
+        codes = {
+            f.check_id
+            for f in self._validate(
+                ac_row="| 1 | documents the error-code union comment | `TYPECHECK` |"
+            )
+        }
+        self.assertIn("AC-004", codes)
 
 
 if __name__ == "__main__":

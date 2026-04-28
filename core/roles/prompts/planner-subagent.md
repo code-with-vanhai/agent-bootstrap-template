@@ -32,9 +32,14 @@ Use this prompt fragment when delegating planning work to a separate agent.
 
 For non-trivial work, the produced `plan.md` must contain:
 
+- `Implementation Plan` — concrete implementation steps. Do not leave behavior-affecting choices as `consider`, `maybe`, `could`, `or add`, or similar hedges; resolve the choice or move it to `Open Questions`.
 - `Acceptance Criteria` — every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.
 - `Existing Behaviors Preserved` — for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).
 - `Verification` — gate name and command(s).
+
+`Open Questions` is optional. If present, each `- Q:` bullet must have a following `- RESOLVED:` or `- DEFERRED:` bullet. For `Status: Proposed`, unresolved questions are plan defects.
+
+When adding enum/status/error-code/message literals, include the literal mapping in the plan and cite existing naming conventions with an evidence block.
 
 ## Evidence Block Format
 
@@ -60,16 +65,34 @@ Re-read the cited file before writing the block. If the snippet you expected is 
 ## Output Format
 
 ```md
-Planning result:
-- Classification:
-- Run artifact:
-- Affected areas:
-- Owner:
-- Acceptance criteria:
-- Required gates:
-- Docs/tests/contracts:
-- Risks:
-- Open questions:
+# Plan: <short title>
+
+**Status:** Draft
+
+## Goal
+
+## Run Artifact
+
+## Affected Areas
+
+## Owner
+
+## Implementation Plan
+
+## Acceptance Criteria
+
+| ID | Criterion | Verification Method | Gate |
+|---|---|---|---|
+
+## Existing Behaviors Preserved
+
+## Verification
+
+## Required Gates
+
+## Docs/Tests/Contracts To Update
+
+## Risks
 ```
 
 ## Verification Expectation

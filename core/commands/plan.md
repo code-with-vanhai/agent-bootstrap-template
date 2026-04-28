@@ -31,5 +31,8 @@ Before quoting any current code (BEFORE / Existing / Current snippet), you MUST:
 4. List every modified function in an `Existing Behaviors Preserved` section with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, or `BUG FIX`).
 5. Classify every acceptance criterion with a Verification Method enum value (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, `MANUAL`). Behaviors that depend on real layout APIs cannot be `AUTOMATED-UNIT` in jsdom.
 6. Use `Status: Draft` or `Status: Proposed` only. Do not self-assign quality scores or `Ready` checkmarks; status is upgraded to `Verified with evidence: <gate> @ <UTC> (exit=<code>)` only after a fresh gate run.
+7. Include an `Implementation Plan` section with concrete steps. Do not leave behavior-affecting choices as `consider`, `maybe`, `could`, `or add`, or similar hedges.
+8. If an `Open Questions` section is present, each `- Q:` bullet must be followed by `- RESOLVED:` or `- DEFERRED:`.
+9. If adding enum/status/error-code/message literals, include a literal mapping table and cite the existing naming convention with an evidence block.
 
 A plan that quotes non-existent code or omits the sections above is rejected at review, regardless of how sensible the AFTER section is. The repo's `scripts/agent-validate-plan.sh` enforces these requirements mechanically when present.

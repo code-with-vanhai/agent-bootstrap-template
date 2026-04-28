@@ -19,14 +19,22 @@ Checks:
   LP-003 No `vi.stubGlobal('chrome', ...)` if repo is MV3 extension. (Medium; fails under --strict.)
 
   SECT-001 Non-trivial plan must contain `Acceptance Criteria`,
-           `Existing Behaviors Preserved`, `Verification` sections.
+           `Existing Behaviors Preserved`, `Implementation Plan`, and
+           `Verification` sections.
   BEH-001 If `Existing Behaviors Preserved` has any non-empty bullet, the plan
           must contain at least one `<!-- current-code -->` evidence block.
           Empty markers (`- none`, `- N/A`, ...) are tolerated.
   BEH-002 (Medium) Each non-empty Existing Behaviors Preserved bullet should
           carry an inline evidence-block citation marker.
+  OQ-001  Open Questions are optional, but any `- Q:` entry must be paired with
+          `- RESOLVED:` or `- DEFERRED:`. Unresolved Draft questions are Medium;
+          Proposed/Verified questions are High.
+  IMPL-001 (Medium) Implementation Plan bullets must not leave behavior-affecting
+           choices hedged with `consider`, `maybe`, `could`, `or add`, etc.
   AC-001  Every AC table row declares a Verification Method enum value.
   AC-002  Layout-dependent ACs cannot be `AUTOMATED-UNIT` (jsdom rule).
+  AC-003  ACs about codes/statuses/enums must name literal target values.
+  AC-004  ACs about documentation/comments cannot be verified by TYPECHECK alone.
 
 The validator is repo-aware: React version + MV3 detection drive LP-002 and LP-003.
 
@@ -444,6 +452,7 @@ LINT_VI_STUBGLOBAL_CHROME_PATTERN = re.compile(
 
 
 REQUIRED_SECTION_HEADINGS = (
+    "Implementation Plan",
     "Acceptance Criteria",
     "Existing Behaviors Preserved",
     "Verification",
@@ -475,6 +484,31 @@ AC_VERIFICATION_ENUM = {
     "TYPECHECK",
     "MANUAL",
 }
+
+_STATUS_RE = re.compile(
+    r"^\s*(?:\*\*)?Status(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+?)\s*$",
+    re.IGNORECASE,
+)
+_OPEN_QUESTION_RE = re.compile(r"^\s*[-*+]\s+Q\s*:\s*(.+)", re.IGNORECASE)
+_OPEN_QUESTION_RESOLUTION_RE = re.compile(
+    r"^\s*[-*+]\s+(RESOLVED|DEFERRED)\s*:\s*\S+",
+    re.IGNORECASE,
+)
+_HEDGED_IMPL_BULLET_RE = re.compile(
+    r"^\s*[-*+]\s+(?:"
+    r"(?:maybe|might|could)\b|"
+    r"consider\s+(?:"
+    r"add(?:ing)?|use|using|map(?:ping)?|update|updating|change|changing|"
+    r"switch|switching|route|routing|move|moving|split|splitting|create|"
+    r"creating|introduce|introducing|replace|replacing|wire|wiring|include|"
+    r"including|set|setting|extend|extending|implement|implementing"
+    r")\b|"
+    r".*\b(or\s+add|or\s+use)\b"
+    r")",
+    re.IGNORECASE,
+)
+_AC_LITERAL_REQUIRED_RE = re.compile(r"\b(stable\s+code|error\s+code|status|enum)\b", re.IGNORECASE)
+_AC_DOCUMENTS_RE = re.compile(r"\b(documents?|documented|comments?)\b", re.IGNORECASE)
 
 LAYOUT_API_TOKENS = (
     "clientHeight",
@@ -521,6 +555,20 @@ def section_body_lines(plan_text: str, heading: str) -> List[Tuple[int, str]]:
         if in_section:
             out.append((idx + 1, line))
     return out
+
+
+def artifact_status(plan_text: str) -> Optional[str]:
+    for line in plan_text.splitlines():
+        match = _STATUS_RE.match(line)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def _status_is_beyond_draft(status: Optional[str]) -> bool:
+    if not status:
+        return False
+    return status.lower().startswith("proposed") or bool(_VERIFIED_PATTERN.search(status))
 
 
 def find_ac_table(plan_text: str) -> Optional[Tuple[int, List[List[str]]]]:
@@ -861,6 +909,64 @@ def validate_plan(
         )
 
     # ------------------------------------------------------------------
+    # Open Questions decision lock (OQ-001)
+    # ------------------------------------------------------------------
+    open_question_body = section_body_lines(text, "Open Questions")
+    if open_question_body:
+        status = artifact_status(text)
+        severity = SEVERITY_HIGH if _status_is_beyond_draft(status) else SEVERITY_MEDIUM
+        q_entries: List[Tuple[int, int]] = []
+        for idx, (line_no, line) in enumerate(open_question_body):
+            if _OPEN_QUESTION_RE.match(line):
+                q_entries.append((idx, line_no))
+        for q_idx, (body_idx, q_line_no) in enumerate(q_entries):
+            next_body_idx = (
+                q_entries[q_idx + 1][0]
+                if q_idx + 1 < len(q_entries)
+                else len(open_question_body)
+            )
+            resolution_lines = [
+                line for _line_no, line in open_question_body[body_idx + 1 : next_body_idx]
+                if _OPEN_QUESTION_RESOLUTION_RE.match(line)
+            ]
+            if not resolution_lines:
+                findings.append(
+                    Finding(
+                        "OQ-001",
+                        severity,
+                        (
+                            "Open Questions entry must have a following "
+                            "`- RESOLVED:` or `- DEFERRED:` bullet"
+                        ),
+                        plan.path,
+                        q_line_no,
+                    )
+                )
+
+    # ------------------------------------------------------------------
+    # Implementation Plan decision-completeness smell checks (IMPL-001)
+    # ------------------------------------------------------------------
+    implementation_body = section_body_lines(text, "Implementation Plan")
+    for line_no, line in implementation_body:
+        stripped = line.lstrip()
+        if not stripped.startswith(("-", "*", "+")):
+            continue
+        if _HEDGED_IMPL_BULLET_RE.match(line):
+            findings.append(
+                Finding(
+                    "IMPL-001",
+                    SEVERITY_MEDIUM,
+                    (
+                        "Implementation Plan bullet leaves a behavior-affecting "
+                        "choice hedged; make the decision explicit or move it to "
+                        "Open Questions as RESOLVED/DEFERRED"
+                    ),
+                    plan.path,
+                    line_no,
+                )
+            )
+
+    # ------------------------------------------------------------------
     # BEH-001 / BEH-002 - Existing Behaviors Preserved must cite evidence
     # ------------------------------------------------------------------
     behavior_body = section_body_lines(text, "Existing Behaviors Preserved")
@@ -917,6 +1023,7 @@ def validate_plan(
         if len(rows) >= 2:
             header_cells = [c.strip().lower() for c in rows[0]]
             method_col = None
+            criterion_col = None
             for idx, cell in enumerate(header_cells):
                 if "verification" in cell and "method" in cell:
                     method_col = idx
@@ -927,6 +1034,10 @@ def validate_plan(
                     if cell in ("method", "verification"):
                         method_col = idx
                         break
+            for idx, cell in enumerate(header_cells):
+                if "criterion" in cell:
+                    criterion_col = idx
+                    break
 
             if method_col is None:
                 findings.append(
@@ -971,6 +1082,35 @@ def validate_plan(
                                         "AC depends on a layout API "
                                         "(clientHeight/getBoundingClientRect/scrollTop/...) "
                                         "and cannot be AUTOMATED-UNIT in jsdom"
+                                    ),
+                                    plan.path,
+                                    line_no,
+                                )
+                            )
+                    if criterion_col is not None and criterion_col < len(row):
+                        criterion_cell = row[criterion_col].strip()
+                        if _AC_LITERAL_REQUIRED_RE.search(criterion_cell) and "`" not in criterion_cell:
+                            findings.append(
+                                Finding(
+                                    "AC-003",
+                                    SEVERITY_MEDIUM,
+                                    (
+                                        "AC mentions a code/status/enum but does not name "
+                                        "a literal target value in backticks"
+                                    ),
+                                    plan.path,
+                                    line_no,
+                                )
+                            )
+                        if method_token == "TYPECHECK" and _AC_DOCUMENTS_RE.search(criterion_cell):
+                            findings.append(
+                                Finding(
+                                    "AC-004",
+                                    SEVERITY_MEDIUM,
+                                    (
+                                        "AC asks for documentation/comment coverage but uses "
+                                        "TYPECHECK only; split manual doc review or choose a "
+                                        "non-documentation criterion"
                                     ),
                                     plan.path,
                                     line_no,

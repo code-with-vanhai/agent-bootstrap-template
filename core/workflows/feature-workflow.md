@@ -37,11 +37,44 @@ Rules:
 
 If the snippet expected at the cited region is not present at the working tree, the planner stops and revises the plan goal. Do not fabricate a "BEFORE" snippet that fits the proposed AFTER.
 
-The non-trivial plan must contain three sections enforced by `scripts/agent-validate-plan.sh` (when available):
+The non-trivial plan must contain four sections enforced by `scripts/agent-validate-plan.sh` (when available):
 
+- `Implementation Plan` — concrete implementation steps. Do not leave behavior-affecting choices as `consider`, `maybe`, `could`, `or add`, or similar hedges; make the decision explicit, or move the question to `Open Questions` with a resolution.
 - `Acceptance Criteria` — every row classified with a Verification Method (`AUTOMATED-UNIT`, `AUTOMATED-INTEGRATION`, `AUTOMATED-E2E`, `BUILD-OUTPUT`, `TYPECHECK`, or `MANUAL`). Layout-dependent behavior cannot be `AUTOMATED-UNIT` in jsdom.
 - `Existing Behaviors Preserved` — for each modified function, current side effects with evidence-block citations and classification (`PRESERVED`, `INTENTIONALLY REMOVED`, `BUG FIX`).
 - `Verification` — gate name and command(s).
+
+`Open Questions` is optional. If present, each question must use this exact shape:
+
+```md
+- Q: <question>
+  - RESOLVED: <binding decision>
+```
+
+or:
+
+```md
+- Q: <question>
+  - DEFERRED: <why this is out of scope for this plan>
+```
+
+For `Status: Proposed` plans, unresolved open questions are rejected. For `Status: Draft`, unresolved open questions are warnings.
+
+When the plan adds or changes an enum, status, error code, message literal, or similar contract value, include a value table in the plan before implementation:
+
+| Literal | Producer | Consumer | User-facing behavior | Test |
+|---|---|---|---|---|
+| `EXAMPLE_CODE` | `path/to/producer.ts` | `path/to/consumer.ts` | Existing or intended visible behavior | `path/to/test.ts` |
+
+When the plan touches a boundary with separate lifecycles (for example background ↔ side panel, worker ↔ UI, server ↔ client, extension ↔ webpage), include a compatibility matrix covering old producer + new consumer, new producer + old consumer, unknown value, empty value, and missing field.
+
+When the plan adds, updates, or preserves tests, include a test delta table:
+
+| Test | Action | Why |
+|---|---|---|
+| `path/to/existing.test.ts` | `KEEP` / `UPDATE` / `ADD` | Behavior or branch covered |
+
+When adding a new literal to an existing field or contract, cite the current convention with an evidence block. Do not ask the implementer to infer naming or fallback behavior.
 
 Status field whitelist: `Draft`, `Proposed`, or `Verified with evidence: <gate> @ <UTC> (exit=<code>)`. Self-assigned quality scores, ✅ checkmarks, and bare `Ready for ...` stamps are forbidden.
 
@@ -57,4 +90,3 @@ Status field whitelist: `Draft`, `Proposed`, or `Verified with evidence: <gate> 
 - The feature requires new infrastructure, external services, or paid APIs.
 - The feature changes authentication, authorization, billing, data retention, or privacy behavior.
 - The feature needs a new architecture decision.
-

@@ -78,6 +78,30 @@ Quote current code only inside an evidence block. The grammar is canonical in `.
 
 If the snippet you expected is not present at the cited region, stop and revise the plan goal. Do not fabricate a BEFORE that fits the proposed AFTER.
 
+## Decision Lock
+
+Non-trivial plans should not hand unresolved behavior choices to the implementer.
+
+Use an `Open Questions` section only when a real ambiguity must be recorded. Each entry must be resolved or explicitly deferred:
+
+```md
+- Q: <question>
+  - RESOLVED: <binding decision>
+```
+
+or:
+
+```md
+- Q: <question>
+  - DEFERRED: <why this is out of scope>
+```
+
+For `Status: Proposed`, unresolved open questions are plan defects. For `Status: Draft`, unresolved open questions are warnings.
+
+`Implementation Plan` bullets must be concrete. Do not write behavior-affecting steps like `consider adding...`, `maybe use...`, or `update X or add Y`; choose the path, or move the question to `Open Questions`.
+
+When adding enum values, status values, error codes, message literals, or similar contract values, include a literal mapping table that names producer, consumer, user-facing behavior, and test. When adding a literal to an existing field, cite the existing naming convention with an evidence block.
+
 ## Existing Behaviors Preserved
 
 For each function or handler being modified, list its current side effects with evidence-block citations and classify each entry as one of:
@@ -110,21 +134,41 @@ A run artifact's `Status:` line uses one of: `Draft`, `Proposed`, or `Verified w
 Use this shape for non-trivial work:
 
 ```md
-Plan:
-- Goal:
-- Run artifact:
-- Affected areas:
-- Owner:
-- Steps:
-- Acceptance Criteria: (table with columns: ID | Criterion | Verification Method | Gate)
-- Existing Behaviors Preserved: (list with evidence-block citation per entry; classify PRESERVED | INTENTIONALLY REMOVED | BUG FIX)
-- Verification: (gate command(s) and expected exit code; status remains Draft/Proposed until a fresh gate run produces evidence)
-- Required gates:
-- Docs/tests/contracts to update:
-- Risks:
+# Plan: <short title>
+
+**Status:** Draft
+
+## Goal
+
+## Run Artifact
+
+## Affected Areas
+
+## Owner
+
+## Implementation Plan
+
+## Acceptance Criteria
+
+| ID | Criterion | Verification Method | Gate |
+|---|---|---|---|
+
+## Existing Behaviors Preserved
+
+List each entry with an evidence-block citation and classify it as PRESERVED, INTENTIONALLY REMOVED, or BUG FIX.
+
+## Verification
+
+Gate command(s) and expected exit code. Status remains Draft/Proposed until a fresh gate run produces evidence.
+
+## Required Gates
+
+## Docs/Tests/Contracts To Update
+
+## Risks
 ```
 
-The `Acceptance Criteria`, `Existing Behaviors Preserved`, and `Verification` sections are required by the validator (`scripts/agent-validate-plan.sh`). Omitting any of them is a P0 plan defect.
+The `Implementation Plan`, `Acceptance Criteria`, `Existing Behaviors Preserved`, and `Verification` sections are required by the validator (`scripts/agent-validate-plan.sh`). Omitting any of them is a P0 plan defect.
 
 ## Limits
 
