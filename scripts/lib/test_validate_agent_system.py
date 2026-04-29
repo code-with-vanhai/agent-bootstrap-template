@@ -18,6 +18,17 @@ WRAPPER = ROOT / "scripts" / "agent-validate.sh"
 
 
 class AgentSystemValidatorTest(unittest.TestCase):
+    def make_template_copy(self) -> Path:
+        parent = Path(tempfile.mkdtemp(prefix="agent-template-validator-"))
+        self.addCleanup(lambda: shutil.rmtree(parent, ignore_errors=True))
+        target = parent / "repo"
+        shutil.copytree(
+            ROOT,
+            target,
+            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+        )
+        return target
+
     def make_target(self, *, features: str = "standard", harness: str = "generic") -> Path:
         target = Path(tempfile.mkdtemp(prefix="agent-system-validator-"))
         self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
@@ -73,6 +84,63 @@ class AgentSystemValidatorTest(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["mode"], "template")
         self.assertEqual(payload["failure_count"], 0)
+
+    def test_template_missing_skill_manifest_fails(self):
+        target = self.make_template_copy()
+        (target / "core/skills/manifest.json").unlink()
+
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/skills/manifest.json is valid JSON cannot be checked", messages)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_template_manifest_skill_missing_directory_fails(self):
+        target = self.make_template_copy()
+        shutil.rmtree(target / "core/skills/no-secret-leakage")
+
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/skills missing manifest skill directories: no-secret-leakage", messages)
+
+    def test_template_unexpected_skill_directory_fails(self):
+        target = self.make_template_copy()
+        extra = target / "core/skills/extra-skill"
+        extra.mkdir()
+        (extra / "SKILL.md").write_text(
+            "---\nname: extra-skill\ndescription: Use when testing extra skills.\n---\n\n# Extra\n\n## Canonical Sources\n\n- `.agent/rulebase.md`\n",
+            encoding="utf-8",
+        )
+
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/skills contains skills not listed in manifest: extra-skill", messages)
+
+    def test_template_stale_skill_count_doc_fails(self):
+        target = self.make_template_copy()
+        readme = target / "README.md"
+        readme.write_text(
+            readme.read_text(encoding="utf-8").replace(
+                "Eight optional native behavior skills",
+                "Seven optional native behavior skills",
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("README.md has stale skill count mention(s): Seven optional native behavior skills", messages)
 
     def test_generated_standard_passes_through_wrapper_with_agent_root(self):
         target = self.make_target()

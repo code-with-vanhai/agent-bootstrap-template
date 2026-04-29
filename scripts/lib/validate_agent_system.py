@@ -16,15 +16,22 @@ from typing import Any, Iterable
 
 EXPECTED_GATE_MODES = ("changed", "fast", "frontend", "backend", "shared", "e2e", "full", "security", "release")
 EXPECTED_COMMANDS = ("bootstrap", "plan", "bugfix", "implement", "refactor", "review", "security-review", "verify", "release-check")
-EXPECTED_SKILLS = (
-    "verify-before-completion",
-    "root-cause-debugging",
-    "scoped-implementation",
-    "plan-before-code",
-    "worktree-isolation",
-    "no-invented-artifacts",
-    "bootstrap-agent-system",
-    "no-secret-leakage",
+SKILL_COUNT_WORDS = {
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+}
+WORD_SKILL_COUNT_RE = re.compile(
+    r"\b(seven|eight|nine|ten|eleven|twelve)\s+"
+    r"(optional\s+)?(native\s+)?(behavior\s+)?skills?\b",
+    re.IGNORECASE,
+)
+NUMERIC_SKILL_COUNT_RE = re.compile(
+    r"\b(\d+)\s+(optional\s+)?(native\s+)?(behavior\s+)?skills?\b",
+    re.IGNORECASE,
 )
 PLACEHOLDER_RE = re.compile(r"{{[A-Z][A-Z0-9_]*}}")
 GENERATED_TEXT_ROOTS = (".agent", "AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursor", ".github")
@@ -60,6 +67,37 @@ def resolve_root(start: Path) -> tuple[Path, str]:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def parse_skill_mapping_names(text: str) -> set[str]:
+    names: set[str] = set()
+    in_mapping = False
+    for line in text.splitlines():
+        if line.strip() == "## Skill Mapping":
+            in_mapping = True
+            continue
+        if in_mapping and line.startswith("## "):
+            break
+        if not in_mapping or not line.lstrip().startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not cells or cells[0].lower() in {"skill", "---"}:
+            continue
+        if set(cells[0]) <= {"-", " "}:
+            continue
+        match = re.fullmatch(r"`([^`]+)`", cells[0])
+        if match:
+            names.add(match.group(1))
+    return names
+
+
+def skill_count_mentions(text: str) -> list[tuple[str, int]]:
+    mentions: list[tuple[str, int]] = []
+    for match in WORD_SKILL_COUNT_RE.finditer(text):
+        mentions.append((match.group(0), SKILL_COUNT_WORDS[match.group(1).lower()]))
+    for match in NUMERIC_SKILL_COUNT_RE.finditer(text):
+        mentions.append((match.group(0), int(match.group(1))))
+    return mentions
 
 
 def generated_text_files(root: Path) -> list[Path]:
@@ -167,6 +205,88 @@ class AgentSystemValidator:
             self.contains("core/manifest.template.json", f'"{mode}"', f"core/manifest.template.json includes {mode} gate mode")
             self.contains("core/commands/verify.md", f"`{mode}`", f"core/commands/verify.md includes {mode} gate mode")
             self.contains("scripts/agent-eval.template.sh", f"{mode})", f"scripts/agent-eval.template.sh includes {mode} gate mode")
+
+    def load_skill_manifest(self) -> list[str]:
+        rel = "core/skills/manifest.json"
+        data = self.json_file(rel, f"{rel} is valid JSON")
+        if data is None:
+            return []
+        if data.get("schema_version") == 1:
+            self.pass_(f"{rel} schema_version is 1", rel)
+        else:
+            self.fail(f"{rel} schema_version must be 1", rel)
+
+        skills = data.get("skills")
+        if not isinstance(skills, list) or not skills or not all(isinstance(item, str) for item in skills):
+            self.fail(f"{rel} skills must be a non-empty array of strings", rel)
+            return []
+
+        duplicates = sorted({item for item in skills if skills.count(item) > 1})
+        if duplicates:
+            self.fail(f"{rel} contains duplicate skill names: {', '.join(duplicates)}", rel)
+        else:
+            self.pass_(f"{rel} lists {len(skills)} skills", rel)
+        return skills
+
+    def validate_skill_set(self, skills: list[str]) -> None:
+        expected = set(skills)
+        actual = {
+            path.parent.name
+            for path in (self.root / "core/skills").glob("*/SKILL.md")
+        }
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        if missing:
+            self.fail("core/skills missing manifest skill directories: " + ", ".join(missing), "core/skills")
+        if unexpected:
+            self.fail("core/skills contains skills not listed in manifest: " + ", ".join(unexpected), "core/skills")
+        if not missing and not unexpected:
+            self.pass_(f"core/skills matches manifest skill set ({len(expected)} skills)", "core/skills")
+
+        for skill in skills:
+            skill_file = f"core/skills/{skill}/SKILL.md"
+            self.exists(skill_file)
+            self.contains(skill_file, f"^name: {re.escape(skill)}$", f"{skill_file} has matching skill name", regex=True)
+            self.contains(skill_file, "^description: Use when", f"{skill_file} has trigger-style description", regex=True)
+            self.contains(skill_file, "Canonical Sources", f"{skill_file} lists canonical sources")
+
+    def validate_skill_mapping(self, skills: list[str]) -> None:
+        rel = "core/skills/README.md"
+        path = self.root / rel
+        if not path.is_file():
+            self.fail(f"{rel} Skill Mapping cannot be checked because file is missing", rel)
+            return
+        mapped = parse_skill_mapping_names(read_text(path))
+        expected = set(skills)
+        missing = sorted(expected - mapped)
+        unexpected = sorted(mapped - expected)
+        if missing:
+            self.fail(f"{rel} Skill Mapping is missing skills: {', '.join(missing)}", rel)
+        if unexpected:
+            self.fail(f"{rel} Skill Mapping lists unexpected skills: {', '.join(unexpected)}", rel)
+        if not missing and not unexpected:
+            self.pass_(f"{rel} Skill Mapping matches manifest skill set", rel)
+
+    def validate_skill_count_docs(self, skills: list[str]) -> None:
+        expected_count = len(skills)
+        for rel in ("README.md", "USAGE.md", "core/skills/README.md"):
+            path = self.root / rel
+            if not path.is_file():
+                self.skip(f"{rel} not present for skill count drift check", rel)
+                continue
+            mismatches = [
+                phrase
+                for phrase, count in skill_count_mentions(read_text(path))
+                if count != expected_count
+            ]
+            if mismatches:
+                self.fail(
+                    f"{rel} has stale skill count mention(s): {', '.join(mismatches)}; "
+                    f"expected {expected_count} skills from core/skills/manifest.json",
+                    rel,
+                )
+            else:
+                self.pass_(f"{rel} skill count mentions match manifest", rel)
 
     def validate_manifest_shape(self, rel: str) -> dict[str, Any] | None:
         data = self.json_file(rel, f"{rel} is valid JSON")
@@ -280,18 +400,11 @@ class AgentSystemValidator:
 
         self.exists("core/skills/README.md")
         self.contains("core/skills/README.md", "Skill Mapping", "core/skills/README.md includes skill mapping")
-        skill_files = list((self.root / "core/skills").glob("*/SKILL.md"))
-        if len(skill_files) == 8:
-            self.pass_("core/skills contains 8 skill files", "core/skills")
-        else:
-            self.fail(f"core/skills contains {len(skill_files)} skill files, expected 8", "core/skills")
-        for skill in EXPECTED_SKILLS:
-            skill_file = f"core/skills/{skill}/SKILL.md"
-            self.exists(skill_file)
-            self.contains(skill_file, f"^name: {re.escape(skill)}$", f"{skill_file} has matching skill name", regex=True)
-            self.contains(skill_file, "^description: Use when", f"{skill_file} has trigger-style description", regex=True)
-            self.contains(skill_file, "Canonical Sources", f"{skill_file} lists canonical sources")
-            self.contains("core/skills/README.md", f"`{skill}`", f"core/skills/README.md maps {skill}")
+        skills = self.load_skill_manifest()
+        if skills:
+            self.validate_skill_set(skills)
+            self.validate_skill_mapping(skills)
+            self.validate_skill_count_docs(skills)
 
     def validate_github_metadata(self, rel: str) -> None:
         self.exists(rel)
