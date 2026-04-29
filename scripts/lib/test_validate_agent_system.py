@@ -163,6 +163,55 @@ class AgentSystemValidatorTest(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["mode"], "generated")
         self.assertEqual(payload["failure_count"], 0)
+        manifest = json.loads((target / ".agent" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertNotIn("claude-native-subagents", manifest["features_enabled"])
+        self.assertFalse((target / ".claude" / "agents").exists())
+
+    def test_generated_full_claude_subagents_passes(self):
+        target = self.make_target(features="full", harness="claude")
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["mode"], "generated")
+        self.assertEqual(payload["failure_count"], 0)
+
+        manifest = json.loads((target / ".agent" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("claude-native-subagents", manifest["features_enabled"])
+
+        agents_dir = target / ".claude" / "agents"
+        expected = {"planner.md", "implementer.md", "reviewer.md", "gate-runner.md"}
+        actual = {p.name for p in agents_dir.iterdir() if p.is_file()}
+        self.assertEqual(actual, expected)
+
+        for filename in expected:
+            body = (agents_dir / filename).read_text(encoding="utf-8")
+            self.assertTrue(body.startswith("---\n"), f"{filename} missing frontmatter start")
+            try:
+                end = body.index("\n---\n", 4)
+            except ValueError:
+                self.fail(f"{filename} missing frontmatter terminator")
+            frontmatter = body[4:end]
+            for field in ("name:", "description:", "tools:", "permissionMode:", "maxTurns:", "skills:"):
+                self.assertIn(field, frontmatter, f"{filename} frontmatter missing {field}")
+            self.assertNotRegex(frontmatter, r"(?m)^model:", f"{filename} must not pin model")
+            self.assertIn("Subagent Prompt", body[end:])
+
+    def test_generated_full_claude_planner_disallows_writes(self):
+        target = self.make_target(features="full", harness="claude")
+        planner = (target / ".claude" / "agents" / "planner.md").read_text(encoding="utf-8")
+        end = planner.index("\n---\n", 4)
+        frontmatter = planner[4:end]
+        self.assertRegex(frontmatter, r"(?m)^tools:.*\bBash\b")
+        self.assertRegex(frontmatter, r"(?m)^disallowedTools:.*Edit.*Write.*MultiEdit")
+        self.assertRegex(frontmatter, r"(?m)^permissionMode:\s+plan\s*$")
+
+    def test_generated_full_claude_implementer_omits_disallowed_tools(self):
+        target = self.make_target(features="full", harness="claude")
+        implementer = (target / ".claude" / "agents" / "implementer.md").read_text(encoding="utf-8")
+        end = implementer.index("\n---\n", 4)
+        frontmatter = implementer[4:end]
+        self.assertRegex(frontmatter, r"(?m)^tools:.*Edit.*Write.*MultiEdit")
+        self.assertNotRegex(frontmatter, r"(?m)^disallowedTools:")
 
     def test_generated_post_bootstrap_ignores_validator_source_and_pycache(self):
         target = self.make_target()

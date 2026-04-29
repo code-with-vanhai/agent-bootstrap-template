@@ -167,7 +167,7 @@ Use the template files as the source of truth. Do not recreate these files from 
 | `core/skills/*/SKILL.md` | `.agents/skills/agent-bootstrap/<skill>/SKILL.md` or `.claude/skills/agent-bootstrap/<skill>/SKILL.md` | Optional only; copy when the harness supports native skills |
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `core/commands/*.md`, `bin/agent-bootstrap` | Claude Code plugin install | Optional template-level distribution layer; do not copy plugin metadata into target repos |
 
-If the target harness is Claude Code and the user wants dispatchable agents, adapt `.agent/roles/prompts/*-subagent.md` into `.claude/agents/<role>.md`. Otherwise keep prompt fragments under `.agent/roles/prompts/` for copy/paste or manual delegation.
+If the target harness is Claude Code and `--features full` is selected, the deterministic script `scripts/bootstrap-request.sh` already writes `.claude/agents/<role>.md` for `planner`, `implementer`, `reviewer`, and `gate-runner` by prepending Claude subagent frontmatter to the canonical `.agent/roles/prompts/*-subagent.md` body. For non-script (manual) bootstrap or other harnesses that want dispatchable agents, adapt the prompt fragments into the harness-native location. Otherwise keep prompt fragments under `.agent/roles/prompts/` for copy/paste or manual delegation.
 
 Do not create `.agent/runs/*` during bootstrap unless there is a real non-trivial follow-up task to plan. Runs are created per task, not as required bootstrap files.
 

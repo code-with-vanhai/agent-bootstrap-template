@@ -419,6 +419,35 @@ class AgentSystemValidator:
         self.contains(rel, "Baseline Gate", f"{rel} includes baseline gate")
         self.contains(rel, "When NOT To Use", f"{rel} includes when-not-to-use section")
 
+    def validate_claude_native_subagents(self) -> None:
+        expected_roles = ("planner", "implementer", "reviewer", "gate-runner")
+        required_fields = ("name", "description", "tools", "permissionMode", "maxTurns", "skills")
+        for role in expected_roles:
+            rel = f".claude/agents/{role}.md"
+            path = self.root / rel
+            if not path.is_file():
+                self.fail(f"{rel} is missing", rel)
+                continue
+            text = read_text(path)
+            match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
+            if not match:
+                self.fail(f"{rel} missing valid frontmatter block", rel)
+                continue
+            frontmatter = match.group(1)
+            for field in required_fields:
+                if re.search(rf"^{field}:\s+\S", frontmatter, re.MULTILINE):
+                    self.pass_(f"{rel} frontmatter contains {field}", rel)
+                else:
+                    self.fail(f"{rel} frontmatter missing {field}", rel)
+            if re.search(r"^model:\s*\S", frontmatter, re.MULTILINE):
+                self.fail(f"{rel} frontmatter must not pin model", rel)
+            else:
+                self.pass_(f"{rel} frontmatter does not pin model", rel)
+            if re.search(rf"^name:\s+{re.escape(role)}\s*$", frontmatter, re.MULTILINE):
+                self.pass_(f"{rel} frontmatter name equals {role}", rel)
+            else:
+                self.fail(f"{rel} frontmatter name must equal {role}", rel)
+
     def manifest_has_feature(self, data: dict[str, Any] | None, feature: str) -> bool:
         return isinstance(data, dict) and feature in (data.get("features_enabled") or [])
 
@@ -519,6 +548,13 @@ class AgentSystemValidator:
                     self.fail(f"{adapter} exists but does not point to .agent/", adapter)
             else:
                 self.skip(f"{adapter} not generated", adapter)
+
+        if self.manifest_has_feature(manifest, "claude-native-subagents"):
+            self.validate_claude_native_subagents()
+        elif (self.root / ".claude/agents").is_dir():
+            self.skip(".claude/agents present without claude-native-subagents feature; skipping native subagent checks", ".claude/agents")
+        else:
+            self.skip(".claude/agents not expected without claude-native-subagents feature", ".claude/agents")
 
         if (self.root / ".github/PULL_REQUEST_TEMPLATE.md").is_file():
             self.validate_github_metadata(".github/PULL_REQUEST_TEMPLATE.md")
