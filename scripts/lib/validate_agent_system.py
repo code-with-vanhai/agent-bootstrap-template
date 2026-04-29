@@ -406,6 +406,35 @@ class AgentSystemValidator:
             self.validate_skill_mapping(skills)
             self.validate_skill_count_docs(skills)
 
+        self.validate_hook_templates()
+
+    def validate_hook_templates(self) -> None:
+        self.exists("core/hooks/session-start.sh")
+        self.shell_syntax("core/hooks/session-start.sh")
+        self.exists("core/hooks/pre-tool-use-secret-guard.py.template")
+        self.py_compile(
+            ["core/hooks/pre-tool-use-secret-guard.py.template"],
+            "core/hooks/pre-tool-use-secret-guard.py.template compiles",
+        )
+        self.contains(
+            "core/hooks/pre-tool-use-secret-guard.py.template",
+            "hookSpecificOutput",
+            "core/hooks/pre-tool-use-secret-guard.py.template emits hookSpecificOutput envelope",
+        )
+        self.contains(
+            "core/hooks/pre-tool-use-secret-guard.py.template",
+            "permissionDecision",
+            "core/hooks/pre-tool-use-secret-guard.py.template emits permissionDecision",
+        )
+        readme = "core/hooks/README.md"
+        self.exists(readme)
+        self.contains(readme, "off by default", f"{readme} states hooks are off by default")
+        self.contains(readme, "user credentials", f"{readme} warns hooks run with user credentials")
+        self.contains(readme, "schema", f"{readme} requires schema verification before registration")
+        self.contains(readme, "Manual registration", f"{readme} documents manual registration step")
+        self.contains(readme, "secret-guard", f"{readme} documents secret-guard hook")
+        self.contains(readme, "session-start", f"{readme} documents session-start hook")
+
     def validate_github_metadata(self, rel: str) -> None:
         self.exists(rel)
         self.contains(rel, "Problem observed", f"{rel} includes problem observed section")

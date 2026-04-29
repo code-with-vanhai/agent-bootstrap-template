@@ -10,7 +10,7 @@ features="standard"
 harness="generic"
 dry_run="0"
 force="0"
-install_hook="0"
+install_hook_mode="none"
 template_version="0.8.1"
 
 usage() {
@@ -25,7 +25,10 @@ Options:
   --template <path>        agent-bootstrap-template path (default: script parent)
   --features <level>      minimal, standard, or full (default: standard)
   --harness <name>        generic, codex, claude, cursor, copilot, or gemini (default: generic)
-  --install-hook          Stage optional SessionStart hook under .agent/hooks/
+  --install-hook[=mode]   Stage optional hook(s) under .agent/hooks/.
+                          Bare flag is an alias for =session-start.
+                          Modes: session-start | secret-guard | both
+                          See core/hooks/README.md before enabling.
   --force                 Overwrite existing generated files
   --dry-run               Print actions without writing files
   -h, --help              Show this help
@@ -68,8 +71,23 @@ while [ "$#" -gt 0 ]; do
       shift 2
       ;;
     --install-hook)
-      install_hook="1"
+      install_hook_mode="session-start"
       shift
+      ;;
+    --install-hook=session-start)
+      install_hook_mode="session-start"
+      shift
+      ;;
+    --install-hook=secret-guard)
+      install_hook_mode="secret-guard"
+      shift
+      ;;
+    --install-hook=both)
+      install_hook_mode="both"
+      shift
+      ;;
+    --install-hook=*)
+      die "unknown --install-hook value: ${1#--install-hook=} (expected session-start, secret-guard, or both)"
       ;;
     --force)
       force="1"
@@ -582,8 +600,28 @@ copy_claude_subagents() {
 }
 
 copy_hook() {
-  [ "$install_hook" = "1" ] || return 0
-  copy_file "$TEMPLATE_ROOT/core/hooks/session-start.sh" "$TARGET_ROOT/.agent/hooks/session-start.sh" "755"
+  case "$install_hook_mode" in
+    none)
+      return 0
+      ;;
+  esac
+
+  case "$install_hook_mode" in
+    session-start|both)
+      copy_file "$TEMPLATE_ROOT/core/hooks/session-start.sh" "$TARGET_ROOT/.agent/hooks/session-start.sh" "755"
+      ;;
+  esac
+
+  case "$install_hook_mode" in
+    secret-guard|both)
+      copy_file "$TEMPLATE_ROOT/core/hooks/pre-tool-use-secret-guard.py.template" "$TARGET_ROOT/.agent/hooks/pre-tool-use-secret-guard.py" "755"
+      log ""
+      log "WARNING: secret-guard hook staged at .agent/hooks/pre-tool-use-secret-guard.py."
+      log "         It is OFF until you register it in your harness. Review the script and"
+      log "         current PreToolUse schema before enabling. See core/hooks/README.md."
+      log ""
+      ;;
+  esac
 }
 
 write_pending() {
@@ -628,10 +666,19 @@ write_pending() {
     commands_status="generated"
   fi
 
-  hook_status="not generated"
-  if [ "$install_hook" = "1" ]; then
-    hook_status="staged under .agent/hooks/session-start.sh; install manually in the harness"
-  fi
+  session_start_hook_status="not generated"
+  case "$install_hook_mode" in
+    session-start|both)
+      session_start_hook_status="staged under .agent/hooks/session-start.sh; install manually in the harness"
+      ;;
+  esac
+
+  secret_guard_hook_status="not generated"
+  case "$install_hook_mode" in
+    secret-guard|both)
+      secret_guard_hook_status="staged under .agent/hooks/pre-tool-use-secret-guard.py; install manually in the harness"
+      ;;
+  esac
 
   native_subagents_status="not generated"
   if [ "$features" = "full" ] && [ "$harness" = "claude" ]; then
@@ -658,7 +705,8 @@ EOF
     printf 'Skills: %s\n' "$skills_status"
     printf 'Codex command wrapper skills: %s\n' "$command_skill_status"
     printf 'Worktree workflow: %s\n' "$worktree_status"
-    printf 'SessionStart hook: %s\n' "$hook_status"
+    printf 'SessionStart hook: %s\n' "$session_start_hook_status"
+    printf 'PreToolUse secret-guard hook: %s\n' "$secret_guard_hook_status"
     printf 'Claude native subagents: %s\n' "$native_subagents_status"
     cat <<'EOF'
 

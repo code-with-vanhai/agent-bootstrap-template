@@ -29,19 +29,30 @@ class AgentSystemValidatorTest(unittest.TestCase):
         )
         return target
 
-    def make_target(self, *, features: str = "standard", harness: str = "generic") -> Path:
+    def make_target(
+        self,
+        *,
+        features: str = "standard",
+        harness: str = "generic",
+        install_hook: str | None = None,
+    ) -> Path:
         target = Path(tempfile.mkdtemp(prefix="agent-system-validator-"))
         self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
+        args = [
+            str(ROOT / "scripts" / "bootstrap-request.sh"),
+            "--target",
+            str(target),
+            "--features",
+            features,
+            "--harness",
+            harness,
+        ]
+        if install_hook == "bare":
+            args.append("--install-hook")
+        elif install_hook is not None:
+            args.append(f"--install-hook={install_hook}")
         subprocess.run(
-            [
-                str(ROOT / "scripts" / "bootstrap-request.sh"),
-                "--target",
-                str(target),
-                "--features",
-                features,
-                "--harness",
-                harness,
-            ],
+            args,
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -258,6 +269,56 @@ class AgentSystemValidatorTest(unittest.TestCase):
         result = self.run_validator("--mode", "invalid")
         self.assertEqual(result.returncode, 2)
         self.assertIn("invalid choice", result.stderr)
+
+    def test_install_hook_bare_stages_session_start_only(self):
+        target = self.make_target(install_hook="bare")
+        hooks_dir = target / ".agent" / "hooks"
+        self.assertTrue((hooks_dir / "session-start.sh").is_file())
+        self.assertFalse((hooks_dir / "pre-tool-use-secret-guard.py").exists())
+        pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
+        self.assertIn("SessionStart hook: staged", pending)
+        self.assertIn("PreToolUse secret-guard hook: not generated", pending)
+
+    def test_install_hook_secret_guard_stages_secret_guard_only(self):
+        target = self.make_target(install_hook="secret-guard")
+        hooks_dir = target / ".agent" / "hooks"
+        self.assertFalse((hooks_dir / "session-start.sh").exists())
+        secret_hook = hooks_dir / "pre-tool-use-secret-guard.py"
+        self.assertTrue(secret_hook.is_file())
+        self.assertTrue(os.access(secret_hook, os.X_OK), "secret-guard hook must be executable")
+        body = secret_hook.read_text(encoding="utf-8")
+        self.assertTrue(body.startswith("#!/usr/bin/env python3"))
+        self.assertIn("hookSpecificOutput", body)
+        pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
+        self.assertIn("SessionStart hook: not generated", pending)
+        self.assertIn("PreToolUse secret-guard hook: staged", pending)
+
+    def test_install_hook_both_stages_both(self):
+        target = self.make_target(install_hook="both")
+        hooks_dir = target / ".agent" / "hooks"
+        self.assertTrue((hooks_dir / "session-start.sh").is_file())
+        self.assertTrue((hooks_dir / "pre-tool-use-secret-guard.py").is_file())
+        pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
+        self.assertIn("SessionStart hook: staged", pending)
+        self.assertIn("PreToolUse secret-guard hook: staged", pending)
+
+    def test_install_hook_unknown_value_rejected(self):
+        target = Path(tempfile.mkdtemp(prefix="agent-system-validator-"))
+        self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
+        result = subprocess.run(
+            [
+                str(ROOT / "scripts" / "bootstrap-request.sh"),
+                "--target",
+                str(target),
+                "--install-hook=bogus",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown --install-hook value", result.stderr)
+        self.assertFalse((target / ".agent").exists())
 
 
 if __name__ == "__main__":
