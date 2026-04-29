@@ -63,6 +63,10 @@ THIN_ADAPTER_TIER_HEADINGS = (
     "## Commands",
 )
 
+GATE_CANDIDATE_MARKER_OPEN_FMT = "# >>> AGENT-CANDIDATES gate={gate} — review before promoting <<<"
+GATE_CANDIDATE_MARKER_CLOSE_FMT = "# <<< END AGENT-CANDIDATES gate={gate} <<<"
+GATE_CANDIDATE_RUN_RE = re.compile(r"^\s*#\s+run\s+\S", re.MULTILINE)
+
 
 @dataclass
 class Check:
@@ -375,6 +379,8 @@ class AgentSystemValidator:
         self.py_compile(["scripts/lib/render_template.py"], "scripts/lib/render_template.py compiles")
         self.exists("scripts/lib/gate_discovery.py")
         self.py_compile(["scripts/lib/gate_discovery.py"], "scripts/lib/gate_discovery.py compiles")
+        self.exists("scripts/lib/insert_gate_candidates.py")
+        self.py_compile(["scripts/lib/insert_gate_candidates.py"], "scripts/lib/insert_gate_candidates.py compiles")
 
         self.exists("core/manifest.schema.json")
         self.json_file("core/manifest.schema.json", "core/manifest.schema.json is valid JSON")
@@ -392,6 +398,7 @@ class AgentSystemValidator:
         self.exists("scripts/agent-eval.template.sh")
         self.contains("scripts/agent-eval.template.sh", "security)", "scripts/agent-eval.template.sh supports security gate mode")
         self.validate_gate_modes()
+        self.validate_gate_candidate_markers_template()
 
         self.exists(".claude-plugin/marketplace.json")
         self.json_file(".claude-plugin/marketplace.json", ".claude-plugin/marketplace.json is valid JSON")
@@ -443,6 +450,79 @@ class AgentSystemValidator:
             self.fail(f"{rel} exists but does not point to .agent/", rel)
         for heading in THIN_ADAPTER_TIER_HEADINGS:
             self.contains(rel, heading, f"{rel} includes {heading}")
+
+    def validate_gate_candidate_markers_template(self) -> None:
+        rel = "scripts/agent-eval.template.sh"
+        if not (self.root / rel).is_file():
+            self.fail(f"{rel} is missing", rel)
+            return
+        text = read_text(self.root / rel)
+        for gate in EXPECTED_GATE_MODES:
+            open_marker = GATE_CANDIDATE_MARKER_OPEN_FMT.format(gate=gate)
+            close_marker = GATE_CANDIDATE_MARKER_CLOSE_FMT.format(gate=gate)
+            if open_marker in text and close_marker in text:
+                self.pass_(f"{rel} includes AGENT-CANDIDATES marker pair for gate={gate}", rel)
+            else:
+                missing = "open" if open_marker not in text else "close"
+                self.fail(
+                    f"{rel} missing AGENT-CANDIDATES {missing} marker for gate={gate}",
+                    rel,
+                )
+
+    def validate_gate_candidate_markers_generated(
+        self, manifest: dict[str, Any] | None
+    ) -> None:
+        rel = "scripts/agent-eval.sh"
+        path = self.root / rel
+        if not path.is_file():
+            self.skip(f"{rel} missing; gate-candidate marker checks skipped", rel)
+            return
+        text = read_text(path)
+        all_markers_present = True
+        gate_segments: dict[str, str] = {}
+        for gate in EXPECTED_GATE_MODES:
+            open_marker = GATE_CANDIDATE_MARKER_OPEN_FMT.format(gate=gate)
+            close_marker = GATE_CANDIDATE_MARKER_CLOSE_FMT.format(gate=gate)
+            try:
+                start = text.index(open_marker)
+                end = text.index(close_marker, start + len(open_marker))
+            except ValueError:
+                missing = "open" if open_marker not in text else "close"
+                self.fail(
+                    f"{rel} missing AGENT-CANDIDATES {missing} marker for gate={gate}",
+                    rel,
+                )
+                all_markers_present = False
+                continue
+            gate_segments[gate] = text[start + len(open_marker) : end]
+            self.pass_(f"{rel} includes AGENT-CANDIDATES marker pair for gate={gate}", rel)
+
+        if not all_markers_present:
+            return
+
+        if self.manifest_has_feature(manifest, "gate-candidate-discovery"):
+            populated = [
+                gate
+                for gate, segment in gate_segments.items()
+                if GATE_CANDIDATE_RUN_RE.search(segment)
+            ]
+            if populated:
+                self.pass_(
+                    f"{rel} contains discovered candidate stubs for gates: "
+                    f"{', '.join(populated)}",
+                    rel,
+                )
+            else:
+                self.fail(
+                    f"{rel} declares gate-candidate-discovery feature but no "
+                    "AGENT-CANDIDATES block contains a `#   run ` stub",
+                    rel,
+                )
+        else:
+            self.skip(
+                f"{rel} gate-candidate-discovery feature not declared; stub population not required",
+                rel,
+            )
 
     def validate_hook_templates(self) -> None:
         self.exists("core/hooks/session-start.sh")
@@ -591,6 +671,11 @@ class AgentSystemValidator:
         self.py_compile(["scripts/lib/gate_discovery.py"], "scripts/lib/gate_discovery.py compiles")
         self.py_compile(["scripts/lib/validate_agent_system.py"], "scripts/lib/validate_agent_system.py compiles")
         self.py_compile(["scripts/lib/validate_plan.py", *plan_validation_files], "scripts/lib/validate_plan.py and plan_validation package compile")
+        if (self.root / "scripts/lib/insert_gate_candidates.py").is_file():
+            self.py_compile(
+                ["scripts/lib/insert_gate_candidates.py"],
+                "scripts/lib/insert_gate_candidates.py compiles",
+            )
 
         commands_enabled = (self.root / ".agent/commands").is_dir() or self.manifest_has_feature(manifest, "commands")
         if commands_enabled:
@@ -622,6 +707,8 @@ class AgentSystemValidator:
             self.skip(".claude/agents present without claude-native-subagents feature; skipping native subagent checks", ".claude/agents")
         else:
             self.skip(".claude/agents not expected without claude-native-subagents feature", ".claude/agents")
+
+        self.validate_gate_candidate_markers_generated(manifest)
 
         if (self.root / ".github/PULL_REQUEST_TEMPLATE.md").is_file():
             self.validate_github_metadata(".github/PULL_REQUEST_TEMPLATE.md")

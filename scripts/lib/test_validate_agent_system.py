@@ -35,9 +35,13 @@ class AgentSystemValidatorTest(unittest.TestCase):
         features: str = "standard",
         harness: str = "generic",
         install_hook: str | None = None,
+        discover_gates: bool = False,
+        prepopulate=None,
     ) -> Path:
         target = Path(tempfile.mkdtemp(prefix="agent-system-validator-"))
         self.addCleanup(lambda: shutil.rmtree(target, ignore_errors=True))
+        if prepopulate is not None:
+            prepopulate(target)
         args = [
             str(ROOT / "scripts" / "bootstrap-request.sh"),
             "--target",
@@ -51,6 +55,8 @@ class AgentSystemValidatorTest(unittest.TestCase):
             args.append("--install-hook")
         elif install_hook is not None:
             args.append(f"--install-hook={install_hook}")
+        if discover_gates:
+            args.append("--discover-gates")
         subprocess.run(
             args,
             check=True,
@@ -325,6 +331,105 @@ class AgentSystemValidatorTest(unittest.TestCase):
         pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
         self.assertIn("SessionStart hook: staged", pending)
         self.assertIn("PreToolUse secret-guard hook: staged", pending)
+
+    def test_bootstrap_without_discover_gates_keeps_marker_bodies_empty(self):
+        target = self.make_target()
+        eval_text = (target / "scripts" / "agent-eval.sh").read_text(encoding="utf-8")
+        self.assertIn("# >>> AGENT-CANDIDATES gate=fast", eval_text)
+        self.assertIn("# <<< END AGENT-CANDIDATES gate=fast", eval_text)
+        # no candidate stub between any pair of markers
+        import re
+
+        for gate in (
+            "changed",
+            "fast",
+            "frontend",
+            "backend",
+            "shared",
+            "e2e",
+            "full",
+            "security",
+            "release",
+        ):
+            block_re = re.compile(
+                rf"# >>> AGENT-CANDIDATES gate={gate} — review before promoting <<<\n"
+                rf"(?P<body>.*?)# <<< END AGENT-CANDIDATES gate={gate} <<<",
+                re.DOTALL,
+            )
+            match = block_re.search(eval_text)
+            self.assertIsNotNone(match, f"missing markers for gate={gate}")
+            self.assertNotIn("#   run ", match.group("body"))
+        manifest = json.loads((target / ".agent" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertNotIn("gate-candidate-discovery", manifest["features_enabled"])
+        pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
+        self.assertIn("Gate candidate discovery: not run", pending)
+
+    def test_bootstrap_with_discover_gates_inserts_node_candidate(self):
+        def drop_package_json(target: Path) -> None:
+            (target / "package.json").write_text(
+                json.dumps(
+                    {
+                        "scripts": {
+                            "test": "vitest run",
+                            "lint": "eslint .",
+                            "typecheck": "tsc --noEmit",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        target = self.make_target(discover_gates=True, prepopulate=drop_package_json)
+        eval_text = (target / "scripts" / "agent-eval.sh").read_text(encoding="utf-8")
+        self.assertIn("#   run npm run test", eval_text)
+        self.assertIn("#   run npm run lint", eval_text)
+        self.assertIn("#   run npm run typecheck", eval_text)
+        self.assertRegex(
+            eval_text,
+            r"# source: package\.json::scripts\.test \(confidence=high\)",
+        )
+        # not_configured fallback must remain in the fast arm
+        self.assertRegex(
+            eval_text,
+            r"(?ms)^\s*fast\)\n.*?not_configured",
+        )
+
+        manifest = json.loads((target / ".agent" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("gate-candidate-discovery", manifest["features_enabled"])
+
+        pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
+        self.assertIn("Gate candidate discovery: ran;", pending)
+
+    def test_bootstrap_with_discover_gates_empty_target_omits_feature(self):
+        target = self.make_target(discover_gates=True)
+        eval_text = (target / "scripts" / "agent-eval.sh").read_text(encoding="utf-8")
+        self.assertNotIn("#   run ", eval_text)
+
+        manifest = json.loads((target / ".agent" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertNotIn("gate-candidate-discovery", manifest["features_enabled"])
+
+        pending = (target / ".agent" / "bootstrap-pending.md").read_text(encoding="utf-8")
+        self.assertIn("Gate candidate discovery: ran; no candidates discovered", pending)
+
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["failure_count"], 0)
+
+    def test_generated_validator_passes_with_discover_gates_feature(self):
+        def drop_package_json(target: Path) -> None:
+            (target / "package.json").write_text(
+                json.dumps({"scripts": {"test": "vitest run"}}),
+                encoding="utf-8",
+            )
+
+        target = self.make_target(discover_gates=True, prepopulate=drop_package_json)
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["failure_count"], 0)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("contains discovered candidate stubs for gates", messages)
 
     def test_install_hook_unknown_value_rejected(self):
         target = Path(tempfile.mkdtemp(prefix="agent-system-validator-"))

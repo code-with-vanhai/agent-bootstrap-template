@@ -11,6 +11,7 @@ harness="generic"
 dry_run="0"
 force="0"
 install_hook_mode="none"
+discover_gates="0"
 template_version="0.8.1"
 
 usage() {
@@ -29,6 +30,12 @@ Options:
                           Bare flag is an alias for =session-start.
                           Modes: session-start | secret-guard | both
                           See core/hooks/README.md before enabling.
+  --discover-gates        Discover candidate gate commands from the target repo
+                          and insert them as commented stubs in
+                          scripts/agent-eval.sh. Adds gate-candidate-discovery
+                          to .agent/manifest.json::features_enabled only when
+                          at least one stub is inserted. Off by default;
+                          runtime gate behavior stays not_configured.
   --force                 Overwrite existing generated files
   --dry-run               Print actions without writing files
   -h, --help              Show this help
@@ -88,6 +95,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --install-hook=*)
       die "unknown --install-hook value: ${1#--install-hook=} (expected session-start, secret-guard, or both)"
+      ;;
+    --discover-gates)
+      discover_gates="1"
+      shift
       ;;
     --force)
       force="1"
@@ -420,6 +431,7 @@ copy_scripts() {
   copy_file "$TEMPLATE_ROOT/scripts/agent-validate-plan.sh" "$TARGET_ROOT/scripts/agent-validate-plan.sh" "755"
   copy_file "$TEMPLATE_ROOT/scripts/lib/__init__.py" "$TARGET_ROOT/scripts/lib/__init__.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/gate_discovery.py" "$TARGET_ROOT/scripts/lib/gate_discovery.py" "644"
+  copy_file "$TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py" "$TARGET_ROOT/scripts/lib/insert_gate_candidates.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_agent_system.py" "$TARGET_ROOT/scripts/lib/validate_agent_system.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_plan.py" "$TARGET_ROOT/scripts/lib/validate_plan.py" "644"
   for plan_validation_file in "$TEMPLATE_ROOT"/scripts/lib/plan_validation/*.py; do
@@ -599,6 +611,51 @@ copy_claude_subagents() {
   done
 }
 
+discover_gates_into_eval() {
+  if [ "$discover_gates" != "1" ]; then
+    return 0
+  fi
+
+  if [ "$dry_run" = "1" ]; then
+    log "DRY-RUN python3 $TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py --target $TARGET_ROOT"
+    return 0
+  fi
+
+  log ""
+  log "Discovering candidate gate commands for $TARGET_ROOT ..."
+  if ! python3 "$TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py" --target "$TARGET_ROOT"; then
+    die "insert_gate_candidates.py failed; agent-eval.sh markers may be inconsistent"
+  fi
+
+  if agent_eval_has_candidate_stubs; then
+    add_manifest_feature "gate-candidate-discovery"
+  fi
+}
+
+agent_eval_has_candidate_stubs() {
+  [ -f "$TARGET_ROOT/scripts/agent-eval.sh" ] || return 1
+  grep -Eq '^[[:space:]]*#[[:space:]]{3}run[[:space:]]+\S' "$TARGET_ROOT/scripts/agent-eval.sh"
+}
+
+add_manifest_feature() {
+  feature="$1"
+  manifest_path="$TARGET_ROOT/.agent/manifest.json"
+  [ -f "$manifest_path" ] || die "missing manifest for feature update: $manifest_path"
+  FEATURE_NAME="$feature" MANIFEST_PATH="$manifest_path" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+path = Path(os.environ["MANIFEST_PATH"])
+feature = os.environ["FEATURE_NAME"]
+data = json.loads(path.read_text(encoding="utf-8"))
+features = data.setdefault("features_enabled", [])
+if feature not in features:
+    features.append(feature)
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+}
+
 copy_hook() {
   case "$install_hook_mode" in
     none)
@@ -687,6 +744,15 @@ write_pending() {
     native_subagents_status="not generated: no native subagent path for harness"
   fi
 
+  gate_discovery_status="not run"
+  if [ "$discover_gates" = "1" ]; then
+    if agent_eval_has_candidate_stubs; then
+      gate_discovery_status="ran; review commented stubs in scripts/agent-eval.sh and promote only confirmed commands"
+    else
+      gate_discovery_status="ran; no candidates discovered; marker blocks remain empty"
+    fi
+  fi
+
   {
     cat <<'EOF'
 # Bootstrap Pending Tasks
@@ -708,6 +774,7 @@ EOF
     printf 'SessionStart hook: %s\n' "$session_start_hook_status"
     printf 'PreToolUse secret-guard hook: %s\n' "$secret_guard_hook_status"
     printf 'Claude native subagents: %s\n' "$native_subagents_status"
+    printf 'Gate candidate discovery: %s\n' "$gate_discovery_status"
     cat <<'EOF'
 
 ## What the script already did
@@ -774,6 +841,7 @@ copy_skills
 copy_codex_command_skills
 copy_claude_subagents
 copy_hook
+discover_gates_into_eval
 write_pending
 
 if [ "$dry_run" = "1" ]; then

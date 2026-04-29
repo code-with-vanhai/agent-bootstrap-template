@@ -29,6 +29,8 @@ case "$gate" in
     # Examples:
     # run npm run lint -- --cache
     # run go test ./...
+    # >>> AGENT-CANDIDATES gate=changed — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=changed <<<
     not_configured
     ;;
   fast)
@@ -37,26 +39,38 @@ case "$gate" in
     # run npm run typecheck
     # run npm test
     # run npm run lint
+    # >>> AGENT-CANDIDATES gate=fast — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=fast <<<
     not_configured
     ;;
   frontend)
     # Replace with frontend-specific checks.
+    # >>> AGENT-CANDIDATES gate=frontend — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=frontend <<<
     not_configured
     ;;
   backend)
     # Replace with backend-specific checks.
+    # >>> AGENT-CANDIDATES gate=backend — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=backend <<<
     not_configured
     ;;
   shared)
     # Replace with shared contract/library checks.
+    # >>> AGENT-CANDIDATES gate=shared — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=shared <<<
     not_configured
     ;;
   e2e)
     # Replace with end-to-end checks.
+    # >>> AGENT-CANDIDATES gate=e2e — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=e2e <<<
     not_configured
     ;;
   full)
     # Replace with full verification.
+    # >>> AGENT-CANDIDATES gate=full — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=full <<<
     not_configured
     ;;
   security)
@@ -65,6 +79,8 @@ case "$gate" in
     # run npm audit --audit-level high
     # run semgrep --config auto
     # run scripts/check-authz.sh
+    # >>> AGENT-CANDIDATES gate=security — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=security <<<
     if command -v gitleaks >/dev/null 2>&1; then
       if gitleaks dir --help >/dev/null 2>&1; then
         run gitleaks dir .
@@ -79,6 +95,8 @@ case "$gate" in
   release)
     # Replace with release candidate checks.
     # This must not deploy unless explicitly approved.
+    # >>> AGENT-CANDIDATES gate=release — review before promoting <<<
+    # <<< END AGENT-CANDIDATES gate=release <<<
     not_configured
     ;;
   *)
