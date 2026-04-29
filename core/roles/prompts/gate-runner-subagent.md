@@ -28,3 +28,7 @@ Gate:
 - Skipped:
 - Residual risk:
 ```
+
+## Audit Log (best-effort)
+
+- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/gate-runner-subagent.md --field subagent=gate-runner --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.

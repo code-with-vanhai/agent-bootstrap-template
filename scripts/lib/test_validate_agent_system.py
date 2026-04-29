@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -430,6 +431,128 @@ class AgentSystemValidatorTest(unittest.TestCase):
         self.assertEqual(payload["failure_count"], 0)
         messages = "\n".join(item["message"] for item in payload["results"])
         self.assertIn("contains discovered candidate stubs for gates", messages)
+
+    def test_bootstrap_copies_audit_log_scripts(self):
+        target = self.make_target()
+        self.assertTrue((target / "scripts" / "agent-audit-log.sh").is_file())
+        self.assertTrue(os.access(target / "scripts" / "agent-audit-log.sh", os.X_OK))
+        self.assertTrue((target / "scripts" / "lib" / "audit_log.py").is_file())
+
+    def test_bootstrap_does_not_modify_target_gitignore(self):
+        def prepopulate_gitignore(target: Path) -> None:
+            (target / ".gitignore").write_text("dist/\n.env\n", encoding="utf-8")
+
+        target = self.make_target(prepopulate=prepopulate_gitignore)
+        self.assertEqual((target / ".gitignore").read_text(encoding="utf-8"), "dist/\n.env\n")
+
+    def test_agent_eval_trap_emits_gate_run(self):
+        target = self.make_target()
+        result = subprocess.run(
+            ["bash", str(target / "scripts" / "agent-eval.sh"), "fast"],
+            cwd=str(target),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        log_path = target / ".agent" / "audit-log.jsonl"
+        self.assertTrue(log_path.is_file(), result.stdout + result.stderr)
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 1)
+        record = json.loads(lines[0])
+        self.assertEqual(record["kind"], "gate_run")
+        self.assertEqual(record["gate"], "fast")
+        self.assertEqual(record["exit_code"], 2)
+        self.assertIsInstance(record["duration_ms"], int)
+
+    def test_validate_plan_wrapper_preserves_stdout_byte_identical_under_github_format(self):
+        target = self.make_target()
+        plan_dir = target / ".agent" / "runs" / "bad-plan"
+        plan_dir.mkdir(parents=True)
+        (plan_dir / "plan.md").write_text("# Plan\n\n(missing required sections)\n", encoding="utf-8")
+
+        wrapper = subprocess.run(
+            [
+                "bash",
+                str(target / "scripts" / "agent-validate-plan.sh"),
+                "--force",
+                "--strict",
+                "--format",
+                "github",
+                str(plan_dir),
+            ],
+            cwd=str(target),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        direct = subprocess.run(
+            [
+                sys.executable,
+                str(target / "scripts" / "lib" / "validate_plan.py"),
+                "--force",
+                "--strict",
+                "--format",
+                "github",
+                str(plan_dir),
+            ],
+            cwd=str(target),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertEqual(wrapper.returncode, direct.returncode)
+        self.assertEqual(wrapper.stdout, direct.stdout)
+
+    def test_validate_plan_audit_log_omits_counts_under_github_format(self):
+        target = self.make_target()
+        plan_dir = target / ".agent" / "runs" / "bad-plan"
+        plan_dir.mkdir(parents=True)
+        (plan_dir / "plan.md").write_text("# Plan\n\n(missing required sections)\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                "bash",
+                str(target / "scripts" / "agent-validate-plan.sh"),
+                "--force",
+                "--strict",
+                "--format",
+                "github",
+                str(plan_dir),
+            ],
+            cwd=str(target),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 1)
+        record = json.loads((target / ".agent" / "audit-log.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual(record["kind"], "plan_validation")
+        self.assertEqual(record["exit_code"], 1)
+        self.assertNotIn("high", record)
+        self.assertNotIn("medium", record)
+
+    def test_validate_plan_audit_log_counts_under_human_format(self):
+        target = self.make_target()
+        plan_dir = target / ".agent" / "runs" / "bad-plan"
+        plan_dir.mkdir(parents=True)
+        (plan_dir / "plan.md").write_text("# Plan\n\n(missing required sections)\n", encoding="utf-8")
+
+        result = subprocess.run(
+            ["bash", str(target / "scripts" / "agent-validate-plan.sh"), "--force", "--strict", str(plan_dir)],
+            cwd=str(target),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 1)
+        summary = re.search(r"Summary: ([0-9]+) High, ([0-9]+) Medium", result.stdout)
+        self.assertIsNotNone(summary, result.stdout)
+        record = json.loads((target / ".agent" / "audit-log.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual(record["kind"], "plan_validation")
+        self.assertEqual(record["exit_code"], 1)
+        self.assertEqual(record["high"], int(summary.group(1)))
+        self.assertEqual(record["medium"], int(summary.group(2)))
 
     def test_install_hook_unknown_value_rejected(self):
         target = Path(tempfile.mkdtemp(prefix="agent-system-validator-"))

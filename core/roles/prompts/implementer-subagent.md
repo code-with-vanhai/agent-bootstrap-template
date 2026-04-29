@@ -49,3 +49,7 @@ Implemented:
 ## Verification Expectation
 
 Before claiming completion, run the selected gate from `.agent/gates.md` or explain why it is blocked or not configured. Include the exact command and result.
+
+## Audit Log (best-effort)
+
+- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/implementer-subagent.md --field subagent=implementer --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.

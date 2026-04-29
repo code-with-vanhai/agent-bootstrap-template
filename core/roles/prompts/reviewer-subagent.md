@@ -67,3 +67,7 @@ Summary:
 ## Verification Expectation
 
 Do not claim the change is ready unless the relevant gate evidence is present. If verification is missing, list it under `Verification gaps`.
+
+## Audit Log (best-effort)
+
+- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/reviewer-subagent.md --field subagent=reviewer --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.

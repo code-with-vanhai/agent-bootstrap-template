@@ -426,10 +426,12 @@ copy_commands() {
 
 copy_scripts() {
   copy_file "$TEMPLATE_ROOT/scripts/agent-validate.sh" "$TARGET_ROOT/scripts/agent-validate.sh" "755"
+  copy_file "$TEMPLATE_ROOT/scripts/agent-audit-log.sh" "$TARGET_ROOT/scripts/agent-audit-log.sh" "755"
   copy_file "$TEMPLATE_ROOT/scripts/agent-eval.template.sh" "$TARGET_ROOT/scripts/agent-eval.sh" "755"
   copy_file "$TEMPLATE_ROOT/scripts/agent-gate-discover.sh" "$TARGET_ROOT/scripts/agent-gate-discover.sh" "755"
   copy_file "$TEMPLATE_ROOT/scripts/agent-validate-plan.sh" "$TARGET_ROOT/scripts/agent-validate-plan.sh" "755"
   copy_file "$TEMPLATE_ROOT/scripts/lib/__init__.py" "$TARGET_ROOT/scripts/lib/__init__.py" "644"
+  copy_file "$TEMPLATE_ROOT/scripts/lib/audit_log.py" "$TARGET_ROOT/scripts/lib/audit_log.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/gate_discovery.py" "$TARGET_ROOT/scripts/lib/gate_discovery.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py" "$TARGET_ROOT/scripts/lib/insert_gate_candidates.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_agent_system.py" "$TARGET_ROOT/scripts/lib/validate_agent_system.py" "644"

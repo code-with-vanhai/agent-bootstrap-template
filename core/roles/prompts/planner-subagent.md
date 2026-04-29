@@ -109,3 +109,7 @@ Re-read the cited file before writing the block. If the snippet you expected is 
 ## Verification Expectation
 
 Run `bash scripts/agent-validate.sh` only if planning changed generated agent-system files. Otherwise report that no verification command was required because no product code changed.
+
+## Audit Log (best-effort)
+
+- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/planner-subagent.md --field subagent=planner --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.

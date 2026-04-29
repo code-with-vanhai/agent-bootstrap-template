@@ -66,6 +66,7 @@ THIN_ADAPTER_TIER_HEADINGS = (
 GATE_CANDIDATE_MARKER_OPEN_FMT = "# >>> AGENT-CANDIDATES gate={gate} — review before promoting <<<"
 GATE_CANDIDATE_MARKER_CLOSE_FMT = "# <<< END AGENT-CANDIDATES gate={gate} <<<"
 GATE_CANDIDATE_RUN_RE = re.compile(r"^\s*#\s+run\s+\S", re.MULTILINE)
+AUDIT_LOG_TRAP_MARKER = "trap '_audit_emit_gate_exit' EXIT"
 
 
 @dataclass
@@ -365,6 +366,7 @@ class AgentSystemValidator:
         self.contains("scripts/agent-validate.sh", "validate_agent_system.py", "scripts/agent-validate.sh invokes structured validator")
         self.exists("scripts/lib/validate_agent_system.py")
         self.py_compile(["scripts/lib/validate_agent_system.py"], "scripts/lib/validate_agent_system.py compiles")
+        self.validate_audit_log_templates()
 
         self.exists("scripts/agent-validate-plan.sh")
         self.shell_syntax("scripts/agent-validate-plan.sh")
@@ -438,6 +440,32 @@ class AgentSystemValidator:
         self.validate_hook_templates()
         for rel in THIN_ADAPTER_SOURCE_FILES:
             self.validate_thin_adapter_file(rel)
+
+    def validate_audit_log_templates(self) -> None:
+        self.exists("scripts/agent-audit-log.sh")
+        self.shell_syntax("scripts/agent-audit-log.sh")
+        self.exists("scripts/lib/audit_log.py")
+        self.py_compile(["scripts/lib/audit_log.py"], "scripts/lib/audit_log.py compiles")
+        self.contains(
+            "scripts/agent-eval.template.sh",
+            AUDIT_LOG_TRAP_MARKER,
+            "scripts/agent-eval.template.sh installs audit-log EXIT trap",
+        )
+        self.contains(
+            "scripts/agent-eval.template.sh",
+            "scripts/agent-audit-log.sh",
+            "scripts/agent-eval.template.sh invokes audit-log wrapper",
+        )
+        self.contains(
+            "scripts/agent-validate-plan.sh",
+            "agent-audit-log.sh",
+            "scripts/agent-validate-plan.sh invokes audit-log wrapper",
+        )
+        plan_wrapper = self.root / "scripts/agent-validate-plan.sh"
+        if plan_wrapper.is_file() and "2>&1" in read_text(plan_wrapper):
+            self.fail("scripts/agent-validate-plan.sh must not merge stderr into stdout with 2>&1", "scripts/agent-validate-plan.sh")
+        elif plan_wrapper.is_file():
+            self.pass_("scripts/agent-validate-plan.sh does not merge stderr into stdout", "scripts/agent-validate-plan.sh")
 
     def validate_thin_adapter_file(self, rel: str) -> None:
         if not (self.root / rel).is_file():
@@ -649,8 +677,11 @@ class AgentSystemValidator:
             ".agent/workflows/security-review-workflow.md",
             ".agent/workflows/improvement-cycle-workflow.md",
             ".agent/workflows/rule-evolution-workflow.md",
+            "scripts/agent-audit-log.sh",
             "scripts/agent-eval.sh",
             "scripts/agent-gate-discover.sh",
+            "scripts/agent-validate-plan.sh",
+            "scripts/lib/audit_log.py",
             "scripts/lib/gate_discovery.py",
             "scripts/lib/validate_agent_system.py",
             "scripts/lib/validate_plan.py",
@@ -666,11 +697,24 @@ class AgentSystemValidator:
         manifest = self.validate_manifest_shape(".agent/manifest.json")
 
         self.shell_syntax("scripts/agent-eval.sh")
+        self.shell_syntax("scripts/agent-audit-log.sh")
+        self.shell_syntax("scripts/agent-validate-plan.sh")
         self.shell_syntax("scripts/agent-gate-discover.sh")
         plan_validation_files = [str(path.relative_to(self.root)) for path in (self.root / "scripts/lib/plan_validation").glob("*.py")]
+        self.py_compile(["scripts/lib/audit_log.py"], "scripts/lib/audit_log.py compiles")
         self.py_compile(["scripts/lib/gate_discovery.py"], "scripts/lib/gate_discovery.py compiles")
         self.py_compile(["scripts/lib/validate_agent_system.py"], "scripts/lib/validate_agent_system.py compiles")
         self.py_compile(["scripts/lib/validate_plan.py", *plan_validation_files], "scripts/lib/validate_plan.py and plan_validation package compile")
+        self.contains(
+            "scripts/agent-eval.sh",
+            AUDIT_LOG_TRAP_MARKER,
+            "scripts/agent-eval.sh installs audit-log EXIT trap",
+        )
+        self.contains(
+            "scripts/agent-validate-plan.sh",
+            "agent-audit-log.sh",
+            "scripts/agent-validate-plan.sh invokes audit-log wrapper",
+        )
         if (self.root / "scripts/lib/insert_gate_candidates.py").is_file():
             self.py_compile(
                 ["scripts/lib/insert_gate_candidates.py"],

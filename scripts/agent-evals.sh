@@ -153,6 +153,7 @@ deterministic_evals=(
   "tests/evals/bootstrap-render-fixture.sh"
   "tests/evals/codex-harness-fixture.sh"
   "tests/evals/security-gate-fixture.sh"
+  "tests/evals/audit-log-trap-fixture.sh"
 )
 
 # Behavior evals: LLM-driven, advisory only. Each run costs Claude quota and

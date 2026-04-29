@@ -12,6 +12,35 @@ if [ "$#" -gt 1 ]; then
   exit 1
 fi
 
+_audit_epoch_ms() {
+  now_ms="$(date -u +%s%3N 2>/dev/null || true)"
+  case "$now_ms" in
+    ""|*[!0-9]*) printf '%s000' "$(date -u +%s)" ;;
+    *) printf '%s' "$now_ms" ;;
+  esac
+}
+
+audit_start_epoch_ms="$(_audit_epoch_ms)"
+
+_audit_emit_gate_exit() {
+  exit_code=$?
+  audit_end_epoch_ms="$(_audit_epoch_ms)"
+  duration_ms=$((audit_end_epoch_ms - audit_start_epoch_ms))
+  if [ "$duration_ms" -lt 0 ]; then
+    duration_ms=0
+  fi
+  if [ -x "$ROOT/scripts/agent-audit-log.sh" ]; then
+    "$ROOT/scripts/agent-audit-log.sh" \
+      --kind gate_run \
+      --actor scripts/agent-eval.sh \
+      --field "gate=$gate" \
+      --field "exit_code=$exit_code" \
+      --field "duration_ms=$duration_ms" || true
+  fi
+}
+
+trap '_audit_emit_gate_exit' EXIT
+
 run() {
   printf '\n>>> %s\n' "$*"
   "$@"

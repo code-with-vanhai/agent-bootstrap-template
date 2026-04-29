@@ -24,6 +24,23 @@ When instantiating this template into a new repository, use `core/instantiation-
 
 Tool-specific instruction files such as `AGENTS.md`, `CLAUDE.md`, Cursor rules, Gemini instructions, or Copilot instructions must not duplicate long rules. They should point back to this directory.
 
+## Audit Log
+
+Generated repositories may append machine-readable events to `.agent/audit-log.jsonl`.
+Each line is JSON with `v: 1`, a UTC `ts`, a `kind`, and an `actor`.
+Deterministic scripts emit:
+
+- `gate_run` from `scripts/agent-eval.sh`, with `gate`, `exit_code`, and `duration_ms`.
+- `plan_validation` from `scripts/agent-validate-plan.sh`, with `target`, `exit_code`, `strict`, and, for human-format output, `high` / `medium` finding counts.
+
+Subagent prompts may emit best-effort `subagent_run` events with `subagent` and `outcome`.
+Missing subagent entries do not invalidate a run.
+
+Create `.agent/audit-log.disabled` to disable audit-log writes. Teams may commit
+`.agent/audit-log.jsonl` for incident review history or add it to their local
+`.gitignore` if they prefer not to commit generated telemetry. Bootstrap does
+not modify the target repository's `.gitignore`.
+
 ## Operating Model
 
 1. Bootstrap knowledge before editing.
