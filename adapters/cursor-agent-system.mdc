@@ -2,29 +2,35 @@
 alwaysApply: true
 ---
 
-Use `.agent/` as the canonical agent instruction source.
+Use `.agent/` as the canonical agent instruction source. **Keep Cursor-specific guidance short**; do not mirror the full rulebase.
 
-## Canonical Instructions
+## Always do
 
-For any coding task, MUST re-read `.agent/rulebase.md` before planning or editing, even if it was read earlier in the session.
+- For any coding task, re-read `.agent/rulebase.md` before planning or editing, even if it was read earlier in the session.
+- Before editing, read at least:
+  - `.agent/project-profile.md`
+  - `.agent/rulebase.md`
+  - `.agent/ownership.md`
+  - `.agent/gates.md`
+  - `.agent/roles/`
+  - `.agent/workflows/`
+- Run verification through `scripts/agent-eval.sh` per `.agent/gates.md`.
+- When the user message starts with `agent:<name>`, read `.agent/commands/<name>.md` and follow it. Treat trailing text as task context or gate mode (prompt convention).
 
-Read before editing:
+## Ask first
 
-- `.agent/project-profile.md`
-- `.agent/rulebase.md`
-- `.agent/ownership.md`
-- `.agent/gates.md`
-- `.agent/roles/`
-- `.agent/workflows/`
+- Destructive operations, large refactors, or edits outside assigned ownership.
+- Auth, secrets, production deploy, or infrastructure.
+- Editing `.agent/rulebase.md`, `.agent/gates.md`, or `.agent/ownership.md` for repo-wide policy—follow `.agent/workflows/rule-evolution-workflow.md` with explicit human approval.
 
-Run verification through `scripts/agent-eval.sh`.
+## Never do
 
-## Command Convention
+- Invent gates, commands, or repo facts.
+- Claim done without verification required by `.agent/rulebase.md`.
+- Bypass security, validation, tests, or public contracts.
+- Duplicate long policy from `.agent/` in this rule file.
 
-When the user message starts with `agent:<name>`, read `.agent/commands/<name>.md` and follow it.
+## Commands
 
-Treat everything after `agent:<name>` as the task description or gate mode. This is a prompt convention, not a native slash command.
-
-## Operating Rules
-
-Keep tool-specific rules thin. Do not duplicate the canonical `.agent/` rulebase here.
+- Verification: `scripts/agent-eval.sh <mode>` per `.agent/gates.md`.
+- `agent:<name>` → `.agent/commands/<name>.md`.

@@ -42,6 +42,28 @@ GENERATED_SCAN_EXCLUDED_SUFFIXES = {".pyc"}
 BOOTSTRAP_COMPLETION_MARKER = "not confirmed - complete " + ".agent/bootstrap-pending.md"
 
 
+THIN_ADAPTER_SOURCE_FILES = (
+    "adapters/AGENTS.md",
+    "adapters/CLAUDE.md",
+    "adapters/GEMINI.md",
+    "adapters/cursor-agent-system.mdc",
+    "adapters/copilot-instructions.md",
+)
+THIN_ADAPTER_GENERATED_PATHS = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".cursor/rules/agent-system.mdc",
+    ".github/copilot-instructions.md",
+)
+THIN_ADAPTER_TIER_HEADINGS = (
+    "## Always do",
+    "## Ask first",
+    "## Never do",
+    "## Commands",
+)
+
+
 @dataclass
 class Check:
     status: str
@@ -407,6 +429,20 @@ class AgentSystemValidator:
             self.validate_skill_count_docs(skills)
 
         self.validate_hook_templates()
+        for rel in THIN_ADAPTER_SOURCE_FILES:
+            self.validate_thin_adapter_file(rel)
+
+    def validate_thin_adapter_file(self, rel: str) -> None:
+        if not (self.root / rel).is_file():
+            self.fail(f"{rel} is missing", rel)
+            return
+        text = read_text(self.root / rel)
+        if ".agent/" in text:
+            self.pass_(f"{rel} points to .agent/", rel)
+        else:
+            self.fail(f"{rel} exists but does not point to .agent/", rel)
+        for heading in THIN_ADAPTER_TIER_HEADINGS:
+            self.contains(rel, heading, f"{rel} includes {heading}")
 
     def validate_hook_templates(self) -> None:
         self.exists("core/hooks/session-start.sh")
@@ -568,13 +604,15 @@ class AgentSystemValidator:
             else:
                 self.skip(".agent/workflows/release-check-workflow.md not generated for this repo")
 
-        for adapter in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursor/rules/agent-system.mdc", ".github/copilot-instructions.md"):
+        for adapter in THIN_ADAPTER_GENERATED_PATHS:
             path = self.root / adapter
             if path.exists():
                 if ".agent/" in read_text(path):
                     self.pass_(f"{adapter} points to .agent/", adapter)
                 else:
                     self.fail(f"{adapter} exists but does not point to .agent/", adapter)
+                for heading in THIN_ADAPTER_TIER_HEADINGS:
+                    self.contains(adapter, heading, f"{adapter} includes {heading}")
             else:
                 self.skip(f"{adapter} not generated", adapter)
 

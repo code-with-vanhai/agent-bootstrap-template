@@ -153,6 +153,30 @@ class AgentSystemValidatorTest(unittest.TestCase):
         messages = "\n".join(item["message"] for item in payload["results"])
         self.assertIn("README.md has stale skill count mention(s): Seven optional native behavior skills", messages)
 
+    def test_template_missing_adapter_tier_heading_fails(self):
+        target = self.make_template_copy()
+        path = target / "adapters" / "AGENTS.md"
+        path.write_text(path.read_text(encoding="utf-8").replace("## Always do\n", "", 1), encoding="utf-8")
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("adapters/AGENTS.md includes ## Always do", messages)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_generated_agents_md_includes_tier_headings(self):
+        target = self.make_target()
+        text = (target / "AGENTS.md").read_text(encoding="utf-8")
+        for heading in ("## Always do", "## Ask first", "## Never do", "## Commands"):
+            self.assertIn(heading, text)
+
+    def test_generated_claude_adapters_include_tier_headings(self):
+        target = self.make_target(harness="claude")
+        for name in ("AGENTS.md", "CLAUDE.md"):
+            text = (target / name).read_text(encoding="utf-8")
+            for heading in ("## Always do", "## Ask first", "## Never do", "## Commands"):
+                self.assertIn(heading, text)
+
     def test_generated_standard_passes_through_wrapper_with_agent_root(self):
         target = self.make_target()
         result = subprocess.run(
