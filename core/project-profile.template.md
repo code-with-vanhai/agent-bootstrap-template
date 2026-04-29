@@ -42,6 +42,21 @@ List contracts that must not change casually:
 - Package exports: `{{EXPORTS_PATH_OR_NOT_APPLICABLE}}`
 - UI routes or deep links: `{{ROUTES_DOC_OR_NOT_APPLICABLE}}`
 
+## Data Surface
+
+Record what data this repo touches so agents can recognize data-impacting changes before editing. Use `not configured` or `none` honestly; do not invent rows.
+
+| Surface | Path or system | Classification | Notes |
+|---|---|---|---|
+| User-identifying fields | `{{PII_PATH_OR_NONE}}` | `{{PII_CLASSIFICATION_OR_NONE}}` | `{{PII_NOTES_OR_NONE}}` |
+| Customer records | `{{CUSTOMER_RECORDS_PATH_OR_NONE}}` | `{{CUSTOMER_RECORDS_CLASSIFICATION_OR_NONE}}` | `{{CUSTOMER_RECORDS_NOTES_OR_NONE}}` |
+| Audit / compliance logs | `{{AUDIT_LOG_PATH_OR_NONE}}` | `{{AUDIT_LOG_CLASSIFICATION_OR_NONE}}` | `{{AUDIT_LOG_NOTES_OR_NONE}}` |
+| Analytics / telemetry events | `{{ANALYTICS_PATH_OR_NONE}}` | `{{ANALYTICS_CLASSIFICATION_OR_NONE}}` | `{{ANALYTICS_NOTES_OR_NONE}}` |
+| Exports / external integrations | `{{EXPORT_PATH_OR_NONE}}` | `{{EXPORT_CLASSIFICATION_OR_NONE}}` | `{{EXPORT_NOTES_OR_NONE}}` |
+| Destructive data operations | `{{DESTRUCTIVE_DATA_PATH_OR_NONE}}` | `{{DESTRUCTIVE_DATA_CLASSIFICATION_OR_NONE}}` | `{{DESTRUCTIVE_DATA_NOTES_OR_NONE}}` |
+
+Data-touching changes must reference this table in the run plan and re-run the relevant gate or, if no gate exists, mark it `not configured` with the missing scanner named.
+
 ## Dangerous Operations
 
 The following operations require explicit human approval:

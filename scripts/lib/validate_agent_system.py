@@ -390,6 +390,8 @@ class AgentSystemValidator:
         self.contains("core/manifest.template.json", '"features_enabled"', "core/manifest.template.json includes features_enabled")
         self.contains("core/manifest.template.json", '"tool_adapters"', "core/manifest.template.json includes tool_adapters")
         self.contains("core/manifest.template.json", '"verification"', "core/manifest.template.json includes verification")
+        self.exists("core/project-profile.template.md")
+        self.contains("core/project-profile.template.md", "## Data Surface", "core/project-profile.template.md includes Data Surface section")
 
         self.exists(".claude-plugin/plugin.json")
         self.json_file(".claude-plugin/plugin.json", ".claude-plugin/plugin.json is valid JSON")
@@ -431,6 +433,7 @@ class AgentSystemValidator:
 
         self.exists("core/skills/README.md")
         self.contains("core/skills/README.md", "Skill Mapping", "core/skills/README.md includes skill mapping")
+        self.contains("core/skills/manifest.json", '"data-safety"', "core/skills/manifest.json lists data-safety")
         skills = self.load_skill_manifest()
         if skills:
             self.validate_skill_set(skills)
@@ -693,6 +696,7 @@ class AgentSystemValidator:
         self.contains(".agent/rulebase.md", "NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE", ".agent/rulebase.md includes completion verification discipline")
         self.contains(".agent/rulebase.md", "Rationalization Checks", ".agent/rulebase.md includes rationalization checks")
         self.contains(".agent/gates.md", "NO INVENTED GATES OR COMMANDS", ".agent/gates.md includes no-invented-gates discipline")
+        self.contains(".agent/project-profile.md", "## Data Surface", ".agent/project-profile.md includes Data Surface section")
 
         manifest = self.validate_manifest_shape(".agent/manifest.json")
 
@@ -747,6 +751,12 @@ class AgentSystemValidator:
 
         if self.manifest_has_feature(manifest, "claude-native-subagents"):
             self.validate_claude_native_subagents()
+            self.contains(
+                ".claude/agents/implementer.md",
+                r"^skills:.*\bdata-safety\b",
+                ".claude/agents/implementer.md preloads data-safety skill",
+                regex=True,
+            )
         elif (self.root / ".claude/agents").is_dir():
             self.skip(".claude/agents present without claude-native-subagents feature; skipping native subagent checks", ".claude/agents")
         else:

@@ -34,7 +34,7 @@ The agent should complete only the parts that require repository understanding:
 
 1. Read `.agent/bootstrap-pending.md`.
 2. Scan checked-in repository files before editing generated agent files.
-3. Fill `.agent/project-profile.md` with observed stack, runtime, public surface, dangerous operations, and repository map.
+3. Fill `.agent/project-profile.md` with observed stack, runtime, public surface, data surface, dangerous operations, and repository map.
 4. Fill `.agent/gates.md` and `scripts/agent-eval.sh` only with commands found in package/build files, task files, or CI.
 5. Optionally run `bash scripts/agent-gate-discover.sh --write-suggestions`, then promote only reviewed candidates into `.agent/gates.md` and `scripts/agent-eval.sh`.
 6. Fill `.agent/ownership.md` with real path boundaries.

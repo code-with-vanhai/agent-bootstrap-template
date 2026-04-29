@@ -18,6 +18,7 @@ When the Claude Code plugin is installed, `.claude-plugin/plugin.json` exposes t
 | `no-invented-artifacts` | `.agents/skills/agent-bootstrap/no-invented-artifacts/SKILL.md` or `.claude/skills/agent-bootstrap/no-invented-artifacts/SKILL.md` | `.agent/rulebase.md`, `.agent/gates.md`, `.agent/project-profile.md` |
 | `bootstrap-agent-system` | `.agents/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md` or `.claude/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md` | `.agent/bootstrap-pending.md`, `scripts/bootstrap-request.sh`, `core/bootstrap-steps.md` |
 | `no-secret-leakage` | `.agents/skills/agent-bootstrap/no-secret-leakage/SKILL.md` or `.claude/skills/agent-bootstrap/no-secret-leakage/SKILL.md` | `.agent/rulebase.md`, `.agent/gates.md`, `scripts/agent-eval.sh security` |
+| `data-safety` | `.agents/skills/agent-bootstrap/data-safety/SKILL.md` or `.claude/skills/agent-bootstrap/data-safety/SKILL.md` | `.agent/project-profile.md`, `.agent/rulebase.md`, `.agent/ownership.md` |
 
 ## Drift Rule
 

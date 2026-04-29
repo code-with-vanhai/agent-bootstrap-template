@@ -560,7 +560,7 @@ copy_claude_subagents() {
         agent_disallowed=""
         agent_permission_mode="default"
         agent_max_turns="60"
-        agent_skills="scoped-implementation, no-invented-artifacts, no-secret-leakage"
+        agent_skills="scoped-implementation, no-invented-artifacts, no-secret-leakage, data-safety"
         ;;
       reviewer)
         agent_description="Review diffs, plans, or specs against .agent/rulebase.md, the run plan, and the cited evidence. Do not approve unverified completion claims and do not rewrite the implementation unless explicitly asked."
@@ -789,7 +789,7 @@ EOF
 ## Tasks for the coding agent
 
 - [ ] Scan checked-in repo files before editing generated agent files.
-- [ ] Fill `.agent/project-profile.md` with the real stack, framework, runtime, public surface, dangerous operations, and repository map.
+- [ ] Fill `.agent/project-profile.md` with the real stack, framework, runtime, public surface, data surface, dangerous operations, and repository map.
 - [ ] Fill `.agent/gates.md` only with commands found in checked-in package/build/task/CI files.
 - [ ] Run `bash scripts/agent-gate-discover.sh --write-suggestions` if useful, then promote only reviewed candidates into `.agent/gates.md` and `scripts/agent-eval.sh`.
 - [ ] Update `scripts/agent-eval.sh` to run only those verified gate commands.

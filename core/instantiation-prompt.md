@@ -39,6 +39,7 @@ Classify:
 - Test framework and commands.
 - Build/typecheck/lint commands.
 - Public surface: APIs, CLI, package exports, routes, schemas, config formats, docs usage.
+- Data surface: PII fields, customer records, audit logs, analytics events, exports, destructive data operations.
 - Dangerous operations: deploy, remote migration, data deletion, secret/key handling, production scripts.
 - Ownership boundaries: at least root-level paths, and per-package boundaries for monorepos when obvious.
 

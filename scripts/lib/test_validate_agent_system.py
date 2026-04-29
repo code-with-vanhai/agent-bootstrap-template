@@ -147,7 +147,7 @@ class AgentSystemValidatorTest(unittest.TestCase):
         readme = target / "README.md"
         readme.write_text(
             readme.read_text(encoding="utf-8").replace(
-                "Eight optional native behavior skills",
+                "Nine optional native behavior skills",
                 "Seven optional native behavior skills",
             ),
             encoding="utf-8",
@@ -159,6 +159,48 @@ class AgentSystemValidatorTest(unittest.TestCase):
         payload = json.loads(result.stdout)
         messages = "\n".join(item["message"] for item in payload["results"])
         self.assertIn("README.md has stale skill count mention(s): Seven optional native behavior skills", messages)
+
+    def test_template_data_safety_skill_present_in_manifest_and_files(self):
+        manifest = json.loads((ROOT / "core" / "skills" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("data-safety", manifest["skills"])
+
+        skill = (ROOT / "core" / "skills" / "data-safety" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertRegex(skill, r"(?m)^name: data-safety$")
+        self.assertRegex(skill, r"(?m)^description: Use when")
+        self.assertIn("## Canonical Sources", skill)
+
+        mapping = (ROOT / "core" / "skills" / "README.md").read_text(encoding="utf-8")
+        self.assertIn("| `data-safety` |", mapping)
+
+    def test_template_data_safety_missing_from_manifest_fails(self):
+        target = self.make_template_copy()
+        manifest_path = target / "core" / "skills" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["skills"] = [skill for skill in manifest["skills"] if skill != "data-safety"]
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/skills/manifest.json lists data-safety", messages)
+        self.assertIn("core/skills contains skills not listed in manifest: data-safety", messages)
+
+    def test_template_project_profile_template_missing_data_surface_fails(self):
+        target = self.make_template_copy()
+        profile = target / "core" / "project-profile.template.md"
+        profile.write_text(
+            profile.read_text(encoding="utf-8").replace("## Data Surface\n\n", "", 1),
+            encoding="utf-8",
+        )
+
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/project-profile.template.md includes Data Surface section", messages)
 
     def test_template_missing_adapter_tier_heading_fails(self):
         target = self.make_template_copy()
@@ -254,6 +296,14 @@ class AgentSystemValidatorTest(unittest.TestCase):
         frontmatter = implementer[4:end]
         self.assertRegex(frontmatter, r"(?m)^tools:.*Edit.*Write.*MultiEdit")
         self.assertNotRegex(frontmatter, r"(?m)^disallowedTools:")
+
+    def test_bootstrap_implementer_subagent_includes_data_safety_skill(self):
+        target = self.make_target(features="full", harness="claude")
+        implementer = (target / ".claude" / "agents" / "implementer.md").read_text(encoding="utf-8")
+        end = implementer.index("\n---\n", 4)
+        frontmatter = implementer[4:end]
+        self.assertRegex(frontmatter, r"(?m)^skills:.*\bdata-safety\b")
+        self.assertIn("## Data Surface", (target / ".agent" / "project-profile.md").read_text(encoding="utf-8"))
 
     def test_generated_post_bootstrap_ignores_validator_source_and_pycache(self):
         target = self.make_target()

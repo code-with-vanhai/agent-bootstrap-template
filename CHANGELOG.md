@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0 - Unreleased
+
+- Add `data-safety` optional behavior skill and `## Data Surface` section to `core/project-profile.template.md`. Skill #9 is added through the manifest mechanism introduced in P0-1; no validator refactor required.
+
 ## 0.8.1 - 2026-04-28
 
 - Fixed generated-repo validation false positives after bootstrap completion. The structured validator no longer scans `scripts/` for bootstrap completion markers, which prevented it from matching its own marker-check source literal.

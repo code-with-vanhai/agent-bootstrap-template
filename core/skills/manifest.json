@@ -8,6 +8,7 @@
     "worktree-isolation",
     "no-invented-artifacts",
     "bootstrap-agent-system",
-    "no-secret-leakage"
+    "no-secret-leakage",
+    "data-safety"
   ]
 }
