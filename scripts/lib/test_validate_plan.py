@@ -1160,6 +1160,118 @@ class CompatibilityWrapperTest(unittest.TestCase):
         self.assertIn("::error", github.stdout)
         self.assertIn("SECT-001 severity=High", github.stdout)
 
+    def test_cli_json_output_contract(self):
+        repo = TempRepo()
+        self.addCleanup(repo.cleanup)
+        plan = repo.write(".agent/runs/x/plan.md", "# Plan\n\nNo required sections.\n")
+        cmd = [
+            sys.executable,
+            str(ROOT / "scripts" / "lib" / "validate_plan.py"),
+            "--force",
+            "--repo-root",
+            str(repo.tmp),
+            "--format",
+            "json",
+            str(plan),
+        ]
+
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["format"], "json")
+        self.assertFalse(payload["strict"])
+        self.assertEqual(payload["target"], str(plan.resolve()))
+        self.assertEqual(payload["repo_root"], str(repo.tmp.resolve()))
+        self.assertEqual(payload["high_count"], 1)
+        self.assertEqual(payload["medium_count"], 0)
+        self.assertEqual(payload["failure_count"], 1)
+        self.assertEqual(payload["react_version"], None)
+        self.assertEqual(payload["detected_signals"], [])
+        self.assertEqual(len(payload["files"]), 1)
+        self.assertEqual(payload["files"][0]["path"], str(plan.resolve()))
+        self.assertEqual(payload["files"][0]["findings"], payload["findings"])
+        self.assertEqual(len(payload["findings"]), 1)
+        finding = payload["findings"][0]
+        self.assertEqual(set(finding), {"check_id", "severity", "message", "file", "line"})
+        self.assertEqual(finding["check_id"], "SECT-001")
+        self.assertEqual(finding["severity"], "High")
+        self.assertEqual(finding["file"], str(plan.resolve()))
+        self.assertEqual(finding["line"], 1)
+        self.assertIn("missing required sections", finding["message"])
+
+    def test_cli_json_strict_exit_parity(self):
+        repo = TempRepo()
+        self.addCleanup(repo.cleanup)
+        plan = repo.write(
+            ".agent/runs/x/plan.md",
+            textwrap.dedent(
+                """\
+                # Plan: JSON strict parity
+
+                **Status:** Draft
+
+                ## Goal
+
+                Exercise a Medium-only finding.
+
+                ## Implementation Plan
+
+                - Add JSON output.
+
+                ## Acceptance Criteria
+
+                | ID | Criterion | Verification Method | Gate |
+                |---|---|---|---|
+                | AC-1 | Emits structured findings | `AUTOMATED-UNIT` | unittest |
+
+                ## Existing Behaviors Preserved
+
+                - none
+
+                ## Verification
+
+                - `python3 -m unittest scripts.lib.test_validate_plan`
+
+                ## Open Questions
+
+                - Q: Which dashboard consumes this first?
+                """
+            ),
+        )
+
+        base_cmd = [
+            sys.executable,
+            str(ROOT / "scripts" / "lib" / "validate_plan.py"),
+            "--force",
+            "--repo-root",
+            str(repo.tmp),
+            "--format",
+            "json",
+            str(plan),
+        ]
+        non_strict = subprocess.run(base_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        strict = subprocess.run(
+            base_cmd[:-1] + ["--strict", base_cmd[-1]],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self.assertEqual(non_strict.returncode, 0)
+        self.assertEqual(strict.returncode, 1)
+        non_strict_payload = json.loads(non_strict.stdout)
+        strict_payload = json.loads(strict.stdout)
+        self.assertEqual(non_strict_payload["high_count"], 0)
+        self.assertEqual(non_strict_payload["medium_count"], 1)
+        self.assertEqual(non_strict_payload["failure_count"], 0)
+        self.assertEqual(strict_payload["high_count"], 0)
+        self.assertEqual(strict_payload["medium_count"], 1)
+        self.assertEqual(strict_payload["failure_count"], 1)
+        self.assertEqual(non_strict_payload["findings"], strict_payload["findings"])
+        self.assertEqual(non_strict_payload["findings"][0]["check_id"], "OQ-001")
+        self.assertEqual(non_strict_payload["findings"][0]["severity"], "Medium")
+
 
 if __name__ == "__main__":
     unittest.main()

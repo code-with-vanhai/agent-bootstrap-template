@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 
 SEVERITY_HIGH = "High"
@@ -38,6 +38,15 @@ class Finding:
         if attrs:
             prefix += " " + ",".join(attrs)
         return f"{prefix}::{self.check_id} severity={self.severity} {self.message}"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "check_id": self.check_id,
+            "severity": self.severity,
+            "message": self.message,
+            "file": str(self.file) if self.file is not None else None,
+            "line": self.line,
+        }
 
 
 # ---------------------------------------------------------------------------

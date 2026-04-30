@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -24,7 +25,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("target", help="Plan file or .agent/runs/<slug>/ directory")
     parser.add_argument("--strict", action="store_true", help="Treat Medium findings as failures")
     parser.add_argument("--repo-root", help="Override repo root for context detection")
-    parser.add_argument("--format", choices=("human", "github"), default="human")
+    parser.add_argument("--format", choices=("human", "github", "json"), default="human")
     parser.add_argument(
         "--force",
         action="store_true",
@@ -60,10 +61,36 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Render output.
     high_count = sum(1 for f in all_findings if f.severity == SEVERITY_HIGH)
     medium_count = sum(1 for f in all_findings if f.severity == SEVERITY_MEDIUM)
+    failing = filter_for_exit(all_findings, args.strict)
 
     if args.format == "github":
         for f in all_findings:
             print(f.format_for_github())
+    elif args.format == "json":
+        payload = {
+            "format": "json",
+            "strict": args.strict,
+            "target": str(target),
+            "repo_root": str(repo_root),
+            "high_count": high_count,
+            "medium_count": medium_count,
+            "failure_count": len(failing),
+            "detected_signals": list(repo_ctx.detected_signals),
+            "react_version": repo_ctx.react_version,
+            "files": [
+                {
+                    "path": str(plan.path),
+                    "findings": [f.to_dict() for f in all_findings if f.file == plan.path],
+                }
+                for plan in plan_files
+            ],
+            "findings": [f.to_dict() for f in all_findings],
+        }
+        try:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        except (TypeError, ValueError) as exc:
+            print(f"ERROR: failed to serialize JSON output: {exc}", file=sys.stderr)
+            return 2
     else:
         for plan in plan_files:
             plan_findings = [f for f in all_findings if f.file == plan.path]
@@ -81,7 +108,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         if repo_ctx.react_version:
             print(f"React version: {repo_ctx.react_version}")
 
-    failing = filter_for_exit(all_findings, args.strict)
     return 1 if failing else 0
 
 
