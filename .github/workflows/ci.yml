@@ -10,9 +10,14 @@ permissions:
   contents: read
 
 jobs:
-  template:
-    name: Template validation
-    runs-on: ubuntu-latest
+  unit:
+    name: Unit (${{ matrix.os }}, py${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -23,7 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python }}
 
       - name: Shell syntax
         run: |
@@ -46,6 +51,7 @@ jobs:
           python3 -m unittest scripts.lib.test_insert_gate_candidates
           python3 -m unittest scripts.lib.test_check_test_module_coverage
           python3 -m unittest scripts.lib.test_gate_modes
+          python3 -m unittest scripts.lib.test_check_version_consistency
 
       - name: All Python test modules are gated
         run: python3 scripts/lib/check_test_module_coverage.py .github/workflows/ci.yml
@@ -59,9 +65,43 @@ jobs:
       - name: Deterministic evals
         run: bash scripts/agent-evals.sh --fast
 
+  migration-fixtures:
+    name: Migration fixtures (ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      # NOTE: default fetch-depth (= 1, no tags) is intentional. Each
+      # migration fixture self-skips when its source-version git tag is
+      # not present. Switching to fetch-depth: 0 would pull every tag and
+      # surface pre-existing bugs in older fixtures unrelated to this
+      # job's purpose.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Migration fixtures
         run: |
           set -euo pipefail
           for f in tests/migrations/*/run.sh; do
             bash "$f"
           done
+
+  version-consistency:
+    name: Version consistency (ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Versions agree across plugin/marketplace/bootstrap/changelog
+        run: python3 scripts/lib/check_version_consistency.py

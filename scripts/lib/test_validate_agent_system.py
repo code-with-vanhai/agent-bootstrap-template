@@ -622,6 +622,34 @@ class AgentSystemValidatorTest(unittest.TestCase):
         self.assertIn("unknown --install-hook value", result.stderr)
         self.assertFalse((target / ".agent").exists())
 
+    def test_template_token_budget_passes_for_repo(self):
+        result = self.run_validator("--mode", "template", "--format", "json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        budget_messages = [
+            item["message"]
+            for item in payload["results"]
+            if "budget" in item["message"]
+        ]
+        self.assertTrue(budget_messages, "expected token-budget rows in output")
+        for item in payload["results"]:
+            if "budget" in item["message"]:
+                self.assertNotEqual(item["status"], "FAIL", item["message"])
+
+    def test_template_token_budget_overlong_adapter_fails(self):
+        target = self.make_template_copy()
+        path = target / "adapters" / "AGENTS.md"
+        bloat = "\n".join(f"line {i}" for i in range(300))
+        path.write_text(bloat + "\n", encoding="utf-8")
+        result = self.run_validator(
+            "--mode", "template", "--format", "json", cwd=target
+        )
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("adapters/AGENTS.md is", messages)
+        self.assertIn("exceeds budget of 200", messages)
+
 
 if __name__ == "__main__":
     unittest.main()
