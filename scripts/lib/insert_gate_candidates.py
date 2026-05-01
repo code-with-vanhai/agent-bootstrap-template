@@ -27,20 +27,26 @@ from typing import Iterable
 
 try:
     from .gate_discovery import Candidate, discover
+    from .gate_modes import DEFAULT_GATE_MODES, load_gate_modes
 except ImportError:
     from gate_discovery import Candidate, discover  # type: ignore  # noqa: F401
+    from gate_modes import DEFAULT_GATE_MODES, load_gate_modes  # type: ignore
 
-EXPECTED_GATE_MODES = (
-    "changed",
-    "fast",
-    "frontend",
-    "backend",
-    "shared",
-    "e2e",
-    "full",
-    "security",
-    "release",
-)
+# Compatibility constant for downstream importers; runtime callers should
+# prefer `gate_modes_for_target()` so a future generated `.agent/gate-modes.json`
+# is honored.
+EXPECTED_GATE_MODES = DEFAULT_GATE_MODES
+
+
+def gate_modes_for_target(target: Path) -> tuple[str, ...]:
+    """Return the gate-mode tuple to insert candidates for.
+
+    Generated repos may eventually ship `.agent/gate-modes.json`; until then
+    we fall back to ``DEFAULT_GATE_MODES`` so existing 0.9.0 bootstraps keep
+    working unchanged.
+    """
+
+    return load_gate_modes(target, mode="generated")
 
 
 def marker_open(gate: str) -> str:
@@ -113,13 +119,14 @@ def insert(target: Path, *, root: Path | None = None) -> dict[str, int]:
 
     discovery_root = (root or target).resolve()
     candidates = discover(discovery_root)
-    by_gate: dict[str, list[Candidate]] = {gate: [] for gate in EXPECTED_GATE_MODES}
+    gate_modes = gate_modes_for_target(target)
+    by_gate: dict[str, list[Candidate]] = {gate: [] for gate in gate_modes}
     for cand in candidates:
         by_gate.setdefault(cand.gate, []).append(cand)
 
     text = eval_path.read_text(encoding="utf-8")
     counts: dict[str, int] = {}
-    for gate in EXPECTED_GATE_MODES:
+    for gate in gate_modes:
         open_m = marker_open(gate)
         close_m = marker_close(gate)
         original_lines = text.splitlines(keepends=False)

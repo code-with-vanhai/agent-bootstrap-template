@@ -14,7 +14,24 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-EXPECTED_GATE_MODES = ("changed", "fast", "frontend", "backend", "shared", "e2e", "full", "security", "release")
+try:
+    from .gate_modes import (  # type: ignore
+        DEFAULT_GATE_MODES,
+        GateModesError,
+        load_gate_modes,
+        load_gate_modes_metadata,
+    )
+except ImportError:  # pragma: no cover - executed as a script
+    from gate_modes import (  # type: ignore
+        DEFAULT_GATE_MODES,
+        GateModesError,
+        load_gate_modes,
+        load_gate_modes_metadata,
+    )
+
+# Compatibility constant for any direct importers; the runtime tuple is
+# resolved per-instance via `self._gate_modes`.
+EXPECTED_GATE_MODES = DEFAULT_GATE_MODES
 EXPECTED_COMMANDS = ("bootstrap", "plan", "bugfix", "implement", "refactor", "review", "security-review", "verify", "release-check")
 SKILL_COUNT_WORDS = {
     "seven": 7,
@@ -149,6 +166,22 @@ class AgentSystemValidator:
         self.root = root
         self.mode = mode
         self.results: list[Check] = []
+        self._gate_modes: tuple[str, ...] = DEFAULT_GATE_MODES
+        self._gate_metadata: dict[str, object] = {
+            "modes": DEFAULT_GATE_MODES,
+            "default_gate": "fast",
+            "full_gate": "full",
+        }
+        self._gate_modes_loaded = False
+        self._gate_modes_load_error: str | None = None
+        try:
+            self._gate_metadata = load_gate_modes_metadata(root, mode=mode)
+            modes = self._gate_metadata["modes"]
+            assert isinstance(modes, tuple)
+            self._gate_modes = modes
+            self._gate_modes_loaded = True
+        except GateModesError as exc:
+            self._gate_modes_load_error = str(exc)
 
     def pass_(self, message: str, path: str | None = None) -> None:
         self.results.append(Check("PASS", message, path))
@@ -228,10 +261,112 @@ class AgentSystemValidator:
         self.contains(f"{command_root}/release-check.md", "release-check-workflow.md", f"{command_root}/release-check.md points to release-check workflow")
 
     def validate_gate_modes(self) -> None:
-        for mode in EXPECTED_GATE_MODES:
+        for mode in self._gate_modes:
             self.contains("core/manifest.template.json", f'"{mode}"', f"core/manifest.template.json includes {mode} gate mode")
             self.contains("core/commands/verify.md", f"`{mode}`", f"core/commands/verify.md includes {mode} gate mode")
             self.contains("scripts/agent-eval.template.sh", f"{mode})", f"scripts/agent-eval.template.sh includes {mode} gate mode")
+
+    def validate_gate_modes_manifest_generated(self) -> None:
+        """Generated mode: file absent is fine (fallback). Present-but-malformed
+        must FAIL — the loader caught the parse/schema error in __init__ and
+        stashed the message in _gate_modes_load_error.
+        """
+
+        rel = ".agent/gate-modes.json"
+        path = self.root / rel
+        if not path.is_file():
+            self.skip(
+                f"{rel} not present; using DEFAULT_GATE_MODES fallback",
+                rel,
+            )
+            return
+        if self._gate_modes_load_error is not None:
+            self.fail(
+                f"{rel} present but invalid: {self._gate_modes_load_error}",
+                rel,
+            )
+            return
+        self.pass_(
+            f"{rel} loaded {len(self._gate_modes)} gate modes",
+            rel,
+        )
+
+    def validate_gate_modes_manifest_template(self) -> None:
+        rel = "core/gate-modes.json"
+        if self._gate_modes_load_error is not None:
+            self.fail(
+                f"{rel} load failed: {self._gate_modes_load_error}",
+                rel,
+            )
+            return
+        if not self._gate_modes_loaded:
+            self.fail(
+                f"{rel} is required in template mode but was not loaded",
+                rel,
+            )
+            return
+        self.pass_(
+            f"{rel} loaded {len(self._gate_modes)} gate modes",
+            rel,
+        )
+
+        schema_rel = "core/manifest.schema.json"
+        schema_data = self.json_file(schema_rel, f"{schema_rel} is valid JSON")
+        if isinstance(schema_data, dict):
+            verification_props = (
+                schema_data.get("properties", {})
+                .get("verification", {})
+                .get("properties", {})
+            )
+            enum = (
+                verification_props.get("gate_modes", {})
+                .get("items", {})
+                .get("enum")
+            )
+            if isinstance(enum, list) and tuple(enum) == self._gate_modes:
+                self.pass_(
+                    f"{schema_rel} verification.gate_modes enum matches "
+                    f"core/gate-modes.json",
+                    schema_rel,
+                )
+            else:
+                self.fail(
+                    f"{schema_rel} verification.gate_modes enum drift; "
+                    f"expected {list(self._gate_modes)} from core/gate-modes.json, "
+                    f"got {enum!r}",
+                    schema_rel,
+                )
+
+        manifest_rel = "core/manifest.template.json"
+        manifest_path = self.root / manifest_rel
+        if manifest_path.is_file():
+            text = read_text(manifest_path)
+            # The template contains TEMPLATE_VERSION-style placeholders so
+            # we cannot json.loads it. Extract the gate_modes array as text
+            # and compare entries to core/gate-modes.json.
+            gate_match = re.search(
+                r'"gate_modes"\s*:\s*\[(.*?)\]', text, re.DOTALL
+            )
+            if not gate_match:
+                self.fail(
+                    f"{manifest_rel} missing verification.gate_modes array",
+                    manifest_rel,
+                )
+            else:
+                listed = tuple(re.findall(r'"([^"]+)"', gate_match.group(1)))
+                if listed == self._gate_modes:
+                    self.pass_(
+                        f"{manifest_rel} verification.gate_modes matches "
+                        f"core/gate-modes.json",
+                        manifest_rel,
+                    )
+                else:
+                    self.fail(
+                        f"{manifest_rel} verification.gate_modes drift; "
+                        f"expected {list(self._gate_modes)} from core/gate-modes.json, "
+                        f"got {list(listed)}",
+                        manifest_rel,
+                    )
 
     def load_skill_manifest(self) -> list[str]:
         rel = "core/skills/manifest.json"
@@ -334,7 +469,7 @@ class AgentSystemValidator:
             else:
                 self.fail(f"{rel} verification entrypoint must be scripts/agent-eval.sh", rel)
             modes = verification.get("gate_modes")
-            if isinstance(modes, list) and all(mode in modes for mode in EXPECTED_GATE_MODES):
+            if isinstance(modes, list) and all(mode in modes for mode in self._gate_modes):
                 self.pass_(f"{rel} includes all expected gate modes", rel)
             else:
                 self.fail(f"{rel} missing expected gate modes", rel)
@@ -401,6 +536,7 @@ class AgentSystemValidator:
 
         self.exists("scripts/agent-eval.template.sh")
         self.contains("scripts/agent-eval.template.sh", "security)", "scripts/agent-eval.template.sh supports security gate mode")
+        self.validate_gate_modes_manifest_template()
         self.validate_gate_modes()
         self.validate_gate_candidate_markers_template()
 
@@ -488,7 +624,7 @@ class AgentSystemValidator:
             self.fail(f"{rel} is missing", rel)
             return
         text = read_text(self.root / rel)
-        for gate in EXPECTED_GATE_MODES:
+        for gate in self._gate_modes:
             open_marker = GATE_CANDIDATE_MARKER_OPEN_FMT.format(gate=gate)
             close_marker = GATE_CANDIDATE_MARKER_CLOSE_FMT.format(gate=gate)
             if open_marker in text and close_marker in text:
@@ -511,7 +647,7 @@ class AgentSystemValidator:
         text = read_text(path)
         all_markers_present = True
         gate_segments: dict[str, str] = {}
-        for gate in EXPECTED_GATE_MODES:
+        for gate in self._gate_modes:
             open_marker = GATE_CANDIDATE_MARKER_OPEN_FMT.format(gate=gate)
             close_marker = GATE_CANDIDATE_MARKER_CLOSE_FMT.format(gate=gate)
             try:
@@ -639,6 +775,7 @@ class AgentSystemValidator:
             self.pass_("no template placeholders found")
 
     def validate_generated(self) -> None:
+        self.validate_gate_modes_manifest_generated()
         if (self.root / ".agent").is_dir():
             self.check_placeholders()
             if not (self.root / ".agent/bootstrap-pending.md").is_file():
