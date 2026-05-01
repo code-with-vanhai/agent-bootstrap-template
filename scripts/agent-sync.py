@@ -6,10 +6,11 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from pathlib import Path
 
 
@@ -553,6 +554,329 @@ def apply_writes(target, writes):
         write_bytes(target / rel, data, mode)
 
 
+# ---------------------------------------------------------------------------
+# Multi-hop migration walker (P1-2)
+#
+# These helpers add safe chain orchestration without rewriting the single-hop
+# engine. When --multi-hop is absent, main() takes its existing single-hop
+# code path verbatim.
+# ---------------------------------------------------------------------------
+
+
+def _semver_tuple(version):
+    return tuple(int(p) if p.isdigit() else 0 for p in version.split("-", 1)[0].split("."))
+
+
+def compute_migration_chain(template_root, current, to_version):
+    """Compute a deterministic shortest BFS chain of destination versions.
+
+    Returns an ordered list starting at the first hop's `to` and ending at
+    `to_version`. Returns an empty list when current == to_version. Raises
+    NoPathError when no chain exists. Tie-break on equal BFS depth prefers
+    the next hop with the lowest semver tuple.
+    """
+
+    if current == to_version:
+        return []
+
+    migration_root = template_root / "core" / "migrations"
+    adjacency = {}  # src_version -> list[dst_version]
+    if migration_root.is_dir():
+        for child in migration_root.iterdir():
+            if not (child.is_dir() and (child / "migration.json").is_file() and VERSION_RE.match(child.name)):
+                continue
+            try:
+                data = read_json(child / "migration.json")
+            except Exception:
+                continue
+            if data.get("schema_version") != 1:
+                continue
+            dst = data.get("to")
+            if not isinstance(dst, str) or not VERSION_RE.match(dst):
+                continue
+            sources = set()
+            from_versions = data.get("from_versions")
+            if isinstance(from_versions, list):
+                for v in from_versions:
+                    if isinstance(v, str) and VERSION_RE.match(v):
+                        sources.add(v)
+            from_value = data.get("from")
+            if isinstance(from_value, str) and VERSION_RE.match(from_value):
+                sources.add(from_value)
+            for src in sources:
+                adjacency.setdefault(src, []).append(dst)
+
+    for src, dsts in adjacency.items():
+        adjacency[src] = sorted(set(dsts), key=_semver_tuple)
+
+    queue = deque()
+    queue.append((current, [current]))
+    visited = {current}
+    while queue:
+        node, path = queue.popleft()
+        if node == to_version:
+            return path[1:]
+        for nxt in adjacency.get(node, []):
+            if nxt in visited:
+                continue
+            visited.add(nxt)
+            queue.append((nxt, path + [nxt]))
+
+    neighbors = adjacency.get(current) or []
+    raise NoPathError(
+        f"no migration chain from {current} to {to_version}; "
+        f"reachable next hops from {current}: {neighbors or 'none'}"
+    )
+
+
+def _execute_hop_on_temp(template_root, work_target, accept_theirs, args, hop_source, hop_to, sync_now, dry_run_print):
+    """Plan and apply one hop's writes against a writable rehearsal directory.
+
+    `work_target` is an ephemeral copy of the real target. Always advances the
+    rehearsal tree by writing the planned changes through `apply_writes` so the
+    next hop sees the right state. Never validates and never appends to the
+    rehearsal sync-log.
+    """
+
+    manifest_path = work_target / ".agent" / "manifest.json"
+    manifest = read_json(manifest_path)
+    migration = load_migration(template_root, hop_source, hop_to)
+
+    writes = {}
+    updated = []
+    accepted = []
+    entries, managed_scopes, adapter_report = expand_file_entries(
+        template_root, migration, args.with_adapters, manifest
+    )
+    plan_safe_overwrites(template_root, work_target, migration, entries, accept_theirs, writes, updated, accepted)
+    plan_patches(work_target, migration, writes, updated)
+    plan_codex_wrappers(template_root, work_target, migration, manifest, accept_theirs, writes, updated, accepted)
+    plan_manifest(template_root, work_target, migration, manifest, sync_now, writes, updated)
+
+    planned_targets = set(writes) | {entry["target"] for entry in entries}
+    generator = migration.get("generate_codex_command_wrappers") or {}
+    if generator and generator.get("enabled_when_feature_present") in (manifest.get("features_enabled") or []):
+        for source_path in list_tag_files(template_root, migration["to"], generator["commands_source_glob"]):
+            command_name = Path(source_path).stem
+            planned_targets.add(
+                (Path(generator["target_dir"]) / f"agent-{command_name}" / "SKILL.md").as_posix()
+            )
+    orphans = collect_orphans(work_target, managed_scopes, planned_targets)
+
+    if dry_run_print:
+        print(f"  hop {hop_source} -> {hop_to}: {len(writes)} change(s)")
+        for path in sorted(writes):
+            print(f"    update {path}")
+        for path in adapter_report:
+            print(f"    adapter report-only {path} (pass --with-adapters to include)")
+        for path in orphans:
+            print(f"    warning orphan managed file: {path}")
+
+    apply_writes(work_target, writes)
+
+    return {
+        "from": hop_source,
+        "to": hop_to,
+        "writes": dict(writes),
+        "updated": list(updated),
+        "accepted": list(accepted),
+        "adapter_report": list(adapter_report),
+        "orphans": list(orphans),
+    }
+
+
+def multi_hop_sync_log_entry(sync_now, original_from, final_to, chain, template_commit, updated, accepted, orphans, validation):
+    chain_display = " -> ".join([original_from] + list(chain))
+    lines = [
+        f"## {sync_now} - Sync to {final_to} (multi-hop from {original_from})",
+        "",
+        f"- From: {original_from}",
+        f"- To: {final_to}",
+        f"- Chain: {chain_display}",
+        f"- Template commit: {template_commit[:7]}",
+        "- Updated:",
+    ]
+    if updated:
+        lines.extend(f"  - {item}" for item in updated)
+    else:
+        lines.append("  - none")
+    lines.append("- Accepted theirs:")
+    if accepted:
+        lines.extend(f"  - {item}" for item in accepted)
+    else:
+        lines.append("  - none")
+    lines.extend([
+        "- Preserved:",
+        "  - .agent/project-profile.md",
+        "  - .agent/gates.md",
+        "  - .agent/ownership.md",
+        "  - scripts/agent-eval.sh repo-specific gates",
+        "- Warnings:",
+    ])
+    if orphans:
+        lines.extend(f"  - orphan managed file: {item}" for item in orphans)
+    else:
+        lines.append("  - no managed-directory orphan files")
+    lines.append("- Validation:")
+    for item in validation:
+        lines.append(f"  - {item}")
+    return "\n".join(lines) + "\n"
+
+
+def _run_multi_hop(args, template_root, target, accept_theirs):
+    """Orchestrate a multi-hop migration chain.
+
+    Sign-off invariants:
+    1. Preflight (target existence/git/dirty/current-version) runs before any
+       temp materialization, for both dry-run and apply.
+    2. Single-hop semantics are not affected; main() only dispatches here when
+       --multi-hop is set.
+    3. On --apply, exactly one aggregated sync-log entry is appended after the
+       full target batch is applied successfully.
+    """
+
+    if not target.exists():
+        raise UsageError(f"target does not exist: {target}")
+    if run_git(target, "rev-parse", "--git-dir", check=False).returncode != 0:
+        raise UsageError(f"target is not a git repo: {target}")
+    if not args.allow_dirty and not target_clean(target):
+        raise DirtyError(
+            f"target worktree is dirty: {target}. Commit/stash changes or pass --allow-dirty."
+        )
+    manifest_path = target / ".agent" / "manifest.json"
+    if not manifest_path.is_file():
+        raise UsageError(f"target is missing .agent/manifest.json: {target}")
+    manifest = read_json(manifest_path)
+    current = detect_current_version(manifest)
+    validate_version(current, "current template version")
+
+    if args.to is None:
+        raise UsageError("--multi-hop requires --to <version>")
+    validate_version(args.to, "--to")
+    to_version = args.to
+
+    if current == to_version:
+        print(f"Target already synced to {to_version}; no-op.")
+        return 0
+
+    chain = compute_migration_chain(template_root, current, to_version)
+    if not chain:
+        raise NoPathError(f"empty migration chain from {current} to {to_version}")
+
+    for version in [current] + chain:
+        if not tag_exists(template_root, version):
+            raise UsageError(
+                f"version {version} requires tag {tag_for(version)}; try git fetch --tags"
+            )
+
+    sync_now = os.environ.get("AGENT_SYNC_NOW") or dt.datetime.now(dt.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+    print(f"Multi-hop {'apply' if args.apply else 'dry run'}: {current} -> {to_version}")
+    print(f"Chain: {' -> '.join([current] + chain)}")
+
+    temp_parent = Path(tempfile.mkdtemp(prefix="agent-sync-chain-"))
+    lock_path = None
+    try:
+        temp_target = temp_parent / "target"
+        shutil.copytree(
+            target,
+            temp_target,
+            symlinks=True,
+            ignore=shutil.ignore_patterns(".git"),
+        )
+        temp_lock = temp_target / ".agent" / ".sync.lock"
+        if temp_lock.exists():
+            temp_lock.unlink()
+
+        hop_results = []
+        hop_source = current
+        for hop_to in chain:
+            print(f"Hop {hop_source} -> {hop_to}")
+            result = _execute_hop_on_temp(
+                template_root,
+                temp_target,
+                accept_theirs,
+                args,
+                hop_source,
+                hop_to,
+                sync_now,
+                dry_run_print=not args.apply,
+            )
+            hop_results.append(result)
+            hop_source = hop_to
+
+        if not args.apply:
+            return 0
+
+        # Re-check target_clean AFTER rehearsal but BEFORE acquire_lock, because
+        # acquire_lock writes .agent/.sync.lock into the target tree itself
+        # (which would otherwise make this very check fail).
+        if not args.allow_dirty and not target_clean(target):
+            raise DirtyError(
+                f"target worktree became dirty during rehearsal: {target}. Aborting before write."
+            )
+        lock_path = acquire_lock(target, current, to_version)
+
+        touched = set()
+        for r in hop_results:
+            touched.update(r["writes"].keys())
+        final_writes = {}
+        for rel in sorted(touched):
+            final_writes[rel] = (temp_target / rel).read_bytes()
+        apply_writes(target, final_writes)
+
+        try:
+            validation = run_validation(target, args.verify_fast)
+        except SystemExit as exc:
+            if exc.code == EXIT_VALIDATION:
+                print("Migration applied but validation failed. To revert:", file=sys.stderr)
+                print(f"  git -C {target} restore .", file=sys.stderr)
+                print(f"  git -C {target} clean -fd", file=sys.stderr)
+            raise
+
+        merged_updated, merged_accepted, merged_orphans = [], [], []
+        seen_updated, seen_accepted, seen_orphans = set(), set(), set()
+        for r in hop_results:
+            for u in r["updated"]:
+                if u not in seen_updated:
+                    merged_updated.append(u)
+                    seen_updated.add(u)
+            for a in r["accepted"]:
+                if a not in seen_accepted:
+                    merged_accepted.append(a)
+                    seen_accepted.add(a)
+            for o in r["orphans"]:
+                if o not in seen_orphans:
+                    merged_orphans.append(o)
+                    seen_orphans.add(o)
+
+        final_template_commit = tag_commit(template_root, to_version)
+        entry = multi_hop_sync_log_entry(
+            sync_now,
+            current,
+            to_version,
+            chain,
+            final_template_commit,
+            merged_updated,
+            merged_accepted,
+            merged_orphans,
+            validation,
+        )
+        append_sync_log(target, entry)
+
+        print(f"Synced {target} from {current} to {to_version} via {' -> '.join([current] + chain)}.")
+        return 0
+    finally:
+        if lock_path is not None:
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+        shutil.rmtree(temp_parent, ignore_errors=True)
+
+
 def run_validation(target, verify_fast):
     validation = []
     validator = target / "scripts" / "agent-validate.sh"
@@ -597,6 +921,11 @@ def main(argv):
     parser.add_argument("--verify-fast", action="store_true")
     parser.add_argument("--with-adapters", action="store_true")
     parser.add_argument("--accept-theirs", action="append", default=[])
+    parser.add_argument(
+        "--multi-hop",
+        action="store_true",
+        help="Walk a deterministic chain of single-hop migrations from the target's current version up to --to. Dry-run by default; --apply rehearses on a temp clone before touching the target.",
+    )
     args = parser.parse_args(argv)
 
     template_root = Path(args.template_root).resolve()
@@ -607,6 +936,9 @@ def main(argv):
         raise UsageError(f"template root is not a git repo: {template_root}")
     if sys.version_info < (3, 8):
         raise UsageError("python3 >= 3.8 is required")
+
+    if args.multi_hop:
+        return _run_multi_hop(args, template_root, target, accept_theirs)
 
     if args.to is not None:
         validate_version(args.to, "--to")

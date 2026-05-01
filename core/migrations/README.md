@@ -44,6 +44,8 @@ The goal is a deterministic, reviewable, safe upgrade path from template version
 - Default auto-running of real gates post-migration. MVP only supports explicit `--verify-fast`.
 - Cross-minor chain migration beyond one hop.
 
+> **0.9.0 update — multi-hop walker (P1-2).** `scripts/agent-sync.sh --multi-hop --target … --to <version>` now walks a deterministic BFS chain of these single-hop migrations on a temporary copy of the target, then applies one aggregated batch + sync-log entry on success. The walker reuses the schema v1 single-hop engine and metadata; schema v1 itself is unchanged. See `USAGE.md` (Multi-hop sync) for invocation. The remaining v2 deferrals above (delete/rename ops, slash command, auto-gate run) are still out of scope.
+
 ---
 
 ## 3. Locked Decisions

@@ -426,6 +426,28 @@ The runner refuses conflicts by default and performs no content writes when a co
 
 Sync metadata is written to `.agent/manifest.json`, and successful applies append `.agent/sync-log.md`. Adapter files such as `AGENTS.md` and `CLAUDE.md` are not overwritten by default.
 
+### Multi-hop sync (`--multi-hop`)
+
+When the target is several minor releases behind, you can let the runner walk a deterministic chain of single-hop migrations rather than running each `--to` manually:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/agent-sync.sh \
+  --multi-hop \
+  --target /path/to/target-repo \
+  --to 0.8.1
+```
+
+Behavior:
+
+- `--multi-hop` requires an explicit `--to`.
+- The runner refuses to touch the target until preflight passes (existence, git, dirty, manifest, current version).
+- Without `--apply`, the chain runs end-to-end on a temporary copy of the target (under `$TMPDIR`); the target stays byte-identical.
+- With `--apply`, the chain rehearses on the temp copy first; only after every hop succeeds does the runner apply the union of changed files to the real target and append a single aggregated entry to `.agent/sync-log.md`.
+- A mid-chain conflict aborts before any write to the target. Pass `--accept-theirs <path>` (repeatable) to clear known conflicts; the flag propagates to every hop in the chain.
+- `--verify-fast` runs the target's `scripts/agent-eval.sh fast` once after the final batch is applied, mirroring single-hop behavior.
+
+Single-hop usage (without `--multi-hop`) is unchanged.
+
 ## Upgrade Policy
 
 When this template changes:
