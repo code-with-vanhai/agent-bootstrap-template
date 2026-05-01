@@ -1,8 +1,26 @@
 # Changelog
 
-## 0.9.0 - Unreleased
+## 0.9.0 - 2026-05-01
 
-- Add `data-safety` optional behavior skill and `## Data Surface` section to `core/project-profile.template.md`. Skill #9 is added through the manifest mechanism introduced in P0-1; no validator refactor required.
+- Added `core/skills/manifest.json` as the source of truth for optional native behavior skills. Template validation now reads the manifest, verifies `core/skills/*/SKILL.md`, and checks README/USAGE skill-count drift instead of relying on hardcoded skill names.
+- Added Claude native subagent generation for `scripts/bootstrap-request.sh --harness claude --features full`. Full Claude bootstraps now generate `.claude/agents/{planner,implementer,reviewer,gate-runner}.md` and record `claude-native-subagents` in the manifest.
+- Added an off-by-default PreToolUse secret-guard hook template at `core/hooks/pre-tool-use-secret-guard.py.template`, plus hook documentation. The hook is staged only when explicitly requested with `--install-hook=secret-guard` or `--install-hook=both`.
+- Reworked thin adapters (`AGENTS.md`, `CLAUDE.md`, Gemini, Cursor, Copilot) around `## Always do`, `## Ask first`, `## Never do`, and `## Commands` tiers, with generated-repo validation for any adapter that exists.
+- Added candidate gate discovery insertion. `scripts/bootstrap-request.sh --discover-gates` runs `scripts/lib/insert_gate_candidates.py`, preserves marker blocks in `scripts/agent-eval.sh`, and adds `gate-candidate-discovery` only when reviewed stubs are actually inserted.
+- Added append-only JSONL audit logging through `.agent/audit-log.jsonl`, `scripts/lib/audit_log.py`, `scripts/agent-audit-log.sh`, the `scripts/agent-eval.sh` EXIT trap, and the `scripts/agent-validate-plan.sh` audit wrapper. `.agent/audit-log.disabled` opts out.
+- Added the `data-safety` optional behavior skill and a `## Data Surface` section in `core/project-profile.template.md`. Claude implementer subagents preload `data-safety`.
+- Added `--format json` to the plan validator with a stable JSON payload and exit parity with human/GitHub output.
+- Added `scripts/agent-sync.sh --multi-hop` orchestration. The runner computes a deterministic BFS migration chain, rehearses the full chain on a temp copy, applies one final batch to the target, and writes one aggregated sync-log entry.
+- Added `core/migrations/0.9.0/` to sync downstream repos from 0.8.1 to 0.9.0. The migration updates audit/gate/validator scripts, adds Data Surface profile content additively, updates existing adapters conditionally, installs `data-safety` only when a supported native skill root already exists, and records 0.9.0 manifest metadata.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.9.0`.
+
+> **Upgrade-path note.** Repos on 0.8.1 can run `agent-sync.sh --to 0.9.0 --apply`. Repos on earlier versions can use `agent-sync.sh --multi-hop --to 0.9.0 --apply` from a template checkout containing this release.
+
+> Verification status before tagging:
+>
+> - **Deterministic gates green**: `scripts/agent-validate.sh`, Python unit suites covering plan validation, gate discovery, generated validation, candidate insertion, and audit logging, plus `scripts/agent-evals.sh --fast`.
+> - **Plan artifacts verified**: every `docs/plans/bootstrap-090/*/{spec.md,plan.md}` has `Verified with evidence`; P1 plan folders strict-validate clean after the final implementation work.
+> - **Migration fixtures green**: `tests/migrations/0.9.0/run.sh`, `tests/migrations/multi-hop/run.sh`, and representative single-hop migration regression.
 
 ## 0.8.1 - 2026-04-28
 

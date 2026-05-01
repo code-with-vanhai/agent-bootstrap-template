@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "version": "0.9.0",
+  "from_versions": ["0.8.1"],
+  "to": "0.9.0",
+  "safe_overwrite": [
+    {
+      "source": "core/README.md",
+      "target": ".agent/README.md"
+    },
+    {
+      "source": "adapters/AGENTS.md",
+      "target": "AGENTS.md"
+    },
+    {
+      "source": "adapters/CLAUDE.md",
+      "target": "CLAUDE.md",
+      "skip_if_target_missing": true
+    },
+    {
+      "source": "adapters/GEMINI.md",
+      "target": "GEMINI.md",
+      "skip_if_target_missing": true
+    },
+    {
+      "source": "adapters/cursor-agent-system.mdc",
+      "target": ".cursor/rules/agent-system.mdc",
+      "skip_if_target_missing": true
+    },
+    {
+      "source": "adapters/copilot-instructions.md",
+      "target": ".github/copilot-instructions.md",
+      "skip_if_target_missing": true
+    },
+    {
+      "source": "core/skills/data-safety/SKILL.md",
+      "target": ".agents/skills/agent-bootstrap/data-safety/SKILL.md",
+      "enabled_when_path_exists": ".agents/skills/agent-bootstrap"
+    },
+    {
+      "source": "core/skills/data-safety/SKILL.md",
+      "target": ".claude/skills/agent-bootstrap/data-safety/SKILL.md",
+      "enabled_when_path_exists": ".claude/skills/agent-bootstrap"
+    },
+    {
+      "source": "scripts/agent-audit-log.sh",
+      "target": "scripts/agent-audit-log.sh"
+    },
+    {
+      "source": "scripts/agent-eval.template.sh",
+      "target": "scripts/agent-eval.sh"
+    },
+    {
+      "source": "scripts/agent-validate-plan.sh",
+      "target": "scripts/agent-validate-plan.sh"
+    },
+    {
+      "source": "scripts/lib/audit_log.py",
+      "target": "scripts/lib/audit_log.py"
+    },
+    {
+      "source": "scripts/lib/insert_gate_candidates.py",
+      "target": "scripts/lib/insert_gate_candidates.py"
+    },
+    {
+      "source": "scripts/lib/validate_agent_system.py",
+      "target": "scripts/lib/validate_agent_system.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/cli.py",
+      "target": "scripts/lib/plan_validation/cli.py"
+    },
+    {
+      "source": "scripts/lib/plan_validation/models.py",
+      "target": "scripts/lib/plan_validation/models.py"
+    }
+  ],
+  "patches": [
+    {
+      "file": ".agent/roles/prompts/planner-subagent.md",
+      "anchor": "Run `bash scripts/agent-validate.sh` only if planning changed generated agent-system files. Otherwise report that no verification command was required because no product code changed.",
+      "insert_after_first_match": "\n## Audit Log (best-effort)\n\n- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/planner-subagent.md --field subagent=planner --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.\n",
+      "skip_if_contains": "subagent=planner"
+    },
+    {
+      "file": ".agent/roles/prompts/implementer-subagent.md",
+      "anchor": "Before claiming completion, run the selected gate from `.agent/gates.md` or explain why it is blocked or not configured. Include the exact command and result.",
+      "insert_after_first_match": "\n## Audit Log (best-effort)\n\n- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/implementer-subagent.md --field subagent=implementer --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.\n",
+      "skip_if_contains": "subagent=implementer"
+    },
+    {
+      "file": ".agent/roles/prompts/reviewer-subagent.md",
+      "anchor": "Do not claim the change is ready unless the relevant gate evidence is present. If verification is missing, list it under `Verification gaps`.",
+      "insert_after_first_match": "\n## Audit Log (best-effort)\n\n- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/reviewer-subagent.md --field subagent=reviewer --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.\n",
+      "skip_if_contains": "subagent=reviewer"
+    },
+    {
+      "file": ".agent/roles/prompts/gate-runner-subagent.md",
+      "anchor": "- Do not deploy, run remote migrations, edit secrets, or run destructive commands.",
+      "insert_after_first_match": "\n## Audit Log (best-effort)\n\n- Run `bash scripts/agent-audit-log.sh --kind subagent_run --actor .agent/roles/prompts/gate-runner-subagent.md --field subagent=gate-runner --field outcome=<complete|aborted|error>` after the final answer. This is best-effort; missing entries do not invalidate the run.\n",
+      "skip_if_contains": "subagent=gate-runner"
+    },
+    {
+      "file": ".agent/project-profile.md",
+      "anchor": "- UI routes or deep links:",
+      "insert_after_first_match": "\n## Data Surface\n\nRecord what data this repo touches so agents can recognize data-impacting changes before editing. Use `not configured` or `none` honestly; do not invent rows.\n\n| Surface | Path or system | Classification | Notes |\n|---|---|---|---|\n| User-identifying fields | `not confirmed` | `not confirmed` | Complete from checked-in schema/model/logging evidence. |\n| Customer records | `not confirmed` | `not confirmed` | Complete from checked-in data access paths. |\n| Audit / compliance logs | `not confirmed` | `not confirmed` | Include retention and redaction expectations when known. |\n| Analytics / telemetry events | `not confirmed` | `not confirmed` | Include external destinations when known. |\n| Exports / external integrations | `not confirmed` | `not confirmed` | Include trust boundary and data-sharing notes when known. |\n| Destructive data operations | `not confirmed` | `not confirmed` | Name scripts, migrations, or admin flows when known. |\n\nData-touching changes must reference this table in the run plan and re-run the relevant gate or, if no gate exists, mark it `not configured` with the missing scanner named.\n",
+      "skip_if_contains": "## Data Surface"
+    }
+  ],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.9.0",
+      "synced_to_template_version": "0.9.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.9.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.9.0: skill manifest validation, Claude native subagents for new full bootstraps, off-by-default secret guard hook, three-tier adapters, gate candidate markers, append-only audit log, data-safety skill and Data Surface profile, plan-validator JSON output, and multi-hop sync orchestration."
+    },
+    "merge_array_unique": {}
+  }
+}

@@ -251,25 +251,33 @@ def expand_file_entries(template_root, migration, include_adapters, manifest):
     managed_scopes = []
     adapter_report = []
 
-    def add_entry(source_path, target_path, source_kind):
+    def add_entry(source_path, target_path, source_kind, item=None):
         target_path = rel_path(target_path)
         if target_path in {e["target"] for e in entries}:
             raise UsageError(f"multiple migration entries map to target path: {target_path}")
-        entries.append({"source": source_path, "target": target_path, "kind": source_kind})
+        entry = {"source": source_path, "target": target_path, "kind": source_kind}
+        if item:
+            if item.get("skip_if_target_missing"):
+                entry["skip_if_target_missing"] = True
+            if item.get("enabled_when_path_exists"):
+                if not isinstance(item["enabled_when_path_exists"], str):
+                    raise UsageError("enabled_when_path_exists must be a relative path string")
+                entry["enabled_when_path_exists"] = rel_path(item["enabled_when_path_exists"])
+        entries.append(entry)
 
     for item in migration.get("safe_overwrite", []):
         if "source_glob" in item:
             target_dir = rel_path(item["target_dir"])
             managed_scopes.append((target_dir, None))
             for source_path in list_tag_files(template_root, migration["to"], item["source_glob"]):
-                add_entry(source_path, str(Path(target_dir) / Path(source_path).name), "safe_overwrite")
+                add_entry(source_path, str(Path(target_dir) / Path(source_path).name), "safe_overwrite", item)
         else:
-            add_entry(rel_path(item["source"]), rel_path(item["target"]), "safe_overwrite")
+            add_entry(rel_path(item["source"]), rel_path(item["target"]), "safe_overwrite", item)
 
     adapter_files = migration.get("adapter_files", [])
     if adapter_files and include_adapters:
         for item in adapter_files:
-            add_entry(rel_path(item["source"]), rel_path(item["target"]), "adapter_files")
+            add_entry(rel_path(item["source"]), rel_path(item["target"]), "adapter_files", item)
     elif adapter_files:
         for item in adapter_files:
             adapter_report.append(rel_path(item["target"]))
@@ -288,9 +296,14 @@ def plan_safe_overwrites(template_root, target, migration, entries, accept_their
     for entry in entries:
         source = entry["source"]
         target_rel = entry["target"]
+        condition = entry.get("enabled_when_path_exists")
+        if condition and not (target / condition).exists():
+            continue
+        target_path = target / target_rel
+        if entry.get("skip_if_target_missing") and not target_path.exists():
+            continue
         base = git_show(template_root, migration["from"], source)
         theirs = git_show(template_root, migration["to"], source, required=True)
-        target_path = target / target_rel
         ours = read_bytes(target_path)
 
         if ours == theirs:

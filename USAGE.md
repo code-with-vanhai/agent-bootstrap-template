@@ -434,7 +434,7 @@ When the target is several minor releases behind, you can let the runner walk a 
 /path/to/agent-bootstrap-template/scripts/agent-sync.sh \
   --multi-hop \
   --target /path/to/target-repo \
-  --to 0.8.1
+  --to 0.9.0
 ```
 
 Behavior:

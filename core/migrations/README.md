@@ -94,7 +94,7 @@ User-facing version strings are semver without a `v` prefix. This applies to CLI
 
 Adapter entrypoints are intentionally high-customization files: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/rules/agent-system.mdc`, and `.github/copilot-instructions.md`.
 
-Schema v1 does **not** include adapters in default `safe_overwrite`. A migration may define an `adapter_files` block for reporting, but the runner only applies adapter overwrites when the user passes `--with-adapters`. The 0.2.0 -> 0.3.0 migration does not need adapter overwrites because adapter sources did not change between 2db7301 and fd30e86.
+Schema v1 normally keeps adapters out of default `safe_overwrite`. A migration may define an `adapter_files` block for reporting, and the runner only applies those adapter overwrites when the user passes `--with-adapters`. When a release needs to update adapter files that already exist without creating every possible adapter, individual `safe_overwrite` entries may set `skip_if_target_missing: true`; missing target adapters are skipped, existing generated adapters still get byte-exact 3-way merge protection.
 
 ---
 
@@ -211,6 +211,11 @@ else:
 Comparison is **byte-exact**. No whitespace or line-ending normalization. False-positive conflicts are acceptable; silent merges are not.
 
 Schema v1 does not support `theirs missing`. If a migration manifest references a source that does not exist at `target_ref`, the runner fails with a config error.
+
+Optional `safe_overwrite` entry conditions:
+
+- `skip_if_target_missing: true` skips the entry when `<target_path>` is absent. Use this for optional generated files such as tool adapters that should be updated if present but not created in every repo.
+- `enabled_when_path_exists: "<relative-path>"` skips the entry unless the given target-relative path exists. Use this for generated subtrees where a new file should be added only when the parent feature surface already exists, for example native skill roots.
 
 ### `source_glob` expansion
 
