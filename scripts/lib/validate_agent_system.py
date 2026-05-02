@@ -911,11 +911,55 @@ class AgentSystemValidator:
         else:
             self.skip(".agent/workflows/worktree-workflow.md not generated", ".agent/workflows/worktree-workflow.md")
 
+    def validate_token_budget(self) -> None:
+        """Cap adapter and rulebase files at line budgets so prompts stay
+        within harness context windows. Missing optional adapters are
+        skipped; an existing file over budget fails with the line count.
+        """
+
+        if self.mode == "template":
+            budgets: tuple[tuple[str, int], ...] = (
+                ("adapters/AGENTS.md", 200),
+                ("adapters/CLAUDE.md", 200),
+                ("adapters/GEMINI.md", 200),
+                ("adapters/cursor-agent-system.mdc", 200),
+                ("adapters/copilot-instructions.md", 200),
+                ("core/rulebase.template.md", 250),
+            )
+        else:
+            budgets = (
+                ("AGENTS.md", 200),
+                ("CLAUDE.md", 200),
+                ("GEMINI.md", 200),
+                (".cursor/rules/agent-system.mdc", 200),
+                (".github/copilot-instructions.md", 200),
+                (".agent/rulebase.md", 250),
+            )
+
+        for rel, limit in budgets:
+            path = self.root / rel
+            if not path.is_file():
+                self.skip(f"{rel} not present for token-budget check", rel)
+                continue
+            line_count = sum(1 for _ in path.read_text(encoding="utf-8").splitlines())
+            if line_count > limit:
+                self.fail(
+                    f"{rel} is {line_count} lines, exceeds budget of {limit}; "
+                    f"trim or move scope-specific guidance into nested repo "
+                    f"instructions",
+                    rel,
+                )
+            else:
+                self.pass_(
+                    f"{rel} is {line_count} lines (budget {limit})", rel
+                )
+
     def run(self) -> list[Check]:
         if self.mode == "template":
             self.validate_template()
         else:
             self.validate_generated()
+        self.validate_token_budget()
         return self.results
 
 
