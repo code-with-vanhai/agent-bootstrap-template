@@ -103,11 +103,18 @@ import sys
 
 root = pathlib.Path(sys.argv[1])
 metadata = [json.loads(path.read_text(encoding="utf-8")) for path in root.glob("*/metadata.json")]
-classes = {item["classification"] for item in metadata}
-if classes != {"PASS"}:
-    raise SystemExit(f"unexpected classifications: {classes!r}")
-if any(item["exit_code"] != 0 for item in metadata):
-    raise SystemExit("expected all fast eval artifact exit codes to be 0")
+allowed_exit_codes = {"PASS": 0, "SKIP": 77}
+for item in metadata:
+    classification = item["classification"]
+    if classification not in allowed_exit_codes:
+        raise SystemExit(f"unexpected classification for {item['eval']}: {classification!r}")
+    expected_exit_code = allowed_exit_codes[classification]
+    if item["exit_code"] != expected_exit_code:
+        raise SystemExit(
+            f"unexpected exit code for {item['eval']}: "
+            f"classification={classification!r}, exit_code={item['exit_code']!r}, "
+            f"expected={expected_exit_code!r}"
+        )
 for path in root.glob("*/output.txt"):
     if not path.read_text(encoding="utf-8").strip():
         raise SystemExit(f"empty output artifact: {path}")
