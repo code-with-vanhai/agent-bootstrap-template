@@ -433,6 +433,7 @@ copy_scripts() {
   copy_file "$TEMPLATE_ROOT/scripts/lib/__init__.py" "$TARGET_ROOT/scripts/lib/__init__.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/audit_log.py" "$TARGET_ROOT/scripts/lib/audit_log.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/gate_discovery.py" "$TARGET_ROOT/scripts/lib/gate_discovery.py" "644"
+  copy_file "$TEMPLATE_ROOT/scripts/lib/gate_modes.py" "$TARGET_ROOT/scripts/lib/gate_modes.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py" "$TARGET_ROOT/scripts/lib/insert_gate_candidates.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_agent_system.py" "$TARGET_ROOT/scripts/lib/validate_agent_system.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_plan.py" "$TARGET_ROOT/scripts/lib/validate_plan.py" "644"

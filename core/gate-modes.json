@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "modes": [
+    "changed",
+    "fast",
+    "frontend",
+    "backend",
+    "shared",
+    "e2e",
+    "full",
+    "security",
+    "release"
+  ],
+  "default_gate": "fast",
+  "full_gate": "full"
+}
