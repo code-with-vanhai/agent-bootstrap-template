@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,6 +42,12 @@ jobs:
           python3 -m unittest scripts.lib.test_validate_agent_system
           python3 -m unittest scripts.lib.test_render_template
           python3 -m unittest scripts.lib.test_validate_plan
+          python3 -m unittest scripts.lib.test_audit_log
+          python3 -m unittest scripts.lib.test_insert_gate_candidates
+          python3 -m unittest scripts.lib.test_check_test_module_coverage
+
+      - name: All Python test modules are gated
+        run: python3 scripts/lib/check_test_module_coverage.py .github/workflows/ci.yml
 
       - name: Provider helper tests
         run: bash tests/lib/test_llm_provider.sh

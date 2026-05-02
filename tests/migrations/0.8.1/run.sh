@@ -96,13 +96,20 @@ path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 PY
 }
 
+remove_pycache() {
+  dir="$1"
+  find "$dir" -type d -name __pycache__ -prune -exec rm -rf {} +
+}
+
 setup_080_fixture() {
   fixture_dir="$work_root/clean-from-0.8.0"
+  mkdir -p "$fixture_dir"
   "$root/scripts/bootstrap-request.sh" --target "$fixture_dir" >/dev/null
   complete_bootstrap_fixture "$fixture_dir"
   git -C "$root" show v0.8.0:scripts/lib/validate_agent_system.py \
     >"$fixture_dir/scripts/lib/validate_agent_system.py"
   python3 -m py_compile "$fixture_dir/scripts/lib/validate_agent_system.py"
+  remove_pycache "$fixture_dir"
   set_manifest_version "$fixture_dir" "0.8.0" "$(git -C "$root" rev-parse v0.8.0)"
 
   (
@@ -118,6 +125,7 @@ setup_080_fixture() {
   fi
   assert_file_contains "/tmp/migration-0.8.1-pre.out" "bootstrap completion markers remain" \
     "[setup] old validator false positive reproduced" >&2
+  remove_pycache "$fixture_dir"
 
   printf '%s\n' "$fixture_dir"
 }
@@ -144,7 +152,7 @@ AGENT_ROOT="$fixture" bash "$fixture/scripts/agent-validate.sh" >/tmp/migration-
 assert_file_contains "/tmp/migration-0.8.1-validate.out" "All validation checks passed." \
   "[clean-from-0.8.0] generated validator passes"
 
-rm -rf "$fixture/scripts/lib/__pycache__"
+remove_pycache "$fixture"
 (
   cd "$fixture"
   git -c user.email=t@t -c user.name=Test add .
@@ -154,6 +162,7 @@ rm -rf "$fixture/scripts/lib/__pycache__"
 AGENT_SYNC_NOW=2026-04-28T05:00:00Z \
   "$root/scripts/agent-sync.sh" --target "$fixture" --to 0.8.1 --apply
 
+remove_pycache "$fixture"
 if [ -n "$(git -C "$fixture" status --short)" ]; then
   git -C "$fixture" status --short
   printf 'FAIL: [clean-from-0.8.0] re-apply produced changes\n' >&2
