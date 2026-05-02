@@ -68,7 +68,8 @@ run_review() {
 
   cp "$fixture" "$project_dir/.agent/runs/eval-plan.md"
 
-  prompt="$(cat <<'EOF'
+  prompt_file="$project_dir/.agent/runs/eval-prompt.md"
+  cat > "$prompt_file" <<'EOF'
 You are reviewing the plan at .agent/runs/eval-plan.md in the current repo.
 
 REQUIRED steps:
@@ -86,7 +87,7 @@ REQUIRED steps:
 Do not edit any files. Do not invent check ids that the validator does not
 emit.
 EOF
-)"
+  prompt="$(cat "$prompt_file")"
 
   output="$(run_llm "$prompt" "$project_dir" 2>&1 || true)"
 

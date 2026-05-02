@@ -70,13 +70,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # NOTE: default fetch-depth (= 1, no tags) is intentional. Each
-      # migration fixture self-skips when its source-version git tag is
-      # not present. Switching to fetch-depth: 0 would pull every tag and
-      # surface pre-existing bugs in older fixtures unrelated to this
-      # job's purpose.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
