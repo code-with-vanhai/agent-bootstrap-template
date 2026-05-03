@@ -650,6 +650,27 @@ class AgentSystemValidatorTest(unittest.TestCase):
         self.assertIn("adapters/AGENTS.md is", messages)
         self.assertIn("exceeds budget of 200", messages)
 
+    def test_generated_token_budget_overlong_adapter_fails(self):
+        target = self.make_target(features="full", harness="codex")
+        baseline = self.run_validator(
+            "--mode", "generated", "--format", "json", root=target
+        )
+        self.assertEqual(baseline.returncode, 0, baseline.stderr)
+
+        bloat_path = target / "AGENTS.md"
+        self.assertTrue(bloat_path.is_file(), "expected bootstrap to render AGENTS.md")
+        bloat = "\n".join(f"line {i}" for i in range(300))
+        bloat_path.write_text(bloat + "\n", encoding="utf-8")
+
+        result = self.run_validator(
+            "--mode", "generated", "--format", "json", root=target
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("AGENTS.md is", messages)
+        self.assertIn("exceeds budget of 200", messages)
+
 
 if __name__ == "__main__":
     unittest.main()

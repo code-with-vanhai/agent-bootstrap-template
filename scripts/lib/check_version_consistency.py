@@ -107,6 +107,9 @@ def report(rows: Iterable[tuple[str, str | None]]) -> int:
     print("Version sources:")
     for name, value in rows:
         print(f"  {name.ljust(width)}  {value!r}")
+    # Flush stdout before any stderr writes so the report and FAIL lines stay
+    # in order under `2>&1` redirection (Python buffers per-stream).
+    sys.stdout.flush()
 
     missing = [name for name, value in rows if value is None]
     if missing:
