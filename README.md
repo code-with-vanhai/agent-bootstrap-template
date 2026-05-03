@@ -65,6 +65,7 @@ agent-bootstrap-template/
 │   ├── bootstrap-checklist.md
 │   ├── manifest.template.json
 │   ├── project-profile.template.md
+│   ├── constitution.template.md
 │   ├── rulebase.template.md
 │   ├── ownership.template.md
 │   ├── gates.template.md

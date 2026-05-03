@@ -15,6 +15,7 @@
     "deployment_targets": ["{{DEPLOYMENT_TARGET_1}}"]
   },
   "canonical_files": [
+    ".agent/constitution.md",
     ".agent/project-profile.md",
     ".agent/rulebase.md",
     ".agent/ownership.md",

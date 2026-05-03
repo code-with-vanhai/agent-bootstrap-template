@@ -671,6 +671,123 @@ class AgentSystemValidatorTest(unittest.TestCase):
         self.assertIn("AGENTS.md is", messages)
         self.assertIn("exceeds budget of 200", messages)
 
+    def test_template_missing_constitution_fails(self):
+        target = self.make_template_copy()
+        (target / "core" / "constitution.template.md").unlink()
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/constitution.template.md", messages)
+
+    def test_template_rulebase_without_constitution_pointer_fails(self):
+        target = self.make_template_copy()
+        rb = target / "core" / "rulebase.template.md"
+        rb.write_text(
+            rb.read_text(encoding="utf-8").replace(
+                ".agent/constitution.md", ".agent/other-policy.md"
+            ),
+            encoding="utf-8",
+        )
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("core/rulebase.template.md points to constitution", messages)
+
+    def test_template_rule_evolution_without_exclusion_fails(self):
+        target = self.make_template_copy()
+        wf = target / "core" / "workflows" / "rule-evolution-workflow.md"
+        wf.write_text(
+            wf.read_text(encoding="utf-8").replace("## Out Of Scope", "## Not Out Of Scope"),
+            encoding="utf-8",
+        )
+        result = self.run_validator("--mode", "template", "--format", "json", cwd=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn(
+            "core/workflows/rule-evolution-workflow.md excludes constitution edits",
+            messages,
+        )
+
+    def test_generated_bootstrap_includes_constitution(self):
+        target = self.make_target(features="standard", harness="codex")
+        self.assertTrue((target / ".agent" / "constitution.md").is_file())
+        rulebase = (target / ".agent" / "rulebase.md").read_text(encoding="utf-8")
+        self.assertIn(".agent/constitution.md", rulebase)
+        canonical = json.loads((target / ".agent" / "manifest.json").read_text(encoding="utf-8"))[
+            "canonical_files"
+        ]
+        self.assertEqual(canonical[0], ".agent/constitution.md")
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_generated_legacy_missing_constitution_skips(self):
+        target = self.make_target(features="standard", harness="codex")
+        (target / ".agent" / "constitution.md").unlink()
+        legacy = """# Rulebase
+
+Legacy repo without a split constitution file.
+
+```text
+NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
+```
+
+## Rationalization Checks
+
+| Excuse | Reality |
+|---|---|
+| x | y |
+"""
+        (target / ".agent" / "rulebase.md").write_text(legacy, encoding="utf-8")
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        paths = [item.get("path") for item in payload["results"]]
+        idx = paths.index(".agent/constitution.md")
+        self.assertEqual(payload["results"][idx]["status"], "SKIP")
+
+    def test_generated_missing_constitution_new_manifest_fails(self):
+        target = self.make_target(features="standard", harness="codex")
+        (target / ".agent" / "constitution.md").unlink()
+        manifest_path = target / ".agent" / "manifest.json"
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data["instantiated_from_template_version"] = "0.10.0"
+        manifest_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = " ".join(item["message"] for item in payload["results"])
+        self.assertIn(".agent/constitution.md", messages)
+        self.assertRegex(messages, r"0\.10\.0")
+
+    def test_generated_constitution_removed_but_pointer_fails(self):
+        target = self.make_target(features="standard", harness="codex")
+        (target / ".agent" / "constitution.md").unlink()
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("references it", messages)
+
+    def test_generated_missing_constitution_unknown_rulebase_fails(self):
+        target = self.make_target(features="standard", harness="codex")
+        (target / ".agent" / "constitution.md").unlink()
+        (target / ".agent" / "rulebase.md").write_text(
+            "# Rulebase\n\n"
+            "Custom content with neither constitution pointer nor legacy "
+            "discipline phrase.\n\n"
+            "## Rationalization Checks\n\n"
+            "| Excuse | Reality |\n|---|---|\n| a | b |\n",
+            encoding="utf-8",
+        )
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("not a legacy inline rulebase", messages)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,8 @@ This directory is the canonical instruction source for coding agents working in 
 Agents must read these files before making changes:
 
 - `project-profile.md`: what the project is, how it is structured, and which docs matter.
-- `rulebase.md`: safety rules, required practices, and forbidden actions.
+- `constitution.md`: non-negotiable safety constraints (discipline gates, forbidden actions, database invariants).
+- `rulebase.md`: operating guidance, scope control, and evolvable rules (see `constitution.md` for hard gates).
 - `ownership.md`: which role owns which paths and when coordination is required.
 - `gates.md`: verification commands and acceptance criteria.
 - `roles/`: role-specific behavior.
