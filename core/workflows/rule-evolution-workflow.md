@@ -49,6 +49,10 @@ Applies to:
 - Roles, workflows, paths, gates.
 ```
 
+## Out Of Scope
+
+This workflow does not edit `.agent/constitution.md`. The constitution defines non-negotiable safety constraints and changes only by explicit human approval, reviewed as a security-impacting change.
+
 ## Hard Limits
 
 Agents must not silently relax rules for:

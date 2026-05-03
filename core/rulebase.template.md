@@ -2,6 +2,8 @@
 
 This file is the highest-priority project-specific rule source for agents.
 
+> See `.agent/constitution.md` for non-negotiable safety constraints (discipline gates, forbidden actions, database & migration invariants). Amendments require explicit human approval — they do not flow through the rule-evolution workflow.
+
 ## Objectives
 
 Agents should optimize for:
@@ -25,20 +27,6 @@ Agents should optimize for:
 - Treat secret scanning as required evidence when touching `.env`, credentials,
   tokens, private keys, CI secrets, auth config, or logging paths that could
   expose secret values. If no scanner is configured, report the gap.
-
-## Discipline Gates
-
-These rules are hard gates for agent behavior, not style preferences.
-
-```text
-NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
-NO FIXES WITHOUT ROOT CAUSE INVESTIGATION
-NO PUBLIC CONTRACT CHANGE WITHOUT TESTS, DOCS, AND CONSUMER IMPACT CHECK
-NO INVENTED COMMANDS, FILES, FUNCTIONS, GATES, OR REPO FACTS
-NO UNRELATED CHANGES BUNDLED INTO THE TASK
-```
-
-If a rule cannot be satisfied, stop and report the blocker, the evidence gathered, and the remaining risk.
 
 ## Status Field Whitelist
 
@@ -83,17 +71,6 @@ Stop and re-check this rulebase when any of these thoughts apply:
 | "Docs/tests can be updated later." | Public behavior changes require docs/tests/consumer impact checks in the same task. |
 | "The agent before me said it passed." | Verify independently before claiming status. |
 
-## Forbidden Without Explicit Human Approval
-
-- Deploying to production or shared environments.
-- Running remote database migrations.
-- Deleting, rewriting, or squashing existing migrations.
-- Editing secrets, credentials, tokens, private keys, or `.env` values.
-- Running destructive filesystem, database, or infrastructure commands.
-- Bypassing authentication, authorization, validation, rate limiting, or audit logging to make a test pass.
-- Weakening security headers, cookie protections, CSRF protections, encryption, or permission checks without an approved security decision.
-- Changing public API, schema, package exports, or persisted data format without updating docs, tests, and all known consumers.
-
 ## Scope Control
 
 - Prefer the narrowest role and ownership boundary capable of solving the task.
@@ -117,13 +94,6 @@ When changing API behavior:
 - Update shared types or client code.
 - Add or update contract tests if configured.
 - Preserve backwards compatibility unless explicitly approved.
-
-When changing database behavior:
-
-- Add forward migrations only.
-- Preserve existing data.
-- Include rollback guidance if the migration system supports it.
-- Never run remote migrations without approval.
 
 When changing UI behavior:
 

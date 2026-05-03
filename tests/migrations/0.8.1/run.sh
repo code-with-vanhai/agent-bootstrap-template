@@ -106,6 +106,22 @@ setup_080_fixture() {
   mkdir -p "$fixture_dir"
   "$root/scripts/bootstrap-request.sh" --target "$fixture_dir" >/dev/null
   complete_bootstrap_fixture "$fixture_dir"
+  # PR-3a+ template bootstraps constitution + split rulebase; this fixture must
+  # mimic a 0.8.0-era tree (inline discipline in rulebase, no constitution).
+  git -C "$root" show v0.8.0:core/rulebase.template.md \
+    >"$fixture_dir/.agent/rulebase.md"
+  rm -f "$fixture_dir/.agent/constitution.md"
+  python3 - "$fixture_dir/.agent/manifest.json" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+data = json.loads(path.read_text(encoding="utf-8"))
+files = data.get("canonical_files") or []
+data["canonical_files"] = [item for item in files if item != ".agent/constitution.md"]
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
   git -C "$root" show v0.8.0:scripts/lib/validate_agent_system.py \
     >"$fixture_dir/scripts/lib/validate_agent_system.py"
   python3 -m py_compile "$fixture_dir/scripts/lib/validate_agent_system.py"

@@ -58,6 +58,25 @@ GENERATED_SCAN_EXCLUDED_SUFFIXES = {".pyc"}
 # adjacent string literals and stores the joined value in .pyc files.
 BOOTSTRAP_COMPLETION_MARKER = "not confirmed - complete " + ".agent/bootstrap-pending.md"
 
+SEMVER_CORE_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
+
+
+def _semver_core_tuple(version: str) -> tuple[int, int, int] | None:
+    match = SEMVER_CORE_RE.match(version.strip())
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def _version_at_least(version: str | None, minimum: str) -> bool:
+    if not version or not isinstance(version, str):
+        return False
+    v = _semver_core_tuple(version)
+    m = _semver_core_tuple(minimum)
+    if v is None or m is None:
+        return False
+    return v >= m
+
 
 THIN_ADAPTER_SOURCE_FILES = (
     "adapters/AGENTS.md",
@@ -528,6 +547,8 @@ class AgentSystemValidator:
         self.exists("core/project-profile.template.md")
         self.contains("core/project-profile.template.md", "## Data Surface", "core/project-profile.template.md includes Data Surface section")
 
+        self.validate_constitution_template()
+
         self.exists(".claude-plugin/plugin.json")
         self.json_file(".claude-plugin/plugin.json", ".claude-plugin/plugin.json is valid JSON")
         self.contains(".claude-plugin/plugin.json", '"name": "agent-bootstrap"', ".claude-plugin/plugin.json defines agent-bootstrap plugin")
@@ -691,6 +712,116 @@ class AgentSystemValidator:
                 rel,
             )
 
+    def validate_constitution_template(self) -> None:
+        self.exists("core/constitution.template.md")
+        self.contains(
+            "core/constitution.template.md",
+            "NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE",
+            "core/constitution.template.md includes discipline gates",
+        )
+        self.contains(
+            "core/constitution.template.md",
+            "## Forbidden Without Explicit Human Approval",
+            "core/constitution.template.md includes forbidden section",
+        )
+        self.contains(
+            "core/constitution.template.md",
+            "## Database & Migration Invariants",
+            "core/constitution.template.md includes database invariants",
+        )
+        self.contains(
+            "core/constitution.template.md",
+            "## Amendment",
+            "core/constitution.template.md includes amendment section",
+        )
+        self.contains(
+            "core/rulebase.template.md",
+            ".agent/constitution.md",
+            "core/rulebase.template.md points to constitution",
+        )
+        self.contains(
+            "core/workflows/rule-evolution-workflow.md",
+            "## Out Of Scope",
+            "core/workflows/rule-evolution-workflow.md excludes constitution edits",
+        )
+        self.contains(
+            "core/workflows/rule-evolution-workflow.md",
+            ".agent/constitution.md",
+            "core/workflows/rule-evolution-workflow.md references constitution path",
+        )
+        self.contains(
+            "core/manifest.template.json",
+            '".agent/constitution.md"',
+            "core/manifest.template.json lists constitution in canonical_files",
+        )
+
+    def validate_constitution_generated(self, manifest: dict[str, Any] | None) -> None:
+        rel_const = ".agent/constitution.md"
+        path_const = self.root / rel_const
+
+        manifest_ver: str | None = None
+        if isinstance(manifest, dict):
+            raw_ver = manifest.get("instantiated_from_template_version")
+            if isinstance(raw_ver, str):
+                manifest_ver = raw_ver
+
+        rulebase_rel = ".agent/rulebase.md"
+
+        if path_const.is_file():
+            self.pass_(f"{rel_const} exists", rel_const)
+            self.contains(
+                rel_const,
+                "NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE",
+                f"{rel_const} includes discipline gates",
+            )
+            self.contains(
+                rel_const,
+                "Forbidden Without Explicit Human Approval",
+                f"{rel_const} includes forbidden section heading",
+            )
+            self.contains(
+                rel_const,
+                "Database & Migration Invariants",
+                f"{rel_const} includes database invariants",
+            )
+            self.contains(
+                rulebase_rel,
+                ".agent/constitution.md",
+                ".agent/rulebase.md points to constitution",
+            )
+            return
+
+        if _version_at_least(manifest_ver, "0.10.0"):
+            self.fail(
+                f"{rel_const} is required for manifests at template version 0.10.0 or newer",
+                rel_const,
+            )
+            return
+
+        rb_path = self.root / rulebase_rel
+        if not rb_path.is_file():
+            self.fail(f"{rulebase_rel} is missing", rulebase_rel)
+            return
+        rulebase_text = read_text(rb_path)
+        if ".agent/constitution.md" in rulebase_text:
+            self.fail(
+                f"{rel_const} is missing but {rulebase_rel} references it",
+                rel_const,
+            )
+            return
+        if "NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE" in rulebase_text:
+            self.skip(
+                f"{rel_const} not present; legacy inline rulebase "
+                f"(instantiated_from_template_version={manifest_ver!r})",
+                rel_const,
+            )
+            return
+
+        self.fail(
+            f"{rel_const} is missing and {rulebase_rel} is not a legacy inline rulebase",
+            rel_const,
+        )
+
     def validate_hook_templates(self) -> None:
         self.exists("core/hooks/session-start.sh")
         self.shell_syntax("core/hooks/session-start.sh")
@@ -830,12 +961,11 @@ class AgentSystemValidator:
         ):
             self.exists(rel)
 
-        self.contains(".agent/rulebase.md", "NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE", ".agent/rulebase.md includes completion verification discipline")
+        manifest = self.validate_manifest_shape(".agent/manifest.json")
+        self.validate_constitution_generated(manifest)
         self.contains(".agent/rulebase.md", "Rationalization Checks", ".agent/rulebase.md includes rationalization checks")
         self.contains(".agent/gates.md", "NO INVENTED GATES OR COMMANDS", ".agent/gates.md includes no-invented-gates discipline")
         self.contains(".agent/project-profile.md", "## Data Surface", ".agent/project-profile.md includes Data Surface section")
-
-        manifest = self.validate_manifest_shape(".agent/manifest.json")
 
         self.shell_syntax("scripts/agent-eval.sh")
         self.shell_syntax("scripts/agent-audit-log.sh")
