@@ -771,6 +771,23 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
         messages = "\n".join(item["message"] for item in payload["results"])
         self.assertIn("references it", messages)
 
+    def test_generated_missing_constitution_unknown_rulebase_fails(self):
+        target = self.make_target(features="standard", harness="codex")
+        (target / ".agent" / "constitution.md").unlink()
+        (target / ".agent" / "rulebase.md").write_text(
+            "# Rulebase\n\n"
+            "Custom content with neither constitution pointer nor legacy "
+            "discipline phrase.\n\n"
+            "## Rationalization Checks\n\n"
+            "| Excuse | Reality |\n|---|---|\n| a | b |\n",
+            encoding="utf-8",
+        )
+        result = self.run_validator("--mode", "generated", "--format", "json", root=target)
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        messages = "\n".join(item["message"] for item in payload["results"])
+        self.assertIn("not a legacy inline rulebase", messages)
+
 
 if __name__ == "__main__":
     unittest.main()

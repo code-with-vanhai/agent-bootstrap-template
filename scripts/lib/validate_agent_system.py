@@ -756,6 +756,20 @@ class AgentSystemValidator:
         )
 
     def validate_constitution_generated(self, manifest: dict[str, Any] | None) -> None:
+        """Validate ``.agent/constitution.md`` with legacy-aware gating.
+
+        Five outcomes:
+          A. constitution exists -> validate required phrases + rulebase pointer.
+          B. missing + manifest ``instantiated_from_template_version`` >= 0.10.0
+             -> FAIL (migration required).
+          C. missing + rulebase still references ``.agent/constitution.md``
+             -> FAIL (broken bootstrap; trimmed rulebase + deleted constitution).
+          D. missing + rulebase carries legacy ``NO COMPLETION CLAIMS`` phrase
+             and no pointer -> SKIP (genuine pre-0.10.0 layout).
+          E. missing + neither pointer nor legacy phrase -> FAIL (rulebase
+             diverged too far from both layouts; refuse to silently pass).
+        """
+
         rel_const = ".agent/constitution.md"
         path_const = self.root / rel_const
 
