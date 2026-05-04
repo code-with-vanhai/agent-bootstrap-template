@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "servers": {
+    "github": {
+      "purpose": "PR, issue, and check-run context",
+      "applies_when": ["github-hosted"],
+      "auth_env": "GITHUB_TOKEN"
+    },
+    "context7": {
+      "purpose": "Live documentation lookup for installed dependencies",
+      "applies_when": ["package-manager-present"],
+      "auth_env": null
+    },
+    "playwright": {
+      "purpose": "Browser automation for end-to-end workflows",
+      "applies_when": ["playwright-dependency-present"],
+      "auth_env": null
+    },
+    "gitleaks-mcp": {
+      "purpose": "Secret scanning support when local security gate is not configured",
+      "applies_when": ["security-gate-not-configured"],
+      "auth_env": null
+    }
+  }
+}

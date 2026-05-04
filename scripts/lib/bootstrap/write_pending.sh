@@ -79,6 +79,14 @@ write_pending() {
     fi
   fi
 
+  mcp_discovery_status="not generated"
+  if [ "$with_mcp_discovery" = "1" ]; then
+    # The orchestrator rejects --features minimal + --with-mcp-discovery
+    # before any side effects, so by the time write_pending runs the layer
+    # is always genuinely rendered.
+    mcp_discovery_status="generated: review .mcp.json.suggested with scripts/lib/validate_mcp_config.py before promoting to .mcp.json"
+  fi
+
   {
     cat <<'EOF'
 # Bootstrap Pending Tasks
@@ -102,6 +110,7 @@ EOF
     printf 'PreToolUse rulebase-guard hook: %s\n' "$rulebase_guard_hook_status"
     printf 'Claude native subagents: %s\n' "$native_subagents_status"
     printf 'Gate candidate discovery: %s\n' "$gate_discovery_status"
+    printf 'MCP discovery layer: %s\n' "$mcp_discovery_status"
     cat <<'EOF'
 
 ## What the script already did

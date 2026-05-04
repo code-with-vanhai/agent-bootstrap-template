@@ -9,6 +9,12 @@ copy_commands() {
   while IFS= read -r command_file; do
     [ -n "$command_file" ] || continue
     command_name="$(basename "$command_file")"
+    case "$command_name" in
+      mcp-discover.md)
+        # Stage 5: gated behind --with-mcp-discovery; copy_mcp.sh owns it.
+        continue
+        ;;
+    esac
     render_template "$command_file" "$TARGET_ROOT/.agent/commands/$command_name"
   done <<EOF
 $_cmd_files

@@ -9,6 +9,7 @@
     "no-invented-artifacts",
     "bootstrap-agent-system",
     "no-secret-leakage",
-    "data-safety"
+    "data-safety",
+    "mcp-tool-discovery"
   ]
 }

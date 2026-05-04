@@ -15,6 +15,7 @@ dry_run="0"
 force="0"
 install_hook_mode="none"
 discover_gates="0"
+with_mcp_discovery="0"
 template_version="0.10.0"
 
 # shellcheck source=lib/bootstrap/parse_args.sh
@@ -29,6 +30,10 @@ case "$harness" in
   generic|codex|claude|cursor|copilot|gemini) ;;
   *) die "--harness must be generic, codex, claude, cursor, copilot, or gemini" ;;
 esac
+
+if [ "$with_mcp_discovery" = "1" ] && [ "$features" = "minimal" ]; then
+  die "--with-mcp-discovery requires --features standard or full; minimal does not generate the .agent/commands/ surface that the MCP layer points to"
+fi
 
 [ -d "$target" ] || die "target does not exist: $target"
 [ -d "$template_root/core" ] || die "template root does not contain core/: $template_root"
@@ -88,6 +93,8 @@ primary_language="$(detect_primary_language)"
 . "$BOOTSTRAP_LIB/copy_subagents.sh"
 # shellcheck source=lib/bootstrap/copy_hooks.sh
 . "$BOOTSTRAP_LIB/copy_hooks.sh"
+# shellcheck source=lib/bootstrap/copy_mcp.sh
+. "$BOOTSTRAP_LIB/copy_mcp.sh"
 # shellcheck source=lib/bootstrap/gate_discovery.sh
 . "$BOOTSTRAP_LIB/gate_discovery.sh"
 # shellcheck source=lib/bootstrap/write_pending.sh
@@ -100,6 +107,7 @@ log "Features: $features"
 log "Harness: $harness"
 
 features_enabled_json="$(build_features_enabled_json)"
+features_enabled_json="$(maybe_add_mcp_feature "$features_enabled_json")"
 create_render_token_map
 
 copy_core_files
@@ -113,6 +121,7 @@ copy_skills
 copy_codex_command_skills
 copy_claude_subagents
 copy_hook
+copy_mcp
 discover_gates_into_eval
 write_pending
 

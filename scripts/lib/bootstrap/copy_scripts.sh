@@ -20,6 +20,7 @@ copy_scripts() {
 $_asv
 EOF
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_plan.py" "$TARGET_ROOT/scripts/lib/validate_plan.py" "644"
+  copy_file "$TEMPLATE_ROOT/scripts/lib/validate_mcp_config.py" "$TARGET_ROOT/scripts/lib/validate_mcp_config.py" "644"
   _pv="$(find "$TEMPLATE_ROOT/scripts/lib/plan_validation" -maxdepth 1 -type f -name '*.py' -print | LC_ALL=C sort)"
   while IFS= read -r plan_validation_file; do
     [ -n "$plan_validation_file" ] || continue

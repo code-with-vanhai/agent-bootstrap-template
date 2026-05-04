@@ -36,6 +36,13 @@ copy_codex_command_skills() {
   while IFS= read -r command_file; do
     [ -n "$command_file" ] || continue
     command_name="$(basename "$command_file" .md)"
+    case "$command_name" in
+      mcp-discover)
+        # Stage 5: Codex wrapper for mcp-discover is owned by copy_mcp.sh
+        # so the MCP layer stays gated behind --with-mcp-discovery.
+        continue
+        ;;
+    esac
     skill_name="agent-$command_name"
     dest="$TARGET_ROOT/.agents/skills/agent-bootstrap/$skill_name/SKILL.md"
 

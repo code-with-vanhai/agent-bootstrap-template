@@ -41,10 +41,11 @@ The template currently provides:
 
 - Core `.agent/` templates for project profile, rulebase, ownership, gates, decisions, lessons, roles, and workflows.
 - Four role prompt fragments for planner, implementer, reviewer, and gate-runner subagents.
-- Nine optional native behavior skills: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, no-invented-artifacts, bootstrap-agent-system, no-secret-leakage, and data-safety.
+- Ten optional native behavior skills: verify-before-completion, root-cause-debugging, scoped-implementation, plan-before-code, worktree-isolation, no-invented-artifacts, bootstrap-agent-system, no-secret-leakage, data-safety, and mcp-tool-discovery.
 - Optional worktree workflow for teams that explicitly opt into isolated workspaces.
 - Optional GitHub pull request template for GitHub-hosted repositories.
 - Optional SessionStart hook template for supported harnesses, off by default.
+- Optional MCP discovery layer via `--with-mcp-discovery`, off by default; renders an advisory `.mcp.json.suggested` plus the `mcp-discover` command for human review.
 - Deterministic bootstrap skeleton generation via `scripts/bootstrap-request.sh`.
 - Optional Claude Code native slash commands through `/agent-bootstrap:bootstrap`, `/agent-bootstrap:plan`, `/agent-bootstrap:bugfix`, `/agent-bootstrap:implement`, `/agent-bootstrap:refactor`, `/agent-bootstrap:review`, `/agent-bootstrap:security-review`, `/agent-bootstrap:verify`, and `/agent-bootstrap:release-check`.
 - Prompt-based command convention for non-Claude harnesses through `agent:<name>` when `.agent/commands/` is generated.
@@ -74,6 +75,7 @@ agent-bootstrap-template/
 │   ├── hooks/
 │   ├── github/
 │   ├── commands/
+│   ├── mcp/
 │   ├── roles/
 │   │   └── prompts/
 │   ├── skills/
@@ -233,6 +235,8 @@ Worktree workflow output is optional. Generate `.agent/workflows/worktree-workfl
 GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLATE.md` from `core/github/PULL_REQUEST_TEMPLATE.md` only for repos confirmed to be GitHub-hosted.
 
 SessionStart hook output is optional. Copy `core/hooks/session-start.sh` only when the user explicitly asks for context injection and the target harness supports that hook shape.
+
+MCP discovery output is optional. The default bootstrap generates no `.mcp.json` and no `.mcp.json.suggested`. Pass `--with-mcp-discovery` only when the user explicitly accepts the advisory MCP layer; the bootstrap then renders `.mcp.json.suggested` (never `.mcp.json`), copies `.agent/commands/mcp-discover.md`, and adds `mcp-discovery-suggested` to `features_enabled`. The flag requires `--features standard` or `--features full`; combining it with `--features minimal` is rejected at arg validation time. See `core/mcp/README.md`.
 
 ## Validation And Evals
 

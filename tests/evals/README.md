@@ -122,8 +122,10 @@ owner has accepted that exposure.
 
 - `plugin-command-load.sh`: verifies Claude Code loads plugin commands from the canonical `core/commands/` custom path. Provider-specific: SKIPs cleanly with reason `plugin probe is Claude-Code-specific (provider=<x>)` when `provider != claude` (no Codex equivalent surface).
 - `bootstrap-render-fixture.sh`: verifies `bootstrap-request.sh` renders placeholders literally for a temp target path containing spaces and `&`, leaves no placeholders, and writes valid manifest JSON.
-- `codex-harness-fixture.sh`: verifies `bootstrap-request.sh --harness codex --features full` produces the expected `.agents/skills/agent-bootstrap/<name>/SKILL.md` tree (7 core skills + 9 generated commands). Pure filesystem check, runs under any provider.
+- `codex-harness-fixture.sh`: verifies `bootstrap-request.sh --harness codex --features full` produces the expected `.agents/skills/agent-bootstrap/<name>/SKILL.md` tree (10 core skills + 9 generated commands; the `mcp-discover` command is gated behind `--with-mcp-discovery` and validated separately by `mcp-discovery-fixture.sh`). Pure filesystem check, runs under any provider.
 - `security-gate-fixture.sh`: verifies generated `scripts/agent-eval.sh security` reports `not configured` when `gitleaks` is missing and invokes `gitleaks dir .` when a compatible scanner is present.
+- `audit-log-trap-fixture.sh`: verifies the audit-log EXIT trap in generated `scripts/agent-eval.sh` records gate exits and respects opt-out sentinels.
+- `mcp-discovery-fixture.sh`: verifies the Stage 5 MCP layer is opt-in. Default bootstrap creates no `.mcp.json*` files; `--with-mcp-discovery` renders only `.mcp.json.suggested`, copies the `mcp-discover` command, sets the `mcp-discovery-suggested` feature flag, and the suggestion passes `scripts/lib/validate_mcp_config.py`. Also asserts that an inline GitHub PAT in `.mcp.json` is rejected by the validator.
 
 ### Behavior (`--behavior`, LLM-driven, advisory)
 

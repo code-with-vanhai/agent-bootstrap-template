@@ -19,6 +19,7 @@ When the Claude Code plugin is installed, `.claude-plugin/plugin.json` exposes t
 | `bootstrap-agent-system` | `.agents/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md` or `.claude/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md` | `.agent/bootstrap-pending.md`, `scripts/bootstrap-request.sh`, `core/bootstrap-steps.md` |
 | `no-secret-leakage` | `.agents/skills/agent-bootstrap/no-secret-leakage/SKILL.md` or `.claude/skills/agent-bootstrap/no-secret-leakage/SKILL.md` | `.agent/rulebase.md`, `.agent/gates.md`, `scripts/agent-eval.sh security` |
 | `data-safety` | `.agents/skills/agent-bootstrap/data-safety/SKILL.md` or `.claude/skills/agent-bootstrap/data-safety/SKILL.md` | `.agent/project-profile.md`, `.agent/rulebase.md`, `.agent/ownership.md` |
+| `mcp-tool-discovery` | `.agents/skills/agent-bootstrap/mcp-tool-discovery/SKILL.md` or `.claude/skills/agent-bootstrap/mcp-tool-discovery/SKILL.md` | `core/mcp/catalog.json`, `core/mcp/README.md`, `core/commands/mcp-discover.md`, `scripts/lib/validate_mcp_config.py` |
 
 ## Drift Rule
 

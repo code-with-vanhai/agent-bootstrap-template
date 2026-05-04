@@ -39,6 +39,8 @@ GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLAT
 
 SessionStart hook output is optional. Install hook files only when the user explicitly requests harness-level context injection and the target harness supports it.
 
+MCP discovery output is optional and off by default. Run `scripts/bootstrap-request.sh --with-mcp-discovery ...` only when the user explicitly accepts the advisory MCP layer. With the flag, the bootstrap renders `.mcp.json.suggested` (never an active `.mcp.json`), the `mcp-discover` command, and adds `mcp-discovery-suggested` to `features_enabled`. The flag requires `--features standard` or `--features full`; pairing it with `--features minimal` is rejected at arg validation time. The default bootstrap generates no MCP files. See `core/mcp/README.md`.
+
 ## Research Reference
 
 This workflow is based on a practical adaptation of:
@@ -130,6 +132,8 @@ Harness options:
 - `gemini`: `AGENTS.md` and `GEMINI.md`
 
 Hooks are never installed by feature level alone. Use `--install-hook` only after confirming the target harness supports the SessionStart hook shape.
+
+MCP discovery is never enabled by feature level alone. Use `--with-mcp-discovery` only when the user explicitly accepts the advisory MCP layer, and only with `--features standard` or `--features full` (the flag is rejected with `minimal`). The flag renders `.mcp.json.suggested` and the `mcp-discover` command but never writes an active `.mcp.json`. Lint any `.mcp.json*` file with `python3 scripts/lib/validate_mcp_config.py` before promoting it.
 
 Claude permission note: command `allowed-tools` frontmatter is a narrow pre-approval hint, not a complete read-only enforcement layer. If a repo needs strict review-only sessions, add Claude Code `permissions.deny` rules or run with `--disallowedTools` for write-capable tools such as `Edit`, `Write`, and unsafe `Bash` patterns.
 

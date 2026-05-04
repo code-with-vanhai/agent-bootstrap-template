@@ -127,6 +127,8 @@ DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation
 DRY-RUN copy @ROOT@/scripts/lib/agent_system_validation/token_budget.py -> @TARGET@/scripts/lib/agent_system_validation/token_budget.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib
 DRY-RUN copy @ROOT@/scripts/lib/validate_plan.py -> @TARGET@/scripts/lib/validate_plan.py
+DRY-RUN mkdir -p @TARGET@/scripts/lib
+DRY-RUN copy @ROOT@/scripts/lib/validate_mcp_config.py -> @TARGET@/scripts/lib/validate_mcp_config.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib/plan_validation
 DRY-RUN copy @ROOT@/scripts/lib/plan_validation/__init__.py -> @TARGET@/scripts/lib/plan_validation/__init__.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib/plan_validation
@@ -153,6 +155,8 @@ DRY-RUN mkdir -p @TARGET@/.claude/skills/agent-bootstrap/bootstrap-agent-system
 DRY-RUN copy @ROOT@/core/skills/bootstrap-agent-system/SKILL.md -> @TARGET@/.claude/skills/agent-bootstrap/bootstrap-agent-system/SKILL.md
 DRY-RUN mkdir -p @TARGET@/.claude/skills/agent-bootstrap/data-safety
 DRY-RUN copy @ROOT@/core/skills/data-safety/SKILL.md -> @TARGET@/.claude/skills/agent-bootstrap/data-safety/SKILL.md
+DRY-RUN mkdir -p @TARGET@/.claude/skills/agent-bootstrap/mcp-tool-discovery
+DRY-RUN copy @ROOT@/core/skills/mcp-tool-discovery/SKILL.md -> @TARGET@/.claude/skills/agent-bootstrap/mcp-tool-discovery/SKILL.md
 DRY-RUN mkdir -p @TARGET@/.claude/skills/agent-bootstrap/no-invented-artifacts
 DRY-RUN copy @ROOT@/core/skills/no-invented-artifacts/SKILL.md -> @TARGET@/.claude/skills/agent-bootstrap/no-invented-artifacts/SKILL.md
 DRY-RUN mkdir -p @TARGET@/.claude/skills/agent-bootstrap/no-secret-leakage

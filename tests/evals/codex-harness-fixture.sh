@@ -57,10 +57,19 @@ if [ "$missing_skills" -eq 0 ]; then
 fi
 
 # --- Codex command skills (one agent-<command> per core/commands/<cmd>.md) ---
+# Skip commands whose generation is gated behind an opt-in bootstrap flag
+# (see scripts/lib/bootstrap/copy_mcp.sh). The default bootstrap path in
+# this eval does NOT enable those flags, so we filter them out here and
+# rely on tests/evals/mcp-discovery-fixture.sh to exercise the opt-in path.
 expected_commands=0
 missing_commands=0
 for command_file in "$ROOT"/core/commands/*.md; do
   command_name="$(basename "$command_file" .md)"
+  case "$command_name" in
+    mcp-discover)
+      continue
+      ;;
+  esac
   expected="$skills_root/agent-$command_name/SKILL.md"
   expected_commands=$((expected_commands + 1))
   if [ ! -f "$expected" ]; then
