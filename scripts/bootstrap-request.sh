@@ -448,6 +448,9 @@ copy_scripts() {
   copy_file "$TEMPLATE_ROOT/scripts/lib/gate_modes.py" "$TARGET_ROOT/scripts/lib/gate_modes.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py" "$TARGET_ROOT/scripts/lib/insert_gate_candidates.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_agent_system.py" "$TARGET_ROOT/scripts/lib/validate_agent_system.py" "644"
+  for agent_system_validation_file in "$TEMPLATE_ROOT"/scripts/lib/agent_system_validation/*.py; do
+    copy_file "$agent_system_validation_file" "$TARGET_ROOT/scripts/lib/agent_system_validation/$(basename "$agent_system_validation_file")" "644"
+  done
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_plan.py" "$TARGET_ROOT/scripts/lib/validate_plan.py" "644"
   for plan_validation_file in "$TEMPLATE_ROOT"/scripts/lib/plan_validation/*.py; do
     copy_file "$plan_validation_file" "$TARGET_ROOT/scripts/lib/plan_validation/$(basename "$plan_validation_file")" "644"
