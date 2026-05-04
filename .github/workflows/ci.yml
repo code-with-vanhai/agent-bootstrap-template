@@ -34,9 +34,16 @@ jobs:
         run: |
           set -euo pipefail
           bash -n bin/agent-bootstrap
+          bash -n scripts/bootstrap-request.sh
+          for f in scripts/lib/bootstrap/*.sh; do
+            bash -n "$f"
+          done
           for f in scripts/*.sh tests/evals/*.sh tests/lib/*.sh tests/migrations/*/run.sh; do
             bash -n "$f"
           done
+
+      - name: Bootstrap dry-run output stable
+        run: bash tests/lib/test_bootstrap_dry_run_stable.sh
 
       - name: Template validator
         run: bash scripts/agent-validate.sh
