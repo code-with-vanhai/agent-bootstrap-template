@@ -212,6 +212,28 @@ def validate_template(validator: AgentSystemValidator) -> None:
         ["scripts/lib/validate_plan.py", *plan_validation_files],
         "scripts/lib/validate_plan.py and plan_validation package compile",
     )
+    validator.exists("scripts/agent-sync.sh")
+    validator.shell_syntax("scripts/agent-sync.sh")
+    validator.contains(
+        "scripts/agent-sync.sh",
+        "agent-sync.py",
+        "scripts/agent-sync.sh invokes agent-sync.py shim",
+    )
+    validator.exists("scripts/agent-sync.py")
+    validator.py_compile(
+        ["scripts/agent-sync.py"],
+        "scripts/agent-sync.py compiles",
+    )
+    agent_sync_files = [
+        str(path.relative_to(validator.root))
+        for path in (validator.root / "scripts/lib/agent_sync").glob("*.py")
+    ]
+    validator.exists("scripts/lib/agent_sync/__init__.py")
+    validator.exists("scripts/lib/agent_sync/cli.py")
+    validator.py_compile(
+        agent_sync_files,
+        "scripts/lib/agent_sync package compiles",
+    )
     validator.exists("scripts/lib/render_template.py")
     validator.py_compile(
         ["scripts/lib/render_template.py"],
