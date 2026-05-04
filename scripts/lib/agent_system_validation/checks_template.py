@@ -167,11 +167,26 @@ def validate_template(validator: AgentSystemValidator) -> None:
         "scripts/bootstrap-request.sh supports harness selection",
     )
     validator.contains(
-        "scripts/bootstrap-request.sh",
+        "scripts/lib/bootstrap/render_token_map.sh",
         "FEATURES_ENABLED_JSON_ARRAY",
-        "scripts/bootstrap-request.sh renders feature metadata",
+        "bootstrap render_token_map passes features_enabled JSON into token map",
+    )
+    validator.contains(
+        "scripts/bootstrap-request.sh",
+        "BOOTSTRAP_LIB",
+        "bootstrap orchestrator sources scripts/lib/bootstrap helpers",
     )
     validator.shell_syntax("scripts/bootstrap-request.sh")
+    bootstrap_lib = validator.root / "scripts/lib/bootstrap"
+    if bootstrap_lib.is_dir():
+        for path in sorted(bootstrap_lib.glob("*.sh")):
+            helper = str(path.relative_to(validator.root))
+            validator.shell_syntax(helper)
+    else:
+        validator.fail(
+            "scripts/lib/bootstrap directory missing (Stage 4c modular bootstrap)",
+            "scripts/lib/bootstrap",
+        )
 
     validator.exists("scripts/agent-validate.sh")
     validator.shell_syntax("scripts/agent-validate.sh")
