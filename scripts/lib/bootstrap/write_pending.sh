@@ -81,11 +81,10 @@ write_pending() {
 
   mcp_discovery_status="not generated"
   if [ "$with_mcp_discovery" = "1" ]; then
-    if [ "$features" = "minimal" ]; then
-      mcp_discovery_status="not generated: --with-mcp-discovery is incompatible with --features minimal"
-    else
-      mcp_discovery_status="generated: review .mcp.json.suggested with scripts/lib/validate_mcp_config.py before promoting to .mcp.json"
-    fi
+    # The orchestrator rejects --features minimal + --with-mcp-discovery
+    # before any side effects, so by the time write_pending runs the layer
+    # is always genuinely rendered.
+    mcp_discovery_status="generated: review .mcp.json.suggested with scripts/lib/validate_mcp_config.py before promoting to .mcp.json"
   fi
 
   {

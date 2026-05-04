@@ -10,6 +10,12 @@
 #      .agent/bootstrap-pending.md.
 #   3. The opt-in suggested file passes scripts/lib/validate_mcp_config.py.
 #   4. A hand-injected inline GitHub PAT in .mcp.json fails the validator.
+#   5. ``--features minimal --with-mcp-discovery`` is rejected at arg
+#      validation time (Stage-5 edge hardening).
+#   6. ``Authorization: "Bearer <high-entropy>"`` is rejected (auth-prefix
+#      strip lets the entropy check see the trailing token).
+#   7. Malformed env-var placeholders (``${API_KEY``) are rejected on
+#      auth-looking keys.
 #
 # This eval invokes NO LLM CLI. It runs in --fast mode.
 set -euo pipefail
@@ -131,6 +137,110 @@ else
   fail "validate_mcp_config.py rejects inline GitHub PAT"
   if [ "${EVAL_VERBOSE:-0}" = "1" ]; then
     cat /tmp/mcp-discovery-inject.out >&2
+  fi
+fi
+
+# --- Edge hardening: minimal + --with-mcp-discovery must fail fast ----------
+minimal_dir="$(mktemp -d "/tmp/mcp-minimal-fixture.XXXXXX")"
+set +e
+"$ROOT/scripts/bootstrap-request.sh" \
+  --target "$minimal_dir" \
+  --features minimal \
+  --harness generic \
+  --with-mcp-discovery \
+  >/tmp/mcp-minimal.out 2>/tmp/mcp-minimal.err
+minimal_rc=$?
+set -e
+
+if [ "$minimal_rc" -ne 0 ] \
+   && grep -q "with-mcp-discovery requires --features standard or full" /tmp/mcp-minimal.err \
+   && [ ! -f "$minimal_dir/.agent/manifest.json" ]; then
+  pass "minimal + --with-mcp-discovery is rejected at arg validation"
+else
+  fail "minimal + --with-mcp-discovery is rejected at arg validation"
+  if [ "${EVAL_VERBOSE:-0}" = "1" ]; then
+    echo "rc=$minimal_rc" >&2
+    cat /tmp/mcp-minimal.err >&2
+  fi
+fi
+rm -rf "$minimal_dir"
+
+# --- Edge hardening: Authorization: Bearer <high-entropy> must be flagged ---
+bearer_dir="$(mktemp -d "/tmp/mcp-bearer-fixture.XXXXXX")"
+cat > "$bearer_dir/.mcp.json" <<'EOF'
+{
+  "mcpServers": {
+    "demo": {
+      "headers": {
+        "Authorization": "Bearer z9X7q2P1m5R3t8V6w4Y0s2C8b1N4u6L0aBcDeFgH"
+      }
+    }
+  }
+}
+EOF
+set +e
+python3 "$ROOT/scripts/lib/validate_mcp_config.py" --root "$bearer_dir" >/tmp/mcp-bearer.out 2>&1
+bearer_rc=$?
+set -e
+rm -rf "$bearer_dir"
+
+if [ "$bearer_rc" -ne 0 ] && grep -q "high-entropy" /tmp/mcp-bearer.out; then
+  pass "validate_mcp_config.py rejects 'Authorization: Bearer <high-entropy>'"
+else
+  fail "validate_mcp_config.py rejects 'Authorization: Bearer <high-entropy>'"
+  if [ "${EVAL_VERBOSE:-0}" = "1" ]; then
+    cat /tmp/mcp-bearer.out >&2
+  fi
+fi
+
+# --- Edge hardening: Bearer ${TOKEN} (env ref) still passes -----------------
+bearer_envref_dir="$(mktemp -d "/tmp/mcp-bearer-envref-fixture.XXXXXX")"
+cat > "$bearer_envref_dir/.mcp.json" <<'EOF'
+{
+  "mcpServers": {
+    "demo": {
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+EOF
+if python3 "$ROOT/scripts/lib/validate_mcp_config.py" --root "$bearer_envref_dir" >/tmp/mcp-bearer-envref.out 2>&1; then
+  pass "validate_mcp_config.py accepts 'Authorization: Bearer \${GITHUB_TOKEN}'"
+else
+  fail "validate_mcp_config.py accepts 'Authorization: Bearer \${GITHUB_TOKEN}'"
+  if [ "${EVAL_VERBOSE:-0}" = "1" ]; then
+    cat /tmp/mcp-bearer-envref.out >&2
+  fi
+fi
+rm -rf "$bearer_envref_dir"
+
+# --- Edge hardening: malformed env-var placeholder is flagged ---------------
+malformed_dir="$(mktemp -d "/tmp/mcp-malformed-fixture.XXXXXX")"
+cat > "$malformed_dir/.mcp.json" <<'EOF'
+{
+  "mcpServers": {
+    "demo": {
+      "env": {
+        "API_KEY": "${z9X7q2P1m5R3t8V6w4Y0s2C8b1N4u6L0aBcDeFgH"
+      }
+    }
+  }
+}
+EOF
+set +e
+python3 "$ROOT/scripts/lib/validate_mcp_config.py" --root "$malformed_dir" >/tmp/mcp-malformed.out 2>&1
+malformed_rc=$?
+set -e
+rm -rf "$malformed_dir"
+
+if [ "$malformed_rc" -ne 0 ]; then
+  pass "validate_mcp_config.py rejects malformed env-var placeholder on auth field"
+else
+  fail "validate_mcp_config.py rejects malformed env-var placeholder on auth field"
+  if [ "${EVAL_VERBOSE:-0}" = "1" ]; then
+    cat /tmp/mcp-malformed.out >&2
   fi
 fi
 

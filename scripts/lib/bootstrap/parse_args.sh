@@ -31,7 +31,10 @@ Options:
                           .agent/commands/mcp-discover.md, and the
                           mcp-discovery-suggested feature flag in the
                           manifest. Off by default. The default bootstrap
-                          generates no MCP files. See core/mcp/README.md.
+                          generates no MCP files. Requires --features
+                          standard or full (minimal lacks the commands
+                          surface the MCP layer references).
+                          See core/mcp/README.md.
   --force                 Overwrite existing generated files
   --dry-run               Print actions without writing files
   -h, --help              Show this help

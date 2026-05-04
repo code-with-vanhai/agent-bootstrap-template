@@ -236,7 +236,7 @@ GitHub PR template output is conditional. Generate `.github/PULL_REQUEST_TEMPLAT
 
 SessionStart hook output is optional. Copy `core/hooks/session-start.sh` only when the user explicitly asks for context injection and the target harness supports that hook shape.
 
-MCP discovery output is optional. The default bootstrap generates no `.mcp.json` and no `.mcp.json.suggested`. Pass `--with-mcp-discovery` only when the user explicitly accepts the advisory MCP layer; the bootstrap then renders `.mcp.json.suggested` (never `.mcp.json`), copies `.agent/commands/mcp-discover.md`, and adds `mcp-discovery-suggested` to `features_enabled`. See `core/mcp/README.md`.
+MCP discovery output is optional. The default bootstrap generates no `.mcp.json` and no `.mcp.json.suggested`. Pass `--with-mcp-discovery` only when the user explicitly accepts the advisory MCP layer; the bootstrap then renders `.mcp.json.suggested` (never `.mcp.json`), copies `.agent/commands/mcp-discover.md`, and adds `mcp-discovery-suggested` to `features_enabled`. The flag requires `--features standard` or `--features full`; combining it with `--features minimal` is rejected at arg validation time. See `core/mcp/README.md`.
 
 ## Validation And Evals
 

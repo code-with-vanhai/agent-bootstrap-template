@@ -64,7 +64,25 @@ AUTH_KEY_SUBSTRINGS: tuple[str, ...] = (
     "clientsecret",
 )
 
-ENV_REF_RE = re.compile(r"^\$\{?[A-Z_][A-Z0-9_]*\}?$")
+# Accept either ``${VAR}`` or ``$VAR`` exactly. The previous pattern
+# ``\$\{?…\}?`` matched ``${VAR`` and ``$VAR}`` because the braces were
+# independently optional; that let malformed placeholders sneak through
+# the inline-credential check on auth-looking keys.
+ENV_REF_RE = re.compile(
+    r"^(?:\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*)$"
+)
+# POSIX-style environment variable name; mirrors the matched group above
+# so the catalog validator and the placeholder check use one rule.
+ENV_VAR_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+# Auth-header value prefixes that conventionally precede a single token
+# (RFC 6750 Bearer, RFC 7617 Basic, GitHub-style ``Token …``). When we
+# see one of these on an auth-looking field, strip it and re-evaluate
+# the trailing token; otherwise high-entropy literals can hide behind
+# the prefix's whitespace and bypass the prose-skip heuristic.
+AUTH_HEADER_PREFIX_RE = re.compile(
+    r"^\s*(?:Bearer|Basic|Token|OAuth|Digest)\s+",
+    re.IGNORECASE,
+)
 ENTROPY_MIN_LEN = 24
 ENTROPY_MIN_BITS = 3.5
 
@@ -158,14 +176,25 @@ def scan_value(
             return
 
     if looks_like_auth_key(parent_key) and not is_env_reference(value):
-        # Skip prose-like values (whitespace, comments, JSON-friendly notes).
-        # Real credentials are dense, contiguous, and never include spaces.
-        if any(ch.isspace() for ch in value):
-            return
-        # Skip explicit comment keys (we use the `_comment_*` convention).
+        # Skip explicit comment keys (we use the ``_comment_*`` convention).
         if parent_key.startswith("_") or "comment" in parent_key.lower():
             return
-        if len(value) >= ENTROPY_MIN_LEN and shannon_entropy(value) >= ENTROPY_MIN_BITS:
+        # Strip a leading auth-header prefix once so values like
+        # ``Authorization: "Bearer <token>"`` get scanned as the trailing
+        # token rather than as multi-word prose.
+        stripped = AUTH_HEADER_PREFIX_RE.sub("", value, count=1)
+        # If the remainder is itself an env ref (e.g. ``Bearer ${TOKEN}``),
+        # the value is safe.
+        if is_env_reference(stripped):
+            return
+        # Real credentials are dense and contiguous; any remaining whitespace
+        # implies prose, not a token.
+        if any(ch.isspace() for ch in stripped):
+            return
+        if (
+            len(stripped) >= ENTROPY_MIN_LEN
+            and shannon_entropy(stripped) >= ENTROPY_MIN_BITS
+        ):
             findings.append(
                 Finding(
                     file_path,
@@ -272,16 +301,27 @@ def validate_catalog(file_path: pathlib.Path) -> list[Finding]:
             )
         else:
             auth_env = entry["auth_env"]
-            if auth_env is not None and (
-                not isinstance(auth_env, str) or not auth_env.strip()
-            ):
-                findings.append(
-                    Finding(
-                        file_path,
-                        f"servers.{name}.auth_env",
-                        "auth_env must be a non-empty string or null",
+            if auth_env is not None:
+                if not isinstance(auth_env, str) or not auth_env.strip():
+                    findings.append(
+                        Finding(
+                            file_path,
+                            f"servers.{name}.auth_env",
+                            "auth_env must be a non-empty string or null",
+                        )
                     )
-                )
+                elif not ENV_VAR_NAME_RE.match(auth_env):
+                    # Catch drift: ``auth_env`` is the literal env-var name a
+                    # consumer must export, so it has to be a valid POSIX
+                    # identifier (e.g. ``GITHUB_TOKEN``), not a placeholder
+                    # like ``${GITHUB_TOKEN}`` or a free-form description.
+                    findings.append(
+                        Finding(
+                            file_path,
+                            f"servers.{name}.auth_env",
+                            "auth_env must be an UPPER_SNAKE environment variable name (matching ^[A-Z_][A-Z0-9_]*$) or null",
+                        )
+                    )
     return findings
 
 

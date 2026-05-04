@@ -14,7 +14,8 @@ The MCP layer is opt-in. By default, `scripts/bootstrap-request.sh` does not gen
 
 - A server in `catalog.json` is a candidate, not an installed tool. Do not claim a server is "available", "configured", or "ready" until the user has installed it and registered it in their harness.
 - Never write `.mcp.json` automatically. Only `.mcp.json.suggested` is generated, and only when the user opts in with `--with-mcp-discovery`.
-- Never embed real tokens or credentials in `.mcp.json` or `.mcp.json.suggested`. Use environment variable references such as `${GITHUB_TOKEN}`. The `scripts/lib/validate_mcp_config.py` linter rejects obvious inline credentials.
+- Never embed real tokens or credentials in `.mcp.json` or `.mcp.json.suggested`. Use environment variable references such as `${GITHUB_TOKEN}` (balanced braces or no braces; mixed forms like `${GITHUB_TOKEN` are rejected). The `scripts/lib/validate_mcp_config.py` linter rejects obvious inline credentials, malformed placeholders, and high-entropy literals — including those hidden behind `Authorization: Bearer …`, `Basic …`, or `Token …` prefixes.
+- `--with-mcp-discovery` requires `--features standard` or `--features full`. Combining it with `--features minimal` is rejected at arg validation time, since `minimal` does not generate the `.agent/commands/` surface that the MCP layer points to.
 - Treat the MCP layer as additive context. Repository instruction remains canonical in `.agent/`.
 
 ## When to use the discovery flow
@@ -39,10 +40,10 @@ The validator:
 
 - Returns success when no `.mcp.json` and no `.mcp.json.suggested` exist.
 - Lints both files when present.
-- Rejects obvious inline tokens (`sk-…`, `ghp_…`, `github_pat_…`, `xoxb-…`, `xoxp-…`) and high-entropy literals used as auth values.
-- Requires credential references to use environment variable names, not inline values.
+- Rejects obvious inline tokens (`sk-…`, `ghp_…`, `github_pat_…`, `xoxb-…`, `xoxp-…`) and high-entropy literals used as auth values, including those hidden behind `Authorization: Bearer …`, `Basic …`, or `Token …` prefixes.
+- Requires credential references to use environment variable names with balanced braces (`${VAR}`) or no braces (`$VAR`). Mixed forms like `${VAR` or `$VAR}` are rejected.
 
-The catalog itself is also checked: `schema_version` must equal `1`, `servers` must be a non-empty object, and each server must declare `purpose`, `applies_when`, and `auth_env` (`null` is allowed for `auth_env` when no credential is required).
+The catalog itself is also checked: `schema_version` must equal `1`, `servers` must be a non-empty object, and each server must declare `purpose`, `applies_when`, and `auth_env`. When `auth_env` is non-null it must be a POSIX-style environment variable name matching `^[A-Z_][A-Z0-9_]*$` (e.g. `GITHUB_TOKEN`, not `${GITHUB_TOKEN}` or `lower-case`); `null` is allowed when no credential is required.
 
 ## Out of scope for Stage 5
 

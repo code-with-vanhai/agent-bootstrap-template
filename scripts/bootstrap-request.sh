@@ -31,6 +31,10 @@ case "$harness" in
   *) die "--harness must be generic, codex, claude, cursor, copilot, or gemini" ;;
 esac
 
+if [ "$with_mcp_discovery" = "1" ] && [ "$features" = "minimal" ]; then
+  die "--with-mcp-discovery requires --features standard or full; minimal does not generate the .agent/commands/ surface that the MCP layer points to"
+fi
+
 [ -d "$target" ] || die "target does not exist: $target"
 [ -d "$template_root/core" ] || die "template root does not contain core/: $template_root"
 [ -f "$template_root/core/bootstrap-steps.md" ] || die "missing core/bootstrap-steps.md in template root"

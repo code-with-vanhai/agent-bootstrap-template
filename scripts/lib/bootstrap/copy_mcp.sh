@@ -36,9 +36,10 @@ copy_mcp() {
   if [ "$with_mcp_discovery" != "1" ]; then
     return 0
   fi
+  # The orchestrator already fails fast when --features minimal is combined
+  # with --with-mcp-discovery, so reaching here implies a commands surface.
   if [ "$features" = "minimal" ]; then
-    log "SKIP --with-mcp-discovery: minimal feature level does not generate commands; MCP layer not rendered"
-    return 0
+    die "internal: copy_mcp reached with features=minimal; orchestrator gate is missing"
   fi
 
   copy_file "$TEMPLATE_ROOT/core/mcp/.mcp.json.template" "$TARGET_ROOT/.mcp.json.suggested"
