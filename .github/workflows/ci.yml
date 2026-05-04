@@ -62,6 +62,12 @@ jobs:
       - name: Eval artifact tests
         run: bash tests/lib/test_agent_evals_artifacts.sh
 
+      - name: Secret-guard hook tests
+        run: bash tests/lib/test_secret_guard_hook.sh
+
+      - name: Rulebase-guard hook tests
+        run: bash tests/lib/test_rulebase_guard_hook.sh
+
       - name: Deterministic evals
         run: bash scripts/agent-evals.sh --fast
 

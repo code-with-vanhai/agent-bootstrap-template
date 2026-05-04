@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Pre-tool-use rulebase guard for Claude Code (template, off by default).
+
+Stages into target repos at .agent/hooks/pre-tool-use-rulebase-guard.py when
+bootstrap is run with --install-hook=rulebase-guard or --install-hook=all.
+Bootstrap never registers the hook. Repository owners must:
+
+  1. Verify the current Claude Code PreToolUse input/output schema in the
+     official Anthropic hooks documentation. Schemas evolve; this template
+     targets `hookSpecificOutput.permissionDecision` ("deny", "ask", "allow").
+  2. Decide whether the policy below matches the repo's threat model and
+     adjust the protected paths.
+  3. Register the hook manually in the harness configuration (for example,
+     .claude/settings.json). Bootstrap does not edit harness settings.
+
+Behavior contract:
+  - Reads a PreToolUse JSON payload from stdin.
+  - Write tools (Edit | Write | MultiEdit) targeting `.agent/constitution.md`
+    -> permissionDecision = "deny" (constitution is non-negotiable; only
+    explicit human approval may amend it).
+  - Write tools targeting `.agent/rulebase.md` -> permissionDecision = "ask"
+    (rulebase changes must follow the rule-evolution workflow).
+  - Anything else -> exit 0 with no stdout (allow).
+  - Malformed JSON, non-write tools, or schemas missing the documented fields
+    -> exit 0 with no stdout (FAIL OPEN). A staged template must never block
+    sessions when the harness schema diverges from this contract.
+  - Never echoes the incoming payload, never reads `tool_input.content`. The
+    decision reason is built from the file path only.
+  - Never relies on commit message, branch name, or conversation context -
+    PreToolUse hooks do not receive that information.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+
+
+WRITE_TOOLS = frozenset({"Edit", "Write", "MultiEdit"})
+
+# permissionDecision per protected path.  Keys are POSIX-normalized suffixes
+# matched against the tail of `tool_input.file_path` so /workspace/.agent/...
+# is treated the same as .agent/... regardless of how the harness reports the
+# absolute path.
+PROTECTED_DECISIONS: dict[str, tuple[str, str]] = {
+    ".agent/constitution.md": (
+        "deny",
+        "Constitution is non-negotiable safety policy. Amendments require "
+        "explicit human approval and must not flow through the rule-evolution "
+        "workflow.",
+    ),
+    ".agent/rulebase.md": (
+        "ask",
+        "Rulebase changes must follow .agent/workflows/rule-evolution-workflow.md. "
+        "Cite the trigger, current rule problem, and safety boundary before "
+        "approving this edit.",
+    ),
+}
+
+
+def normalize_segments(path: str) -> list[str]:
+    parts: list[str] = []
+    for segment in path.replace("\\", "/").split("/"):
+        if segment in ("", "."):
+            continue
+        parts.append(segment)
+    return parts
+
+
+def match_protected(path: str) -> tuple[str, str, str] | None:
+    if not path:
+        return None
+    parts = normalize_segments(path)
+    if not parts:
+        return None
+    posix = "/".join(parts)
+    for suffix, decision in PROTECTED_DECISIONS.items():
+        if posix == suffix or posix.endswith("/" + suffix):
+            verdict, reason = decision
+            return suffix, verdict, reason
+    return None
+
+
+def emit_decision(path: str, verdict: str, reason: str) -> None:
+    payload = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": verdict,
+            "permissionDecisionReason": (
+                f"Path {path} is protected by .agent/ rulebase-guard hook. "
+                f"{reason}"
+            ),
+        }
+    }
+    sys.stdout.write(json.dumps(payload))
+
+
+def main() -> int:
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw or "{}")
+    except json.JSONDecodeError:
+        return 0
+    if not isinstance(payload, dict):
+        return 0
+
+    tool_name = payload.get("tool_name")
+    if tool_name not in WRITE_TOOLS:
+        return 0
+
+    tool_input = payload.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        return 0
+
+    raw_path = tool_input.get("file_path") or tool_input.get("path") or ""
+    if not isinstance(raw_path, str):
+        return 0
+
+    matched = match_protected(raw_path)
+    if matched is None:
+        return 0
+
+    _suffix, verdict, reason = matched
+    emit_decision(raw_path, verdict, reason)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

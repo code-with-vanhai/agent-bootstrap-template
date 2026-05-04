@@ -12,7 +12,7 @@ dry_run="0"
 force="0"
 install_hook_mode="none"
 discover_gates="0"
-template_version="0.9.0"
+template_version="0.10.0"
 
 usage() {
   cat <<'EOF'
@@ -28,7 +28,10 @@ Options:
   --harness <name>        generic, codex, claude, cursor, copilot, or gemini (default: generic)
   --install-hook[=mode]   Stage optional hook(s) under .agent/hooks/.
                           Bare flag is an alias for =session-start.
-                          Modes: session-start | secret-guard | both
+                          Modes: session-start | secret-guard |
+                                 rulebase-guard | both | all
+                          - both = session-start + secret-guard (legacy)
+                          - all  = session-start + secret-guard + rulebase-guard
                           See core/hooks/README.md before enabling.
   --discover-gates        Discover candidate gate commands from the target repo
                           and insert them as commented stubs in
@@ -93,8 +96,16 @@ while [ "$#" -gt 0 ]; do
       install_hook_mode="both"
       shift
       ;;
+    --install-hook=rulebase-guard)
+      install_hook_mode="rulebase-guard"
+      shift
+      ;;
+    --install-hook=all)
+      install_hook_mode="all"
+      shift
+      ;;
     --install-hook=*)
-      die "unknown --install-hook value: ${1#--install-hook=} (expected session-start, secret-guard, or both)"
+      die "unknown --install-hook value: ${1#--install-hook=} (expected session-start, secret-guard, rulebase-guard, both, or all)"
       ;;
     --discover-gates)
       discover_gates="1"
@@ -668,16 +679,27 @@ copy_hook() {
   esac
 
   case "$install_hook_mode" in
-    session-start|both)
+    session-start|both|all)
       copy_file "$TEMPLATE_ROOT/core/hooks/session-start.sh" "$TARGET_ROOT/.agent/hooks/session-start.sh" "755"
       ;;
   esac
 
   case "$install_hook_mode" in
-    secret-guard|both)
+    secret-guard|both|all)
       copy_file "$TEMPLATE_ROOT/core/hooks/pre-tool-use-secret-guard.py.template" "$TARGET_ROOT/.agent/hooks/pre-tool-use-secret-guard.py" "755"
       log ""
       log "WARNING: secret-guard hook staged at .agent/hooks/pre-tool-use-secret-guard.py."
+      log "         It is OFF until you register it in your harness. Review the script and"
+      log "         current PreToolUse schema before enabling. See core/hooks/README.md."
+      log ""
+      ;;
+  esac
+
+  case "$install_hook_mode" in
+    rulebase-guard|all)
+      copy_file "$TEMPLATE_ROOT/core/hooks/pre-tool-use-rulebase-guard.py.template" "$TARGET_ROOT/.agent/hooks/pre-tool-use-rulebase-guard.py" "755"
+      log ""
+      log "WARNING: rulebase-guard hook staged at .agent/hooks/pre-tool-use-rulebase-guard.py."
       log "         It is OFF until you register it in your harness. Review the script and"
       log "         current PreToolUse schema before enabling. See core/hooks/README.md."
       log ""
@@ -729,15 +751,22 @@ write_pending() {
 
   session_start_hook_status="not generated"
   case "$install_hook_mode" in
-    session-start|both)
+    session-start|both|all)
       session_start_hook_status="staged under .agent/hooks/session-start.sh; install manually in the harness"
       ;;
   esac
 
   secret_guard_hook_status="not generated"
   case "$install_hook_mode" in
-    secret-guard|both)
+    secret-guard|both|all)
       secret_guard_hook_status="staged under .agent/hooks/pre-tool-use-secret-guard.py; install manually in the harness"
+      ;;
+  esac
+
+  rulebase_guard_hook_status="not generated"
+  case "$install_hook_mode" in
+    rulebase-guard|all)
+      rulebase_guard_hook_status="staged under .agent/hooks/pre-tool-use-rulebase-guard.py; install manually in the harness"
       ;;
   esac
 
@@ -777,6 +806,7 @@ EOF
     printf 'Worktree workflow: %s\n' "$worktree_status"
     printf 'SessionStart hook: %s\n' "$session_start_hook_status"
     printf 'PreToolUse secret-guard hook: %s\n' "$secret_guard_hook_status"
+    printf 'PreToolUse rulebase-guard hook: %s\n' "$rulebase_guard_hook_status"
     printf 'Claude native subagents: %s\n' "$native_subagents_status"
     printf 'Gate candidate discovery: %s\n' "$gate_discovery_status"
     cat <<'EOF'

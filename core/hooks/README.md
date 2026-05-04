@@ -13,6 +13,7 @@ Available templates:
 |---|---|---|
 | `session-start.sh` | `.agent/hooks/session-start.sh` | Inject rulebase reminders at session start (SessionStart event). |
 | `pre-tool-use-secret-guard.py.template` | `.agent/hooks/pre-tool-use-secret-guard.py` | Block write tools (`Edit`, `Write`, `MultiEdit`) on secret files and high-risk `.agent/` governance paths (PreToolUse event). |
+| `pre-tool-use-rulebase-guard.py.template` | `.agent/hooks/pre-tool-use-rulebase-guard.py` | Deny direct writes to `.agent/constitution.md` and require explicit approval (`ask`) for `.agent/rulebase.md` (PreToolUse event). |
 
 ## Why off by default
 
@@ -34,7 +35,9 @@ confirm policy fit and verify schema compatibility.
 scripts/bootstrap-request.sh --install-hook                    # SessionStart only (alias for =session-start)
 scripts/bootstrap-request.sh --install-hook=session-start
 scripts/bootstrap-request.sh --install-hook=secret-guard
-scripts/bootstrap-request.sh --install-hook=both
+scripts/bootstrap-request.sh --install-hook=rulebase-guard
+scripts/bootstrap-request.sh --install-hook=both                # session-start + secret-guard (legacy)
+scripts/bootstrap-request.sh --install-hook=all                 # session-start + secret-guard + rulebase-guard
 ```
 
 Any other `--install-hook=<value>` is rejected.
@@ -74,6 +77,33 @@ Protected paths (initial policy; review and adjust to fit your repo):
 - `.ssh/` directory contents
 - `id_rsa`, `id_ed25519`
 - `.agent/rulebase.md`, `.agent/gates.md`
+
+## PreToolUse rulebase-guard contract
+
+`pre-tool-use-rulebase-guard.py.template` is a focused PreToolUse hook for
+governance files. Like the secret-guard, it has no third-party dependencies,
+reads PreToolUse JSON from stdin, and emits a JSON decision on stdout only
+when intervening on a write attempt.
+
+Behavior:
+
+- Write tool (`Edit`, `Write`, `MultiEdit`) on `.agent/constitution.md` →
+  exit `0`, stdout JSON with `permissionDecision: "deny"`. The constitution
+  is non-negotiable safety policy and amendments require explicit human
+  approval.
+- Write tool on `.agent/rulebase.md` → exit `0`, stdout JSON with
+  `permissionDecision: "ask"`. Rulebase changes must follow
+  `.agent/workflows/rule-evolution-workflow.md`; the harness asks the user
+  before allowing the edit.
+- Anything else → exit `0`, no stdout (allow).
+- Malformed JSON, non-write tools, or unexpected payload shape → exit `0`,
+  no stdout (fail-open, identical to secret-guard).
+- The hook never reads `tool_input.content`, never echoes payloads, and
+  never relies on commit message, branch name, or conversation context.
+
+The decision reason is built from the file path only and points the operator
+at the rule-evolution workflow. Adjust `PROTECTED_DECISIONS` if your repo
+uses a different governance layout.
 
 ## Manual registration
 

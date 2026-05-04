@@ -723,8 +723,19 @@ class AgentSystemValidatorTest(unittest.TestCase):
         result = self.run_validator("--mode", "generated", "--format", "json", root=target)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def _downgrade_manifest_to_pre_010(self, target: Path) -> None:
+        """Roll the rendered manifest's instantiated_from_template_version
+        back to 0.9.0 so legacy/path-C/path-E generated-mode tests bypass the
+        Path B (>=0.10.0 fail) gate and exercise the rulebase-shape branches.
+        """
+        manifest_path = target / ".agent" / "manifest.json"
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data["instantiated_from_template_version"] = "0.9.0"
+        manifest_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
     def test_generated_legacy_missing_constitution_skips(self):
         target = self.make_target(features="standard", harness="codex")
+        self._downgrade_manifest_to_pre_010(target)
         (target / ".agent" / "constitution.md").unlink()
         legacy = """# Rulebase
 
@@ -764,6 +775,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
     def test_generated_constitution_removed_but_pointer_fails(self):
         target = self.make_target(features="standard", harness="codex")
+        self._downgrade_manifest_to_pre_010(target)
         (target / ".agent" / "constitution.md").unlink()
         result = self.run_validator("--mode", "generated", "--format", "json", root=target)
         self.assertEqual(result.returncode, 1)
@@ -773,6 +785,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
     def test_generated_missing_constitution_unknown_rulebase_fails(self):
         target = self.make_target(features="standard", harness="codex")
+        self._downgrade_manifest_to_pre_010(target)
         (target / ".agent" / "constitution.md").unlink()
         (target / ".agent" / "rulebase.md").write_text(
             "# Rulebase\n\n"
