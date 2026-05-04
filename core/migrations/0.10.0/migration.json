@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "version": "0.10.0",
+  "from_versions": ["0.9.0"],
+  "to": "0.10.0",
+  "safe_overwrite": [
+    {
+      "source": "core/constitution.template.md",
+      "target": ".agent/constitution.md"
+    },
+    {
+      "source": "core/workflows/rule-evolution-workflow.md",
+      "target": ".agent/workflows/rule-evolution-workflow.md"
+    },
+    {
+      "source": "scripts/lib/gate_modes.py",
+      "target": "scripts/lib/gate_modes.py"
+    },
+    {
+      "source": "scripts/lib/validate_agent_system.py",
+      "target": "scripts/lib/validate_agent_system.py"
+    }
+  ],
+  "patches": [
+    {
+      "file": ".agent/rulebase.md",
+      "anchor": "This file is the highest-priority project-specific rule source for agents.",
+      "insert_after_first_match": "\n> See `.agent/constitution.md` for non-negotiable safety constraints (discipline gates, forbidden actions, database & migration invariants). Amendments require explicit human approval - they do not flow through the rule-evolution workflow.\n",
+      "skip_if_contains": ".agent/constitution.md"
+    }
+  ],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.10.0",
+      "synced_to_template_version": "0.10.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.10.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to agent-bootstrap-template v0.10.0: constitution split (non-negotiable safety constraints moved to .agent/constitution.md), rulebase pointer added, optional pre-tool-use rulebase-guard hook template, token budget for constitution, and updated structured validator that enforces the constitution + pointer pair on 0.10.0+ manifests."
+    },
+    "merge_array_unique": {
+      "canonical_files": [".agent/constitution.md"]
+    }
+  }
+}
