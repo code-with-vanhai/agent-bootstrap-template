@@ -26,6 +26,12 @@ Options:
                           to .agent/manifest.json::features_enabled only when
                           at least one stub is inserted. Off by default;
                           runtime gate behavior stays not_configured.
+  --with-mcp-discovery    Render the advisory MCP layer into the target:
+                          .mcp.json.suggested (NOT .mcp.json),
+                          .agent/commands/mcp-discover.md, and the
+                          mcp-discovery-suggested feature flag in the
+                          manifest. Off by default. The default bootstrap
+                          generates no MCP files. See core/mcp/README.md.
   --force                 Overwrite existing generated files
   --dry-run               Print actions without writing files
   -h, --help              Show this help
@@ -96,6 +102,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --discover-gates)
       discover_gates="1"
+      shift
+      ;;
+    --with-mcp-discovery)
+      with_mcp_discovery="1"
       shift
       ;;
     --force)

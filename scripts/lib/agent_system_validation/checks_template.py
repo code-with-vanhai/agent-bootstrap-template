@@ -79,6 +79,64 @@ def validate_command_files(
     )
 
 
+def validate_mcp_template(validator: AgentSystemValidator) -> None:
+    """Validate the opt-in MCP layer source files (Stage 5).
+
+    Template-only checks. Generated repos do not need any MCP files unless
+    the user opted in with ``--with-mcp-discovery`` at bootstrap time;
+    runtime validation of an opt-in repo lives in
+    ``scripts/lib/validate_mcp_config.py``.
+    """
+
+    validator.exists("core/mcp/README.md")
+    rel = "core/mcp/catalog.json"
+    data = validator.json_file(rel, f"{rel} is valid JSON")
+    if data is not None:
+        if data.get("schema_version") == 1:
+            validator.pass_(f"{rel} schema_version is 1", rel)
+        else:
+            validator.fail(f"{rel} schema_version must be 1", rel)
+        servers = data.get("servers")
+        if isinstance(servers, dict) and servers:
+            validator.pass_(f"{rel} declares {len(servers)} candidate server(s)", rel)
+            for name, entry in servers.items():
+                if not isinstance(entry, dict):
+                    validator.fail(
+                        f"{rel} servers.{name} must be an object", rel
+                    )
+                    continue
+                for required in ("purpose", "applies_when", "auth_env"):
+                    if required not in entry:
+                        validator.fail(
+                            f"{rel} servers.{name} missing required field {required}",
+                            rel,
+                        )
+        else:
+            validator.fail(f"{rel} servers must be a non-empty object", rel)
+    validator.exists("core/mcp/.mcp.json.template")
+    validator.contains(
+        "core/mcp/.mcp.json.template",
+        "${GITHUB_TOKEN}",
+        "core/mcp/.mcp.json.template uses env var references for credentials",
+    )
+    validator.exists("core/commands/mcp-discover.md")
+    validator.contains(
+        "core/commands/mcp-discover.md",
+        "report-only",
+        "core/commands/mcp-discover.md is report-only",
+    )
+    validator.contains(
+        "core/commands/mcp-discover.md",
+        "Do not write `.mcp.json`",
+        "core/commands/mcp-discover.md forbids writing .mcp.json",
+    )
+    validator.exists("scripts/lib/validate_mcp_config.py")
+    validator.py_compile(
+        ["scripts/lib/validate_mcp_config.py"],
+        "scripts/lib/validate_mcp_config.py compiles",
+    )
+
+
 def validate_constitution_template(validator: AgentSystemValidator) -> None:
     validator.exists("core/constitution.template.md")
     validator.contains(
@@ -400,5 +458,6 @@ def validate_template(validator: AgentSystemValidator) -> None:
         validate_skill_count_docs(validator, skills)
 
     validate_hook_templates(validator)
+    validate_mcp_template(validator)
     for rel in THIN_ADAPTER_SOURCE_FILES:
         validate_thin_adapter_file_template(validator, rel)

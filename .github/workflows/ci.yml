@@ -59,6 +59,7 @@ jobs:
           python3 -m unittest scripts.lib.test_check_test_module_coverage
           python3 -m unittest scripts.lib.test_gate_modes
           python3 -m unittest scripts.lib.test_check_version_consistency
+          python3 -m unittest scripts.lib.test_validate_mcp_config
 
       - name: All Python test modules are gated
         run: python3 scripts/lib/check_test_module_coverage.py .github/workflows/ci.yml

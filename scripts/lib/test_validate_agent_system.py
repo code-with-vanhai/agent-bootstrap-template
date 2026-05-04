@@ -147,7 +147,7 @@ class AgentSystemValidatorTest(unittest.TestCase):
         readme = target / "README.md"
         readme.write_text(
             readme.read_text(encoding="utf-8").replace(
-                "Nine optional native behavior skills",
+                "Ten optional native behavior skills",
                 "Seven optional native behavior skills",
             ),
             encoding="utf-8",
