@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.10.0 - 2026-05-04
+
+- Split non-negotiable safety constraints out of `core/rulebase.template.md` into a new top-level `core/constitution.template.md`. The constitution carries Discipline Gates, the Forbidden Without Explicit Human Approval list, the Database & Migration Invariants, and an Amendment policy. Amendments require explicit human approval and are explicitly out of scope for the rule-evolution workflow. Bootstrap renders the file into `.agent/constitution.md` for new generated repos.
+- Trimmed `core/rulebase.template.md` to add a pointer blockquote to `.agent/constitution.md` immediately under the title. Rulebase content remains evolvable through the rule-evolution workflow; constitution text does not.
+- Added `## Out Of Scope` to `core/workflows/rule-evolution-workflow.md` declaring that the workflow does not edit `.agent/constitution.md`.
+- Added `core/hooks/pre-tool-use-rulebase-guard.py.template`, an off-by-default PreToolUse hook that denies direct writes to `.agent/constitution.md` and asks before writes to `.agent/rulebase.md`. Bootstrap stages the template only with `--install-hook=rulebase-guard` or `--install-hook=all`. The hook fails open on unknown payload shapes and never reads tool input content, commit messages, branch names, or conversation context.
+- Extended template validation: a new constitution validator enforces required policy phrases plus the rulebase pointer in template mode, gates legacy generated repos through a five-path decision tree (constitution exists / missing+manifest>=0.10.0 / missing+pointer / missing+legacy phrase / missing+unknown), and adds 100-line token budgets for `core/constitution.template.md` and `.agent/constitution.md`. The hook validator now also covers the rulebase-guard template.
+- Added `core/migrations/0.10.0/` for syncing 0.9.0 generated repos. The migration is additive and idempotent: it installs `.agent/constitution.md`, ships the latest constitution-aware validator and the supporting `scripts/lib/gate_modes.py` helper, patches the rulebase pointer with a `skip_if_contains` guard, updates the rule-evolution workflow with the Out-Of-Scope section, and bumps manifest sync metadata. Customized rulebases keep their inline policy text untouched; the constitution becomes the authoritative source going forward.
+- Added `tests/lib/test_rulebase_guard_hook.sh` (14 cases) and `tests/migrations/0.10.0/run.sh` covering the constitution split, the rulebase patch, the workflow Out-Of-Scope section, the manifest bump, generated validator pass, and idempotent re-apply. CI now runs both the new rulebase-guard contract and the previously ungated secret-guard contract on every push.
+- Bumped Claude plugin metadata, local marketplace metadata, and `scripts/bootstrap-request.sh` template version to `0.10.0`.
+
+> **Upgrade-path note.** Repos on 0.9.0 can run `agent-sync.sh --to 0.10.0 --apply`. Repos on earlier versions can use `agent-sync.sh --multi-hop --to 0.10.0 --apply` from a template checkout containing this release.
+
+> Verification status before tagging:
+>
+> - **Deterministic gates green**: `scripts/agent-validate.sh`, full Python unit suite (including the new constitution and token-budget cases), `scripts/agent-evals.sh --fast`, both PreToolUse hook contract suites, version-consistency check, and CI test-module coverage check.
+> - **Migration fixtures green**: all 10 fixtures pass, including `tests/migrations/0.10.0/run.sh` which builds a genuine 0.9.0 fixture, applies 0.10.0, asserts the constitution split surface, and confirms idempotent re-apply.
+
 ## 0.9.0 - 2026-05-01
 
 - Added `core/skills/manifest.json` as the source of truth for optional native behavior skills. Template validation now reads the manifest, verifies `core/skills/*/SKILL.md`, and checks README/USAGE skill-count drift instead of relying on hardcoded skill names.

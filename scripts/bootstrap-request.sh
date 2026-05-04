@@ -12,7 +12,7 @@ dry_run="0"
 force="0"
 install_hook_mode="none"
 discover_gates="0"
-template_version="0.9.0"
+template_version="0.10.0"
 
 usage() {
   cat <<'EOF'
