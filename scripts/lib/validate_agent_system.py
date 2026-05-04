@@ -771,7 +771,7 @@ class AgentSystemValidator:
         """
 
         rel_const = ".agent/constitution.md"
-        path_const = self.root / rel_const
+        constitution_path = self.root / rel_const
 
         manifest_ver: str | None = None
         if isinstance(manifest, dict):
@@ -781,7 +781,7 @@ class AgentSystemValidator:
 
         rulebase_rel = ".agent/rulebase.md"
 
-        if path_const.is_file():
+        if constitution_path.is_file():
             self.pass_(f"{rel_const} exists", rel_const)
             self.contains(
                 rel_const,
@@ -854,6 +854,26 @@ class AgentSystemValidator:
             "permissionDecision",
             "core/hooks/pre-tool-use-secret-guard.py.template emits permissionDecision",
         )
+        self.exists("core/hooks/pre-tool-use-rulebase-guard.py.template")
+        self.py_compile(
+            ["core/hooks/pre-tool-use-rulebase-guard.py.template"],
+            "core/hooks/pre-tool-use-rulebase-guard.py.template compiles",
+        )
+        self.contains(
+            "core/hooks/pre-tool-use-rulebase-guard.py.template",
+            "hookSpecificOutput",
+            "core/hooks/pre-tool-use-rulebase-guard.py.template emits hookSpecificOutput envelope",
+        )
+        self.contains(
+            "core/hooks/pre-tool-use-rulebase-guard.py.template",
+            ".agent/constitution.md",
+            "core/hooks/pre-tool-use-rulebase-guard.py.template guards constitution path",
+        )
+        self.contains(
+            "core/hooks/pre-tool-use-rulebase-guard.py.template",
+            ".agent/rulebase.md",
+            "core/hooks/pre-tool-use-rulebase-guard.py.template guards rulebase path",
+        )
         readme = "core/hooks/README.md"
         self.exists(readme)
         self.contains(readme, "off by default", f"{readme} states hooks are off by default")
@@ -862,6 +882,7 @@ class AgentSystemValidator:
         self.contains(readme, "Manual registration", f"{readme} documents manual registration step")
         self.contains(readme, "secret-guard", f"{readme} documents secret-guard hook")
         self.contains(readme, "session-start", f"{readme} documents session-start hook")
+        self.contains(readme, "rulebase-guard", f"{readme} documents rulebase-guard hook")
 
     def validate_github_metadata(self, rel: str) -> None:
         self.exists(rel)
@@ -1069,6 +1090,7 @@ class AgentSystemValidator:
                 ("adapters/cursor-agent-system.mdc", 200),
                 ("adapters/copilot-instructions.md", 200),
                 ("core/rulebase.template.md", 250),
+                ("core/constitution.template.md", 100),
             )
         else:
             budgets = (
@@ -1078,6 +1100,7 @@ class AgentSystemValidator:
                 (".cursor/rules/agent-system.mdc", 200),
                 (".github/copilot-instructions.md", 200),
                 (".agent/rulebase.md", 250),
+                (".agent/constitution.md", 100),
             )
 
         for rel, limit in budgets:
