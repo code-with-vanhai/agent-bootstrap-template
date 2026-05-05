@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "version": "0.11.0",
+  "from_versions": ["0.10.0"],
+  "to": "0.11.0",
+  "safe_overwrite": [],
+  "patches": [],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "0.11.0",
+      "synced_to_template_version": "0.11.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "0.11.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to v0.11.0 (no downstream-facing changes)."
+    },
+    "merge_array_unique": {}
+  }
+}

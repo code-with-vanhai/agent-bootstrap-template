@@ -336,6 +336,61 @@ Migration authors should use anchors with enough context to be unique in realist
 - When `--with-adapters` is present, adapter files use the same byte-exact 3-way merge and `--accept-theirs` rules as `safe_overwrite`.
 - The 0.2.0 -> 0.3.0 migration keeps this empty.
 
+### Notes on known_conflicts (added in 0.12.0, schema v1 additive)
+
+`known_conflicts` is an optional list of catalog entries the runner consults
+when a `safe_overwrite` 3-way merge falls through to the conflict branch.
+Schema:
+
+```json
+"known_conflicts": [
+  {
+    "path": "scripts/agent-eval.sh",
+    "baseline_sha256": [
+      "<sha256 hex of a known clean-fixture rendering>"
+    ]
+  }
+]
+```
+
+Semantics:
+
+- `path` is the downstream target path (the same key the user would pass to
+  `--accept-theirs`).
+- `baseline_sha256` is a non-empty list of sha256 hex digests representing
+  every "logical baseline" rendering of `path`. Multiple values are required
+  when render-time inputs (e.g. token expansion of `{{TEMPLATE_VERSION}}`)
+  produce different bytes for the same logical content.
+- Auto-accept fires only when `sha256(<target>/<path>) ∈ baseline_sha256`.
+  If the user customized the file, sha differs, and the conflict still
+  surfaces. The hard bar from §1 of this document is preserved: silent
+  overwrite of customized downstream files is not acceptable at any point.
+- Auto-accept records a sync-log entry of the D-12 shape
+  `- <path> [reason=catalog-baseline-match, source=<from>-><to> catalog]`
+  so the audit trail distinguishes catalog matches from explicit
+  `--accept-theirs` overrides (`reason=user-flag, source=cli`).
+
+Governance for `baseline_sha256` values:
+
+- Every hash must be reproducible from a committed migration fixture.
+  No hand-entered or ad-hoc hashes.
+- PRs adding/updating `known_conflicts` include in the body the exact
+  shell command that produced each hash and the fixture/source path.
+- Hash catalog changes go through the same review as schema changes;
+  reviewers reproduce at least one entry locally before approval.
+- Tests assert the catalog hashes match the fixture's clean baseline
+  bytes (not only that apply succeeds). This closes the loop against a
+  catalog entry drifting away from its fixture.
+
+### Notes on block_auto_walk_through (added in 0.12.0, schema v1 additive)
+
+`block_auto_walk_through: true` on a migration tells the multi-hop walker
+that this version must not be silently traversed as an intermediate hop.
+The user can still target it directly with `--to <version>`, but the
+walker refuses chains that pass through it. Default is `false` (no
+behavior change). Use this when a release introduces a one-off manual
+step that downstream operators must acknowledge before continuing.
+
 ---
 
 ## 8. `.agent/sync-log.md` format

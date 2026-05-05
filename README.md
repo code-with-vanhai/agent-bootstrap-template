@@ -292,11 +292,20 @@ See `tests/evals/README.md` for the provider matrix, per-provider env vars (`CLA
 
 ## Upgrade Policy
 
-When this template changes, re-instantiate manually:
+When this template changes, prefer the migration runner over manual re-instantiation:
 
-1. Read `CHANGELOG.md`.
-2. Apply only relevant template changes to the target repo.
-3. Review the diff.
-4. Run `scripts/agent-validate.sh` in the target repo.
+1. Read `CHANGELOG.md` and the relevant `core/migrations/<version>/migration.json`.
+2. From a clean target worktree, dry-run the sync. Single-hop is the normal entry point and now auto-walks a multi-hop chain when no direct migration exists from your current version:
 
-Do not use automatic migrations for agent rules unless a future incident proves they are necessary.
+   ```bash
+   /path/to/agent-bootstrap-template/scripts/agent-sync.sh \
+     --target /path/to/target-repo \
+     --to 0.11.0 \
+     --verbose
+   ```
+
+   The pre-flight summary lists planned writes, configured patches, orphan files, and whether `--backup` is enabled. Add `--apply` once the dry-run is clean.
+3. For a reversible upgrade, pass `--backup` so the runner snapshots every touched file (and `.agent/manifest.json`) into your XDG cache before writing. `scripts/agent-sync.sh backups list / restore <id> / prune` manage those snapshots; restore appends a new entry to `.agent/sync-log.md` rather than rewriting the existing log.
+4. After applying, run `scripts/agent-validate.sh` in the target repo and review the diff before committing.
+
+Conflicts still abort the run by default; pass `--accept-theirs <path>` per file when the template version should win. The append-only `.agent/sync-log.md` records each apply and any restore for audit. See [`USAGE.md`](USAGE.md) for the full flag reference and worked examples.

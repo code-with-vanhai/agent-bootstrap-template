@@ -4,7 +4,7 @@ This document defines release discipline for the Agent Bootstrap Template. It co
 
 ## Version Policy
 
-- Minor release, such as `0.2.x` to `0.3.0`: must have an annotated git tag and a `core/migrations/<version>/` directory, even when the migration is intentionally empty.
+- Minor releases must ship `core/migrations/<version>/` even when the migration is empty (`safe_overwrite` / `patches` may be `[]`). Patch releases (`0.x.(y+1)`) may omit a migration when no downstream-facing generated files changed; see the patch checklist below. Release `0.11.0` briefly shipped without a migration directory; that gap was repaired via **D-11 Option A** (`core/migrations/0.11.0/` backfill per `docs/2026-05-05-migration-ux-improvement-plan.md`).
 - Patch release, such as `0.3.0` to `0.3.1`: migration is optional and is required only when downstream-facing generated files changed.
 - User-facing versions use semver without a `v` prefix in manifests, migration JSON, docs, and CLI input.
 - Git tags use the `v<semver>` form, for example `v0.3.0`.
@@ -19,16 +19,16 @@ This document defines release discipline for the Agent Bootstrap Template. It co
 
 ## Minor Release Checklist
 
-1. Confirm the release commit and changelog entry.
-2. Add or update `core/migrations/<version>/`.
-3. Add or update migration tests when the migration is non-empty.
-4. Create an annotated tag at the release commit:
+1. From a clean `main`, run `scripts/bump-version.sh <version>` (Stage 2.1). This updates `scripts/bootstrap-request.sh`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (both version slots), inserts a `## <version> - <date>` heading into `CHANGELOG.md`, and appends a semver-sorted row to `core/release-tags.md` with commit `<PENDING>`.
+2. Fill in `CHANGELOG.md` bullets for the release; run `scripts/agent-validate.sh` and migration fixtures.
+3. Commit, create an annotated tag at the release commit:
 
    ```bash
    git tag -a v<version> <commit> -m "agent-bootstrap-template <version>"
    ```
 
-5. Record the tag-to-commit mapping in `core/release-tags.md`.
+4. Replace `<PENDING>` in the new `core/release-tags.md` row with the tag's commit SHA (immutable mapping per §Tag Rules).
+5. Confirm `python3 scripts/lib/check_version_consistency.py --strict` passes (CI uses `--strict` so a forgotten `<PENDING>` blocks merge).
 6. Push the tag manually after review:
 
    ```bash

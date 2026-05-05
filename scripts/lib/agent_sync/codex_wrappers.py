@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .errors import ConflictError
 from .io_utils import read_bytes, rel_path
+from .merge import AcceptedRecord, REASON_USER_FLAG
 from .migrations import list_tag_files
 
 
@@ -63,7 +64,11 @@ def plan_codex_wrappers(
             continue
         if target_rel in accept_theirs:
             writes[target_rel] = theirs
-            accepted.append(target_rel)
+            accepted.append(
+                AcceptedRecord(
+                    path=target_rel, reason=REASON_USER_FLAG, source="cli"
+                )
+            )
             updated.append(target_rel)
             continue
         raise ConflictError(

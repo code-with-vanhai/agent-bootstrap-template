@@ -42,7 +42,12 @@ from .merge import apply_writes, collect_orphans, plan_safe_overwrites
 from .migrations import expand_file_entries, list_tag_files, load_migration
 from .patches import plan_patches
 from .codex_wrappers import plan_codex_wrappers
-from .preflight import acquire_lock, target_clean
+from .preflight import (
+    acquire_lock,
+    render_preflight,
+    should_render_preflight,
+    target_clean,
+)
 from .sync_log import append_sync_log, multi_hop_sync_log_entry
 from .validation import run_validation
 from .versions import compute_migration_chain, detect_current_version, validate_version
@@ -69,8 +74,19 @@ def _execute_hop_on_temp(
     entries, managed_scopes, adapter_report = expand_file_entries(
         template_root, migration, args.with_adapters, manifest
     )
+    known_conflicts = migration.get("known_conflicts") or []
+    catalog_label = f"{hop_source}->{hop_to} catalog"
     plan_safe_overwrites(
-        template_root, work_target, migration, entries, accept_theirs, writes, updated, accepted
+        template_root,
+        work_target,
+        migration,
+        entries,
+        accept_theirs,
+        writes,
+        updated,
+        accepted,
+        known_conflicts=known_conflicts,
+        catalog_source_label=catalog_label,
     )
     plan_patches(work_target, migration, writes, updated)
     plan_codex_wrappers(
@@ -149,12 +165,39 @@ def run_multi_hop(args, template_root, target, accept_theirs):
                 f"version {version} requires tag {tag_for(version)}; try git fetch --tags"
             )
 
+    # Q-2 / Stage 1 Risk: a migration may declare
+    # ``block_auto_walk_through: true`` to refuse being silently traversed
+    # by the walker. Intermediate hops (``chain[:-1]``) trigger the guard;
+    # the user can still target that version directly.
+    for hop_to in chain[:-1]:
+        hop_path = template_root / "core" / "migrations" / hop_to / "migration.json"
+        try:
+            hop_data = read_json(hop_path)
+        except OSError:
+            continue
+        if hop_data.get("block_auto_walk_through"):
+            raise NoPathError(
+                f"migration {hop_to} declares block_auto_walk_through; "
+                f"walker refuses to chain through it. Run --to {hop_to} "
+                f"first, then continue manually."
+            )
+
     sync_now = os.environ.get("AGENT_SYNC_NOW") or dt.datetime.now(
         dt.timezone.utc
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     print(f"Multi-hop {'apply' if args.apply else 'dry run'}: {current} -> {to_version}")
     print(f"Chain: {' -> '.join([current] + chain)}")
+
+    # The preflight summary is rendered AFTER the rehearsal loop below,
+    # so writes/patches/orphans counts are real (not pre-planner
+    # heuristics). Customization counts are based on the FIRST hop's
+    # entries because that is what the user's actual on-disk tree maps
+    # onto; subsequent hops run against a temp clone.
+    first_hop_migration = load_migration(template_root, current, chain[0])
+    first_entries, _, _ = expand_file_entries(
+        template_root, first_hop_migration, args.with_adapters, manifest
+    )
 
     temp_parent = Path(tempfile.mkdtemp(prefix="agent-sync-chain-"))
     lock_path = None
@@ -187,6 +230,41 @@ def run_multi_hop(args, template_root, target, accept_theirs):
             hop_results.append(result)
             hop_source = hop_to
 
+        # Aggregate post-rehearsal counts so the preflight summary can
+        # quote authoritative numbers (revision-7 review caught the
+        # pre-planner heuristic mis-counting). Patches per migration are
+        # the configured count (matches the plan example shape).
+        rehearsal_writes = set()
+        rehearsal_orphans = set()
+        rehearsal_patch_count = 0
+        for r in hop_results:
+            rehearsal_writes.update(r["writes"].keys())
+            rehearsal_orphans.update(r["orphans"])
+        patch_hop_source = current
+        for hop_to in chain:
+            try:
+                hop_migration = load_migration(template_root, patch_hop_source, hop_to)
+            except Exception:
+                patch_hop_source = hop_to
+                continue
+            rehearsal_patch_count += len(hop_migration.get("patches") or [])
+            patch_hop_source = hop_to
+
+        if should_render_preflight(args):
+            render_preflight(
+                target=target,
+                template_root=template_root,
+                current_version=current,
+                to_version=to_version,
+                chain_versions=chain,
+                entries=first_entries,
+                backup_enabled=getattr(args, "backup", False),
+                worktree_clean=target_clean(target),
+                write_count=len(rehearsal_writes),
+                patch_count=rehearsal_patch_count,
+                orphan_count=len(rehearsal_orphans),
+            )
+
         if not args.apply:
             return 0
 
@@ -205,6 +283,21 @@ def run_multi_hop(args, template_root, target, accept_theirs):
         final_writes = {}
         for rel in sorted(touched):
             final_writes[rel] = (temp_target / rel).read_bytes()
+
+        if getattr(args, "backup", False):
+            from .backups import create_backup  # noqa: WPS433
+
+            backup_dir, backup_id, _ = create_backup(
+                target=target,
+                from_version=current,
+                to_version=to_version,
+                writes=final_writes,
+                mode="multi-hop",
+                backup_root_override=getattr(args, "backup_dir", None),
+                keep=getattr(args, "backup_keep", None) or 5,
+            )
+            print(f"Backup created: {backup_dir} (id={backup_id})")
+
         apply_writes(target, final_writes)
 
         try:
@@ -224,9 +317,10 @@ def run_multi_hop(args, template_root, target, accept_theirs):
                     merged_updated.append(u)
                     seen_updated.add(u)
             for a in r["accepted"]:
-                if a not in seen_accepted:
+                key = a.path if hasattr(a, "path") else a
+                if key not in seen_accepted:
                     merged_accepted.append(a)
-                    seen_accepted.add(a)
+                    seen_accepted.add(key)
             for o in r["orphans"]:
                 if o not in seen_orphans:
                     merged_orphans.append(o)

@@ -65,6 +65,14 @@
       "target": "scripts/lib/plan_validation/validator.py"
     }
   ],
+  "known_conflicts": [
+    {
+      "path": "scripts/agent-eval.sh",
+      "baseline_sha256": [
+        "ba9d700c2be5226d9347cdd838e5368c615ca329530badcfdfd3b0e900704625"
+      ]
+    }
+  ],
   "patches": [
     {
       "file": ".agent/rulebase.md",

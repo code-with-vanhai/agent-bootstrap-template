@@ -430,27 +430,55 @@ The runner refuses conflicts by default and performs no content writes when a co
 
 Sync metadata is written to `.agent/manifest.json`, and successful applies append `.agent/sync-log.md`. Adapter files such as `AGENTS.md` and `CLAUDE.md` are not overwritten by default.
 
-### Multi-hop sync (`--multi-hop`)
+### Multi-hop sync (auto and explicit `--multi-hop`)
 
-When the target is several minor releases behind, you can let the runner walk a deterministic chain of single-hop migrations rather than running each `--to` manually:
+When the target is several minor releases behind, the runner walks a deterministic chain of single-hop migrations rather than requiring you to run each `--to` manually.
+
+Auto-fallback (default): plain single-hop usage now switches to multi-hop on its own when no direct `current → --to` migration exists. A short notice prints (`Auto-walking multi-hop chain ...`) and the rest of the run is identical to an explicit `--multi-hop`. Pass `--no-auto-multi-hop` to opt out and force the legacy "no migration found" error. Omitting `--to` is still allowed; the runner picks the highest reachable target.
+
+Explicit form is unchanged for users who prefer to be deliberate:
 
 ```bash
 /path/to/agent-bootstrap-template/scripts/agent-sync.sh \
   --multi-hop \
   --target /path/to/target-repo \
-  --to 0.9.0
+  --to 0.11.0
 ```
 
 Behavior:
 
-- `--multi-hop` requires an explicit `--to`.
 - The runner refuses to touch the target until preflight passes (existence, git, dirty, manifest, current version).
 - Without `--apply`, the chain runs end-to-end on a temporary copy of the target (under `$TMPDIR`); the target stays byte-identical.
 - With `--apply`, the chain rehearses on the temp copy first; only after every hop succeeds does the runner apply the union of changed files to the real target and append a single aggregated entry to `.agent/sync-log.md`.
 - A mid-chain conflict aborts before any write to the target. Pass `--accept-theirs <path>` (repeatable) to clear known conflicts; the flag propagates to every hop in the chain.
+- A migration may declare `block_auto_walk_through: true` (see `core/migrations/README.md`) to force users to stop at that intermediate version. The walker raises `NoPathError` rather than silently traversing such hops; run `--to <blocking-version>` first, then continue.
 - `--verify-fast` runs the target's `scripts/agent-eval.sh fast` once after the final batch is applied, mirroring single-hop behavior.
 
-Single-hop usage (without `--multi-hop`) is unchanged.
+Single-hop usage (without `--multi-hop`) shares the same preflight, conflict, and apply semantics; the only difference is that auto-fallback may transparently promote it to a multi-hop run.
+
+### Pre-flight summary, opt-in backups, and known-conflicts catalog
+
+`agent-sync.sh` supports a few opt-in UX flags (see `CHANGELOG.md` **Unreleased** until the next tagged release; scheduled for **0.12.0**):
+
+- `--verbose` (or stdout being a TTY) prints a `Pre-flight summary` block before each apply / dry-run. The block lists the version walk, customization count, and the **post-planner** count of writes / patches / orphans, so you can confirm scope before continuing. CI logs stay short because the block is suppressed when stdout is non-TTY and `--verbose` is unset.
+- `--backup` (default off) snapshots every touched file plus `.agent/manifest.json` into your XDG cache (`$XDG_CACHE_HOME/agent-bootstrap/backups`, fallback `~/.cache/...`). The target repo's `.gitignore` is never modified. `scripts/agent-sync.sh backups list` / `restore <backup-id>` / `prune --keep <N>` manage retention. Restoration appends a new audit entry to `.agent/sync-log.md` and never rewrites existing entries.
+- A migration's `known_conflicts` catalog (see `core/migrations/README.md`) auto-accepts the template-side write only when the local file's SHA-256 matches one of the recorded `baseline_sha256` values. Customized files still raise a conflict and require `--accept-theirs <path>` — there is no blanket auto-accept.
+- The accepted-changes section of `.agent/sync-log.md` is rendered in the D-12 format `- <path> [reason=<reason>, source=<source>]`. Older entries in the legacy bare-path format remain valid; the parser accepts both.
+
+### `doctor` (read-only diagnostics)
+
+Inspect a downstream repo without applying migrations:
+
+```bash
+/path/to/agent-bootstrap-template/scripts/agent-sync.sh doctor \
+  --target /path/to/target-repo
+```
+
+Add `--json` for machine-readable output. The report includes the manifest version, hops remaining to the latest migratable template version, managed-file states vs. your current template version, and orphans. If the newest migration is a no-op (empty `safe_overwrite` / `patches`), the scan falls back to the latest migration that still lists file work so the output stays useful.
+
+### Maintainer version bump (`bump-version.sh`)
+
+`scripts/bump-version.sh <semver>` updates the five public version sources and appends a semver-sorted row to `core/release-tags.md` with commit `<PENDING>`. After `git tag -a`, replace `<PENDING>` with the tag's SHA and run `python3 scripts/lib/check_version_consistency.py --strict` (CI enforces this). See `core/release-process.md`.
 
 ## Upgrade Policy
 

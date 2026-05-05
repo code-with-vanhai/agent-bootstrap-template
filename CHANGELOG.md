@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Stage 2 (release ergonomics, plan `docs/2026-05-05-migration-ux-improvement-plan.md`):**
+  - `scripts/bump-version.sh` / `scripts/lib/bump_version.py` — atomic bump of the five version sources plus a semver-sorted `core/release-tags.md` row with `<PENDING>` until post-tag SHA is recorded.
+  - `scripts/lib/check_version_consistency.py --strict` — fails CI if the newest release-tags row still contains `<PENDING>`.
+  - `core/release-tags.md` — release-tags updated through `0.11.0` (backfilled rows `0.4.0` … `0.11.0`; pre-existing rows `0.2.0` / `0.3.0` / `0.3.1` unchanged; added `0.3.2` lightweight-tag row referenced by `core/migrations/0.4.0/migration.json::from_versions`).
+  - `scripts/agent-sync.sh doctor [--json]` — read-only diagnostics (version drift, hop count to latest migratable, managed-file states, orphans).
+  - `core/release-process.md` — minor release checklist documents the bump + strict check workflow.
+- Migration runner UX (Stage 1 of `docs/2026-05-05-migration-ux-improvement-plan.md`):
+  - Single-hop now auto-falls-back to a multi-hop chain when no direct migration exists; opt out with `--no-auto-multi-hop`.
+  - Added a post-planner pre-flight summary (gated on TTY or `--verbose`) reporting the version walk, customization count, and authoritative writes / patches / orphan counts.
+  - Added an opt-in `--backup` flag plus `scripts/agent-sync.sh backups list / restore <id> / prune` subcommands. Snapshots live under `$XDG_CACHE_HOME/agent-bootstrap/backups` (fallback `~/.cache/...`); the target repo's `.gitignore` is never modified, and restore appends a Restore entry to `.agent/sync-log.md` rather than overwriting the existing log.
+  - `migration.json` now supports an optional `known_conflicts` catalog: per-path `baseline_sha256` whitelisting of pre-known template-version writes. Customized files still raise a conflict and require `--accept-theirs <path>`.
+  - The accepted-changes block of `.agent/sync-log.md` is rendered in the new `- <path> [reason=<reason>, source=<source>]` format. The parser remains compatible with legacy bare-path entries.
+  - Migration `0.11.0` backfilled per D-11 Option A so `release-process.md`'s "every minor ships a migration" rule holds end-to-end. Added the `0.11.0` row to `core/release-tags.md`.
+
 ## 0.11.0 - 2026-05-04
 
 - Added the opt-in MCP discovery layer from Stage 5. Default bootstrap output remains MCP-free; `--with-mcp-discovery` now renders only advisory MCP artifacts: `.mcp.json.suggested`, `.agent/commands/mcp-discover.md`, and the `mcp-discovery-suggested` feature flag. The bootstrap never writes an active `.mcp.json`.

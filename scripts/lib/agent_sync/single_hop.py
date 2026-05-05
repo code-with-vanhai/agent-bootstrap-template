@@ -31,7 +31,12 @@ from .manifest_ops import plan_manifest
 from .merge import apply_writes, collect_orphans, plan_safe_overwrites
 from .migrations import expand_file_entries, list_migrations, list_tag_files, load_migration
 from .patches import plan_patches
-from .preflight import acquire_lock, target_clean
+from .preflight import (
+    acquire_lock,
+    render_preflight,
+    should_render_preflight,
+    target_clean,
+)
 from .sync_log import append_sync_log, sync_log_entry
 from .validation import run_validation
 from .versions import detect_current_version, validate_version
@@ -101,6 +106,36 @@ def run_single_hop(args, template_root, target, accept_theirs):
         print(f"Target already synced to {to_version}; no-op.")
         return 0
 
+    if current not in candidate_sources:
+        # Auto multi-hop fallback (Stage 1.1, D-1): the requested target
+        # version exists, but its migration.json does not list the
+        # caller's current version as a valid `from`. Default behavior
+        # is to walk a deterministic BFS chain; ``--no-auto-multi-hop``
+        # opts out and re-raises NoPathError as before.
+        if getattr(args, "no_auto_multi_hop", False):
+            raise NoPathError(
+                f"current version {current} is not a valid `from` for migration "
+                f"{to_version}; pass --multi-hop to walk a chain or drop "
+                f"--no-auto-multi-hop"
+            )
+        # Defer the import to avoid a circular dependency with
+        # ``run_multi_hop``-side helpers.
+        from .multi_hop import run_multi_hop  # noqa: WPS433
+
+        # ``run_multi_hop`` raises UsageError when ``args.to is None``;
+        # the user-facing single-hop default already resolved
+        # ``to_version`` for us, so propagate it explicitly. No
+        # single-hop lock has been taken yet, so no double-lock risk.
+        if args.to is None:
+            args.to = to_version
+        args.multi_hop = True
+        args.auto_multi_hop_fallback = True
+        print(
+            f"Auto-walking multi-hop chain from {current} to {to_version} "
+            f"(no direct migration available)."
+        )
+        return run_multi_hop(args, template_root, target, accept_theirs)
+
     migration = load_migration(template_root, current, to_version)
 
     lock_path = None
@@ -115,8 +150,19 @@ def run_single_hop(args, template_root, target, accept_theirs):
             template_root, migration, args.with_adapters, manifest
         )
 
+        known_conflicts = migration.get("known_conflicts") or []
+        catalog_label = f"{current}->{to_version} catalog"
         plan_safe_overwrites(
-            template_root, target, migration, entries, accept_theirs, writes, updated, accepted
+            template_root,
+            target,
+            migration,
+            entries,
+            accept_theirs,
+            writes,
+            updated,
+            accepted,
+            known_conflicts=known_conflicts,
+            catalog_source_label=catalog_label,
         )
         plan_patches(target, migration, writes, updated)
         plan_codex_wrappers(
@@ -146,6 +192,25 @@ def run_single_hop(args, template_root, target, accept_theirs):
                 )
         orphans = collect_orphans(target, managed_scopes, planned_targets)
 
+        # Render preflight AFTER planner so writes/patches/orphans are
+        # the authoritative counts the user is about to commit to. The
+        # plan call sites this "immediately before the dry-run branch
+        # and apply_writes" — both are below this point.
+        if should_render_preflight(args):
+            render_preflight(
+                target=target,
+                template_root=template_root,
+                current_version=current,
+                to_version=to_version,
+                chain_versions=[to_version],
+                entries=entries,
+                backup_enabled=getattr(args, "backup", False),
+                worktree_clean=target_clean(target),
+                write_count=len(writes),
+                patch_count=len(migration.get("patches") or []),
+                orphan_count=len(orphans),
+            )
+
         if not args.apply:
             print(f"Dry run: {current} -> {to_version}")
             for path in sorted(writes):
@@ -155,6 +220,20 @@ def run_single_hop(args, template_root, target, accept_theirs):
             for path in orphans:
                 print(f"  warning orphan managed file: {path}")
             return 0
+
+        if getattr(args, "backup", False):
+            from .backups import create_backup  # noqa: WPS433
+
+            backup_dir, backup_id, _ = create_backup(
+                target=target,
+                from_version=current,
+                to_version=to_version,
+                writes=writes,
+                mode="single-hop",
+                backup_root_override=getattr(args, "backup_dir", None),
+                keep=getattr(args, "backup_keep", None) or 5,
+            )
+            print(f"Backup created: {backup_dir} (id={backup_id})")
 
         apply_writes(target, writes)
         validation = run_validation(target, args.verify_fast)

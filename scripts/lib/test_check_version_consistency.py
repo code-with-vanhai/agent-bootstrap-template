@@ -111,6 +111,37 @@ class CliReportTests(unittest.TestCase):
         result = self._run(REPO_ROOT)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
 
+    def test_strict_fails_when_changelog_row_missing(self) -> None:
+        """``--strict`` must refuse to pass when the CHANGELOG's latest
+        release has no row in ``core/release-tags.md`` — closes the
+        Stage 1+2 review gap where deleting the 0.11.0 row still passed
+        strict because the check only looked at the newest row's
+        ``<PENDING>`` marker.
+        """
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _make_fixture(root, "1.2.3")
+            (root / "core").mkdir()
+            # release-tags.md lists a DIFFERENT (older) version, so the
+            # CHANGELOG's 1.2.3 has no matching row.
+            (root / "core" / "release-tags.md").write_text(
+                "# Release Tags\n\n"
+                "| Version | Tag | Commit | Notes |\n"
+                "|---------|-----|--------|-------|\n"
+                "| 1.2.2 | `v1.2.2` | `deadbeefcafebabe0123456789abcdef01234567` | older release. |\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", str(root), "--strict"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("1.2.3", result.stderr)
+            self.assertIn("release-tags.md", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
