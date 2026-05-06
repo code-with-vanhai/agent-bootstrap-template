@@ -15,7 +15,7 @@ This document defines release discipline for the Agent Bootstrap Template. It co
 - Tags must be annotated.
 - Tags must point at immutable release commits recorded in `core/release-tags.md`.
 - Do not retarget an existing release tag silently.
-- Tag creation and `git push origin <tag>` are always human-triggered. Sync tooling must never create or push tags. The Stage 3.4 commit-message and migration-scaffold helpers (see [Conventional Commits](#conventional-commits) and [Migration Scaffold](#migration-scaffold)) are deliberately read-only and do not call `git tag` or `git push`.
+- Tag creation and `git push origin <tag>` are always human-triggered. Sync tooling must never create or push tags. The Stage 3.4 commit-message, migration-scaffold, and release-prep helpers (see [Conventional Commits](#conventional-commits), [Migration Scaffold](#migration-scaffold), and [Release Prep Scaffold](#release-prep-scaffold)) are deliberately read-only with respect to refs and do not call `git tag` or `git push`.
 
 ## Conventional Commits
 
@@ -46,18 +46,29 @@ The helper is **Python stdlib only**: no Node toolchain, no `commitlint` install
 - The helper is read-only: it never tags, fetches, pushes, or rewrites refs. It calls only `git diff` and `git rev-parse --verify`. The "no silent tag push" rule above is enforced by construction, not by convention.
 - Implementation: `scripts/lib/scaffold_migration.py`; tests: `scripts/lib/test_scaffold_migration.py`.
 
+## Release Prep Scaffold
+
+`scripts/release-prepare.sh` (Stage 3.4) is the mechanical-release helper that replaces the npm `semantic-release` toolchain in our Python-stdlib-only world. It reads commits in `<latest-tag>..HEAD`, derives the next semver bump from Conventional Commits markers (`feat!`, `fix!`, or a `BREAKING CHANGE:` trailer → major; any `feat:` → minor; otherwise patch), and produces a draft `CHANGELOG.md` body grouped by commit type.
+
+- Default invocation is **dry-run**: prints the plan to stdout and writes nothing. Pass `--apply` to run `scripts/bump-version.sh <next>` and patch the new CHANGELOG entry's empty `- ` placeholder with the generated draft. The next steps after `--apply` (commit, annotated tag, `<PENDING>` backfill, `git push origin v<next>`) remain human-triggered per §Tag Rules.
+- Pass `--bump major|minor|patch` to override the auto-derivation; the plan output records this as `bump_source: override`. `--json` emits the same plan as a machine-readable document for CI introspection.
+- The helper refuses `--apply` when the commit range contains Conventional Commits violations (the same gate the `conventional-commits` CI job enforces). Pass `--allow-violations` to override, but prefer rebasing the offending subjects.
+- **Read-only with respect to git**: never calls `git tag`, `git push`, `git commit`, or `git fetch`. File mutations are bounded to `bump_version.bump` (the five canonical version sources + `core/release-tags.md`) and one CHANGELOG patch. Tests assert HEAD and tag list are byte-identical before/after `--apply`.
+- Implementation: `scripts/lib/release_prepare.py`; tests: `scripts/lib/test_release_prepare.py`.
+
 ## Minor Release Checklist
 
-1. From a clean `main`, run `scripts/bump-version.sh <version>` (Stage 2.1). This updates `scripts/bootstrap-request.sh`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (both version slots), inserts a `## <version> - <date>` heading into `CHANGELOG.md`, and appends a semver-sorted row to `core/release-tags.md` with commit `<PENDING>`.
-2. Generate the migration skeleton: `scripts/scaffold-migration.sh <prev> <version> --write`. Review the stderr "Review required" list, fill in `patches`, and replace the placeholder `notes` string with a human summary of the release.
-3. Fill in `CHANGELOG.md` bullets for the release; run `scripts/agent-validate.sh` and migration fixtures.
-4. Commit, create an annotated tag at the release commit:
+1. From a clean `main`, preview the next version: `scripts/release-prepare.sh` (dry-run). The plan reports the current version, the auto-derived bump, the next semver, the CHANGELOG draft, and any Conventional Commits violations.
+2. Apply the mechanical bump: `scripts/release-prepare.sh --apply` (or run `scripts/bump-version.sh <version>` directly if you prefer a manual semver pick). Both routes call the same `scripts/lib/bump_version.py` helper to update `scripts/bootstrap-request.sh`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (both version slots), insert a `## <version> - <date>` heading into `CHANGELOG.md`, and append a semver-sorted row to `core/release-tags.md` with commit `<PENDING>`. The release-prep route additionally replaces the empty `- ` placeholder with a draft body grouped by commit type so the author starts from real commit data.
+3. Generate the migration skeleton: `scripts/scaffold-migration.sh <prev> <version> --write`. Review the stderr "Review required" list, fill in `patches`, and replace the placeholder `notes` string with a human summary of the release.
+4. Edit the CHANGELOG draft into the project's prose style (re-organize bullets, add context, drop noise); run `scripts/agent-validate.sh` and migration fixtures.
+5. Commit, create an annotated tag at the release commit:
   ```bash
    git tag -a v<version> <commit> -m "agent-bootstrap-template <version>"
   ```
-5. Replace `<PENDING>` in the new `core/release-tags.md` row with the tag's commit SHA (immutable mapping per §Tag Rules).
-6. Confirm `python3 scripts/lib/check_version_consistency.py --strict` passes (CI uses `--strict` so a forgotten `<PENDING>` blocks merge).
-7. Push the tag manually after review:
+6. Replace `<PENDING>` in the new `core/release-tags.md` row with the tag's commit SHA (immutable mapping per §Tag Rules).
+7. Confirm `python3 scripts/lib/check_version_consistency.py --strict` passes (CI uses `--strict` so a forgotten `<PENDING>` blocks merge).
+8. Push the tag manually after review:
   ```bash
    git push origin v<version>
   ```
