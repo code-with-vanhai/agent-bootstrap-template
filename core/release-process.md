@@ -37,7 +37,7 @@ The helper is **Python stdlib only**: no Node toolchain, no `commitlint` install
 
 - Default invocation prints the skeleton to stdout. Pass `--write` to land it at `core/migrations/<to>/migration.json`; the helper refuses to clobber an existing file unless you also pass `--force`.
 - Auto-mapped target trees: `core/commands/*` → `.agent/commands/*`, `core/workflows/*` → `.agent/workflows/*`, `core/roles/**` → `.agent/roles/**`, `core/hooks/*` → `.agent/hooks/*`, and `core/<x>.template.<ext>` → `.agent/<x>.<ext>`.
-- `scripts/**` entries use the canonical template layout (`source` and `target` are the same repo-relative path).
+- `scripts/**` entries use the canonical template layout (`source` and `target` are the same repo-relative path), except that `scripts/<...>/<name>.template.<ext>` is target-stripped to `scripts/<...>/<name>.<ext>` (matching the `core/<x>.template.<ext>` rule and `core/migrations/0.9.0/migration.json`).
 - **Test files are filtered by default.** `scripts/**/test_*.py` modules are template-only CI gates (no committed migration has ever placed one under `safe_overwrite`), so the scaffolder filters them out and surfaces the filtered paths in the stderr **Skipped** report. Pass `--include-tests` to opt back in (rare; only when you genuinely want the test module shipped downstream).
 - Known `adapters/*` files map to their downstream targets exactly like `core/migrations/0.9.0/migration.json` (including `skip_if_target_missing` on optional adapters).
 - Renames and deletes under `core/` emit `manifest_updates.tracked_files_remove` (Stage 3.3) for the obsolete downstream path. The directive activates on `manifest_updates.update_tracked_files: true`, which the scaffolder turns on automatically whenever it emits a removal entry.

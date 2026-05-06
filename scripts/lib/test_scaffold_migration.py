@@ -196,6 +196,41 @@ class ClassifySourcePathTests(unittest.TestCase):
             ),
         )
 
+    def test_scripts_template_suffix_stripped(self):
+        # Pinned by ``core/migrations/0.9.0/migration.json``: the
+        # template-only ``scripts/agent-eval.template.sh`` source must
+        # land at ``scripts/agent-eval.sh`` downstream. Previously the
+        # scaffolder copied the source verbatim, producing a wrong
+        # target the author had to hand-fix.
+        self.assertEqual(
+            scaffold_migration.classify_source_path(
+                "scripts/agent-eval.template.sh"
+            ),
+            (
+                "emit",
+                "scripts/agent-eval.template.sh",
+                "scripts/agent-eval.sh",
+                False,
+                {},
+            ),
+        )
+
+    def test_scripts_nested_template_suffix_stripped(self):
+        # Same rule applies in subdirectories — symmetry with the core/
+        # template-suffix rule.
+        self.assertEqual(
+            scaffold_migration.classify_source_path(
+                "scripts/lib/runner.template.py"
+            ),
+            (
+                "emit",
+                "scripts/lib/runner.template.py",
+                "scripts/lib/runner.py",
+                False,
+                {},
+            ),
+        )
+
     def test_adapter_claude_maps_with_skip_missing(self):
         kind, src, tgt, review, extras = scaffold_migration.classify_source_path(
             "adapters/CLAUDE.md"

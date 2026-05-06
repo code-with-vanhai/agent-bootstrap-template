@@ -194,6 +194,18 @@ def classify_source_path(source):
     """
 
     if source.startswith("scripts/"):
+        # ``scripts/<dir>/<basename>.template.<ext>`` →
+        # ``scripts/<dir>/<basename>.<ext>``. Mirrors the ``core/`` template
+        # suffix rule so a release that ships e.g.
+        # ``scripts/agent-eval.template.sh`` lands as ``scripts/agent-eval.sh``
+        # downstream (matching ``core/migrations/0.9.0/migration.json``).
+        head, sep, rest = source.rpartition("/")
+        basename = rest if sep else source
+        if ".template." in basename:
+            stem, _, tail = basename.partition(".template.")
+            stripped = f"{stem}.{tail}"
+            tgt = f"{head}/{stripped}" if sep else stripped
+            return ("emit", source, tgt, False, {})
         return ("emit", source, source, False, {})
 
     mapped = _ADAPTER_MAP.get(source)
