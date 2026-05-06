@@ -62,6 +62,8 @@ jobs:
           python3 -m unittest scripts.lib.test_validate_mcp_config
           python3 -m unittest scripts.lib.test_bump_version
           python3 -m unittest scripts.lib.test_doctor
+          python3 -m unittest scripts.lib.test_scaffold_migration
+          python3 -m unittest scripts.lib.test_check_conventional_commits
 
       - name: Python unit tests (tests/lib)
         run: python3 -m unittest discover -s tests/lib -p 'test_*.py' -t .
@@ -123,3 +125,30 @@ jobs:
 
       - name: Versions agree across plugin/marketplace/bootstrap/changelog
         run: python3 scripts/lib/check_version_consistency.py --strict
+
+  conventional-commits:
+    # Stage 3.4: enforce Conventional Commits on every PR commit. PRs
+    # only — push-to-main does not run this job because main itself
+    # may carry historical non-conformant subjects from before this
+    # gate landed. The release-process docs forbid silent tag pushes,
+    # so this checker is read-only by construction.
+    name: Conventional commits (PR only)
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check PR commits
+        run: |
+          python3 scripts/lib/check_conventional_commits.py \
+            --repo . \
+            --range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
