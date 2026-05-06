@@ -72,6 +72,32 @@ class BumpVersionTests(unittest.TestCase):
             err, _msg = vercheck.strict_release_tags_pending(root)
             self.assertEqual(err, 1)
 
+    def test_bump_preserves_executable_bit_on_bootstrap_script(self) -> None:
+        """Regression: ``_atomic_write`` must preserve file mode.
+
+        ``tempfile.mkstemp`` creates files at mode 0600 by default; the
+        previous implementation silently stripped the 0755 bit from
+        ``scripts/bootstrap-request.sh`` on every bump, which broke the
+        downstream bootstrap (Permission denied at exec time).
+        """
+        import os
+        import stat
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _make_fixture(root, "1.0.0")
+            (root / "core").mkdir()
+            shutil.copyfile(self._tags, root / "core" / "release-tags.md")
+            script = root / "scripts" / "bootstrap-request.sh"
+            os.chmod(script, 0o755)
+            self.assertTrue(bv.bump(root, "1.1.0", "2026-05-06"))
+            mode_after = stat.S_IMODE(script.stat().st_mode)
+            self.assertEqual(
+                mode_after,
+                0o755,
+                msg=f"executable bit stripped: mode={oct(mode_after)}",
+            )
+
     def test_idempotent_noop_when_already_at_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

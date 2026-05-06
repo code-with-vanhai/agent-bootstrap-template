@@ -49,13 +49,29 @@ def _semver_tuple(version: str) -> tuple[int, ...]:
 
 
 def _atomic_write(path: pathlib.Path, data: bytes) -> None:
+    """Atomically write ``data`` to ``path``, preserving file mode.
+
+    ``tempfile.mkstemp`` creates files with mode 0600 by default, which
+    would silently strip the executable bit from scripts like
+    ``scripts/bootstrap-request.sh`` (mode 0755 in git) on every bump.
+    We snapshot the existing mode first, then chmod the temp file to
+    match before the atomic rename so the post-bump file is byte- and
+    permission-identical to its predecessor.
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        existing_mode = path.stat().st_mode & 0o7777
+    except FileNotFoundError:
+        existing_mode = None
     fd, tmp = tempfile.mkstemp(
         dir=str(path.parent), prefix=f".{path.name}.", text=False
     )
     try:
         os.write(fd, data)
         os.close(fd)
+        if existing_mode is not None:
+            os.chmod(tmp, existing_mode)
         os.replace(tmp, path)
     except BaseException:
         try:
