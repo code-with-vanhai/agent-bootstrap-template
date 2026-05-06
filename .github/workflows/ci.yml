@@ -64,6 +64,7 @@ jobs:
           python3 -m unittest scripts.lib.test_doctor
           python3 -m unittest scripts.lib.test_scaffold_migration
           python3 -m unittest scripts.lib.test_check_conventional_commits
+          python3 -m unittest scripts.lib.test_release_prepare
 
       - name: Python unit tests (tests/lib)
         run: python3 -m unittest discover -s tests/lib -p 'test_*.py' -t .
