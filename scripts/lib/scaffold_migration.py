@@ -83,6 +83,16 @@ _AUTO_MAP_PREFIXES = (
     ("core/hooks/", ".agent/hooks/"),
 )
 
+# One-off ``core/<file>`` paths whose downstream target does not follow a
+# prefix rule but still has a known canonical mapping (verified against
+# committed migrations, e.g. ``core/migrations/0.9.0/migration.json``).
+# Listing them here keeps the scaffolder honest: a release that touches
+# ``core/README.md`` produces the right ``.agent/README.md`` entry instead
+# of silently dropping it under the template-internal skip list.
+_CORE_EXACT_MAP = {
+    "core/README.md": ".agent/README.md",
+}
+
 # ``adapters/*.md(c)`` in the template repo map to discrete downstream
 # targets matching `core/migrations/0.9.0/migration.json` semantics.
 _ADAPTER_MAP = {
@@ -151,7 +161,6 @@ _SKIP_PREFIXES = (
 )
 _SKIP_EXACT = frozenset(
     {
-        "core/README.md",
         "core/release-process.md",
         "core/release-tags.md",
         "core/research-basis.md",
@@ -203,6 +212,8 @@ def classify_source_path(source):
     for prefix in _SKIP_PREFIXES:
         if source.startswith(prefix):
             return ("skip", source, None, False, {})
+    if source in _CORE_EXACT_MAP:
+        return ("emit", source, _CORE_EXACT_MAP[source], False, {})
     for src_prefix, tgt_prefix in _AUTO_MAP_PREFIXES:
         if source.startswith(src_prefix):
             tgt = tgt_prefix + source[len(src_prefix):]

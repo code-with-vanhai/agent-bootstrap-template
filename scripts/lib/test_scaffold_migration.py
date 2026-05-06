@@ -154,6 +154,16 @@ class ClassifySourcePathTests(unittest.TestCase):
             ("skip", "core/release-process.md", None, False, {}),
         )
 
+    def test_core_readme_maps_to_agent_readme(self):
+        # Pinned by ``core/migrations/0.9.0/migration.json`` which syncs
+        # ``core/README.md`` to ``.agent/README.md``. The scaffolder
+        # MUST emit the same mapping; previously this path was silently
+        # listed under ``_SKIP_EXACT`` and dropped from the skeleton.
+        self.assertEqual(
+            scaffold_migration.classify_source_path("core/README.md"),
+            ("emit", "core/README.md", ".agent/README.md", False, {}),
+        )
+
     def test_manifest_schema_skipped(self):
         self.assertEqual(
             scaffold_migration.classify_source_path("core/manifest.schema.json"),
