@@ -18,6 +18,7 @@ from collections import OrderedDict
 
 from .git_ops import tag_commit
 from .io_utils import dump_manifest, read_bytes
+from .tracked_files import populate_tracked_files
 from .versions import validate_version
 
 
@@ -90,6 +91,15 @@ def plan_manifest(template_root, target, migration, manifest, sync_now, writes, 
             if value not in existing:
                 existing.append(value)
         new_manifest[key] = existing
+
+    # Stage 3.1 opt-in: when the migration sets
+    # ``manifest_updates.update_tracked_files: true``, fold the hop's
+    # planned writes into ``manifest.tracked_files`` so a future
+    # fast-path / backfill release can reason about per-file baseline
+    # checksums. Default behavior is a no-op so legacy migrations and
+    # fixtures (e.g. tests/migrations/0.3.0 diff -r assertion) stay
+    # byte-identical post-apply.
+    new_manifest = populate_tracked_files(new_manifest, migration, writes)
 
     new_manifest = ordered_manifest_with_sync(new_manifest, sync_values)
     manifest_bytes = dump_manifest(new_manifest)

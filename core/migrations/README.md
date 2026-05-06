@@ -391,6 +391,60 @@ walker refuses chains that pass through it. Default is `false` (no
 behavior change). Use this when a release introduces a one-off manual
 step that downstream operators must acknowledge before continuing.
 
+### Notes on tracked_files (added in Stage 3.1, schema v1 additive)
+
+`manifest.tracked_files` is an additive map keyed by downstream target
+path that records, for each managed file, the template version it was
+last synced from and a sha256 of the bytes the runner wrote. The map
+is the foundation for the Stage 3.2 checksum fast-path (skip 3-way
+merge for unmodified files) and the Stage 3.3 one-shot 1.0.0 backfill;
+this slice ships the writer only.
+
+```json
+{
+  "tracked_files": {
+    ".agent/rulebase.md": {
+      "synced_at_version": "1.0.0",
+      "synced_checksum_sha256": "abc123..."
+    }
+  }
+}
+```
+
+Activation is **strictly opt-in** via a new
+`manifest_updates.update_tracked_files: true` flag. When set, the
+runner folds every path in the hop's `writes` dict (excluding
+`.agent/manifest.json` and `.agent/sync-log.md`) into
+`manifest.tracked_files` immediately before serializing the manifest.
+When the flag is absent or any value other than literal `true`, the
+runner does not touch the key — manifests written by every pre-1.0.0
+migration remain byte-identical to today, so the
+`tests/migrations/0.3.0/run.sh` `diff -r` invariant and the
+`tests/migrations/0.5.0/run.sh:119` exact post-apply status assertion
+both stay green.
+
+Behavioral notes:
+
+- Existing `tracked_files` entries whose path is not part of the
+  current hop's writes are preserved; the map is cumulative across
+  hops once a 1.0.0+ release has populated it.
+- Existing entries for paths the current hop writes are overwritten so
+  the recorded checksum always matches the bytes most recently written
+  by the runner.
+- Schema v1's `manifest_updates.replace` directive only does top-level
+  scalar upsert, so it cannot remove an entry under
+  `manifest.tracked_files`. When Stage 3.3 lands a 1.0.0 migration that
+  relocates or removes a managed file, that migration MUST author an
+  explicit `manifest_updates.tracked_files_remove: ["<old/path>"]`
+  directive (to be added alongside the writer; not yet implemented in
+  Stage 3.1). Until Stage 3.3 introduces that directive, no migration
+  in the live tree relocates a tracked file, so the issue is latent.
+  This is tracked as a Stage 3 risk in
+  `docs/2026-05-05-migration-ux-improvement-plan.md`.
+
+This block intentionally documents the writer contract only; the
+checksum fast-path in `merge.py` is deferred to Stage 3.2.
+
 ---
 
 ## 8. `.agent/sync-log.md` format

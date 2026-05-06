@@ -607,9 +607,18 @@ triggers the current 3-way merge path for every file.
 }
 ```
 
-Write order: after `apply_writes` succeeds for a hop, loop every
-`writes[path]` and set `tracked_files[path].synced_checksum_sha256 =
-sha256(new_content)`, `synced_at_version = migration["to"]`.
+Write order (revised in Stage 3.1 implementation): the writer is
+invoked from `plan_manifest` immediately before serializing
+`.agent/manifest.json`, looping every `writes[path]` and setting
+`tracked_files[path].synced_checksum_sha256 = sha256(new_content)` and
+`synced_at_version = migration["to"]`. This is functionally equivalent
+to a post-`apply_writes` loop because the bytes hashed are exactly
+those queued for write — `apply_writes` is the single funnel and
+performs no transformation. Computing during planning lets the
+manifest's own bytes capture the new `tracked_files` map in the same
+write, avoiding a second manifest write per hop. The Stage 3.2
+fast-path uses the same `tracked_files` schema; revisit only if
+fast-path semantics need a true post-write hook.
 
 #### Stage 3.2 Merge Decision (merge.py)
 

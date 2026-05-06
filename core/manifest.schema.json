@@ -72,6 +72,21 @@
     "notes": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "tracked_files": {
+      "type": "object",
+      "description": "Per-managed-file baseline record (Stage 3.1+, opt-in via manifest_updates.update_tracked_files). Keyed by downstream target path.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["synced_at_version", "synced_checksum_sha256"],
+        "properties": {
+          "synced_at_version": { "type": "string" },
+          "synced_checksum_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
     }
   }
 }
