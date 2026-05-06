@@ -107,6 +107,34 @@ def _update_marketplace(path: pathlib.Path, new_ver: str) -> bytes:
 
 
 def _insert_changelog_heading(text: str, new_ver: str, date: str) -> str:
+    """Insert or promote a release heading.
+
+    If a ``## Unreleased`` heading exists, it is promoted in-place to
+    ``## <new_ver> - <date>`` so any prose authors accumulated under
+    Unreleased becomes the body of the new release. This matches the
+    keepachangelog / semantic-release convention and avoids stranding
+    hand-written prose under a stale Unreleased anchor.
+
+    Otherwise, the legacy behavior applies: a fresh
+    ``## <new_ver> - <date>\\n\\n- \\n\\n`` block is inserted above the
+    first dated release heading. The empty bullet is the sentinel
+    :func:`release_prepare.patch_changelog_with_draft` later replaces.
+    """
+
+    unreleased_pattern = re.compile(
+        # Use ``[ \t]*`` (not ``\s*``) so the trailing newline of the
+        # heading line is preserved; otherwise greedy ``\s*`` swallows
+        # the blank line that separates the heading from the first
+        # bullet, producing ``## X.Y.Z - <date>\n- ...`` instead of
+        # ``## X.Y.Z - <date>\n\n- ...``.
+        r"^##[ \t]+Unreleased[ \t]*$",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    m_unreleased = unreleased_pattern.search(text)
+    if m_unreleased:
+        replacement = f"## {new_ver} - {date}"
+        return text[: m_unreleased.start()] + replacement + text[m_unreleased.end():]
+
     pattern = re.compile(
         r"^(##\s+\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\s+-\s+\d{4}-\d{2}-\d{2})",
         re.MULTILINE,

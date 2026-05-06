@@ -542,6 +542,120 @@ class CliApplyTests(unittest.TestCase):
                 ),
             )
 
+    def test_apply_promotes_unreleased_section(self):
+        """When CHANGELOG.md has ``## Unreleased``, --apply promotes it
+        to ``## <next> - <date>`` and does NOT overwrite the prose with
+        the auto-generated draft.
+
+        Asserts the keepachangelog/semantic-release contract: hand-
+        written prose accumulated under Unreleased is preserved as the
+        body of the new release; the auto-draft (terse subject lines)
+        is only used when no Unreleased section exists.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _Fixture(root, version="1.0.0")
+            # Replace the fixture's CHANGELOG with one that has Unreleased prose.
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n"
+                "## Unreleased\n\n"
+                "- Hand-written prose for the upcoming release.\n"
+                "- A second carefully-edited bullet.\n\n"
+                "## 1.0.0 - 2026-01-01\n\n- entry\n",
+                encoding="utf-8",
+            )
+            _git(root, "add", "CHANGELOG.md")
+            _git(root, "commit", "-q", "-m", "docs: write unreleased prose")
+            _commit(root, "feat: alpha")
+
+            buf = io.StringIO()
+            with mock.patch("sys.stdout", buf):
+                rc = rp.main(
+                    [
+                        "--root",
+                        str(root),
+                        "--apply",
+                        "--date",
+                        "2026-05-06",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+            # Unreleased was promoted, not duplicated.
+            self.assertIn("## 1.1.0 - 2026-05-06", text)
+            self.assertNotIn("## Unreleased", text)
+            self.assertEqual(text.count("## 1.1.0 - 2026-05-06"), 1)
+            # Hand-written prose preserved as the new release body.
+            self.assertIn("Hand-written prose for the upcoming release.", text)
+            self.assertIn("A second carefully-edited bullet.", text)
+            # Auto-draft bullet from `feat: alpha` was NOT injected.
+            self.assertNotIn("feat: alpha (", text)
+            # Reported in human output.
+            output = buf.getvalue()
+            self.assertIn("promoted ## Unreleased", output)
+
+    def test_apply_promotion_reported_in_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _Fixture(root, version="1.0.0")
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n## Unreleased\n\n- prose\n\n"
+                "## 1.0.0 - 2026-01-01\n\n- entry\n",
+                encoding="utf-8",
+            )
+            _git(root, "add", "CHANGELOG.md")
+            _git(root, "commit", "-q", "-m", "docs: prose")
+            _commit(root, "feat: alpha")
+
+            buf = io.StringIO()
+            with mock.patch("sys.stdout", buf):
+                rc = rp.main(
+                    [
+                        "--root",
+                        str(root),
+                        "--apply",
+                        "--json",
+                        "--date",
+                        "2026-05-06",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            # ``bump_version`` triggers ``vercheck.report`` which prints a
+            # pretty-table prefix to stdout. Slice from the JSON object
+            # that ``release_prepare`` emits at the end.
+            output = buf.getvalue()
+            # Locate the top-level JSON object (line starting with ``{``).
+            lines = output.splitlines(keepends=True)
+            json_starts = [
+                i for i, ln in enumerate(lines) if ln.rstrip("\n") == "{"
+            ]
+            self.assertTrue(json_starts, msg=f"no JSON in output: {output!r}")
+            data = json.loads("".join(lines[json_starts[0]:]))
+            self.assertTrue(data["unreleased_present"])
+            self.assertTrue(data["applied"]["unreleased_promoted"])
+            self.assertFalse(data["applied"]["changelog_patched"])
+
+    def test_dry_run_reports_unreleased_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _Fixture(root, version="1.0.0")
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n## Unreleased\n\n- prose\n\n"
+                "## 1.0.0 - 2026-01-01\n\n- entry\n",
+                encoding="utf-8",
+            )
+            _git(root, "add", "CHANGELOG.md")
+            _git(root, "commit", "-q", "-m", "docs: prose")
+            _commit(root, "feat: alpha")
+
+            buf = io.StringIO()
+            with mock.patch("sys.stdout", buf):
+                rc = rp.main(["--root", str(root)])
+            self.assertEqual(rc, 0)
+            output = buf.getvalue()
+            self.assertIn("promote ## Unreleased", output)
+            self.assertIn("auto-draft NOT applied", output)
+
     def test_apply_no_relevant_commits_exits_with_message(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

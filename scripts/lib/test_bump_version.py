@@ -113,6 +113,64 @@ class BumpVersionTests(unittest.TestCase):
             self.assertIn("<PENDING>", proc.stderr)
             self.assertIn("1.0.1", proc.stderr)
 
+    def test_promotes_unreleased_section_preserving_prose(self) -> None:
+        """When CHANGELOG has ``## Unreleased``, the bump promotes that
+        heading in place rather than inserting a fresh empty block.
+
+        The hand-written prose under Unreleased becomes the body of the
+        new release; no duplicate heading appears, no empty bullet
+        sentinel is left behind.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _make_fixture(root, "1.0.0")
+            (root / "core").mkdir()
+            shutil.copyfile(self._tags, root / "core" / "release-tags.md")
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n"
+                "## Unreleased\n\n"
+                "- Hand-written prose describing the next release.\n"
+                "- Another bullet with detail.\n\n"
+                "## 1.0.0 - 2026-01-01\n\n- entry\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(bv.bump(root, "1.1.0", "2026-05-06"))
+            text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+            self.assertIn("## 1.1.0 - 2026-05-06", text)
+            self.assertNotIn("## Unreleased", text)
+            self.assertIn("Hand-written prose describing the next release.", text)
+            self.assertIn("Another bullet with detail.", text)
+            # Old release section preserved verbatim.
+            self.assertIn("## 1.0.0 - 2026-01-01", text)
+            # No empty placeholder bullet from legacy insert path.
+            self.assertNotIn("\n## 1.1.0 - 2026-05-06\n\n- \n\n", text)
+            # Heading appears exactly once.
+            self.assertEqual(text.count("## 1.1.0 - 2026-05-06"), 1)
+            # Blank line between heading and first bullet must be preserved
+            # (regression guard: greedy ``\s*`` would swallow the newline).
+            self.assertIn(
+                "## 1.1.0 - 2026-05-06\n\n- Hand-written prose", text
+            )
+            # Version-consistency check still passes.
+            self.assertEqual(vercheck.report(list(vercheck.collect(root))), 0)
+
+    def test_unreleased_promotion_case_insensitive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _make_fixture(root, "1.0.0")
+            (root / "core").mkdir()
+            shutil.copyfile(self._tags, root / "core" / "release-tags.md")
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n## UNRELEASED\n\n- Existing prose.\n\n"
+                "## 1.0.0 - 2026-01-01\n\n- entry\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(bv.bump(root, "1.0.1", "2026-05-06"))
+            text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+            self.assertIn("## 1.0.1 - 2026-05-06", text)
+            self.assertNotIn("UNRELEASED", text)
+            self.assertIn("Existing prose.", text)
+
     def test_cli_strict_passes_on_real_repo(self) -> None:
         proc = subprocess.run(
             [sys.executable, str(LIB / "check_version_consistency.py"), "--strict"],

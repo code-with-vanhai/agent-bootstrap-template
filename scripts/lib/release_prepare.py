@@ -523,6 +523,18 @@ def apply_plan(
             "Conventional Commits. Pass --allow-violations to override "
             "(rare; prefer rebasing)."
         )
+    # Detect the keepachangelog "## Unreleased" promotion path before
+    # bump_version mutates the file, so we can report it accurately.
+    changelog_path = root / "CHANGELOG.md"
+    pre_text = (
+        changelog_path.read_text(encoding="utf-8")
+        if changelog_path.is_file()
+        else ""
+    )
+    unreleased_promoted = bool(
+        re.search(r"^##\s+Unreleased\s*$", pre_text, re.MULTILINE | re.IGNORECASE)
+    )
+
     changed = bump_version.bump(root, plan.next_version, date)
     if not changed:
         # ``bump_version`` returned ``False`` when current already == next;
@@ -532,14 +544,21 @@ def apply_plan(
             "version": plan.next_version,
             "reason": "already-at-version",
             "changelog_patched": False,
+            "unreleased_promoted": False,
         }
-    patched = patch_changelog_with_draft(
-        root, plan.next_version, date, plan.changelog_draft
-    )
+    if unreleased_promoted:
+        # Unreleased prose became the new release body; do not overwrite
+        # human-authored content with the auto-draft.
+        patched = False
+    else:
+        patched = patch_changelog_with_draft(
+            root, plan.next_version, date, plan.changelog_draft
+        )
     return {
         "applied": True,
         "version": plan.next_version,
         "changelog_patched": patched,
+        "unreleased_promoted": unreleased_promoted,
     }
 
 
@@ -548,7 +567,24 @@ def apply_plan(
 # ---------------------------------------------------------------------------
 
 
-def _render_human_plan(plan: Plan, *, applied: dict | None = None) -> str:
+def _detect_unreleased(root: pathlib.Path) -> bool:
+    """Return True when CHANGELOG.md has a ``## Unreleased`` heading."""
+
+    path = root / "CHANGELOG.md"
+    if not path.is_file():
+        return False
+    return bool(
+        re.search(
+            r"^##\s+Unreleased\s*$",
+            path.read_text(encoding="utf-8"),
+            re.MULTILINE | re.IGNORECASE,
+        )
+    )
+
+
+def _render_human_plan(
+    plan: Plan, *, applied: dict | None = None, unreleased_present: bool = False
+) -> str:
     lines: list[str] = []
     lines.append("Release plan")
     lines.append(f"  Repo range:        {plan.range_spec}")
@@ -562,6 +598,16 @@ def _render_human_plan(plan: Plan, *, applied: dict | None = None) -> str:
         lines.append("  Suggested bump:    none (no release-relevant commits)")
     lines.append(f"  Commits in range:  {len(plan.commits)}")
     lines.append(f"  CC violations:     {len(plan.violations)}")
+    if unreleased_present:
+        lines.append(
+            "  CHANGELOG mode:    promote ## Unreleased "
+            "(prose preserved; auto-draft NOT applied)"
+        )
+    else:
+        lines.append(
+            "  CHANGELOG mode:    insert new heading "
+            "(auto-draft replaces empty bullet placeholder)"
+        )
     if plan.violations:
         for v in plan.violations:
             lines.append(f"    - {v['sha'][:12]} {v['subject']!r} -> {v['reason']}")
@@ -575,10 +621,13 @@ def _render_human_plan(plan: Plan, *, applied: dict | None = None) -> str:
         lines.append("Pass --apply to bump version sources and patch CHANGELOG.")
     else:
         if applied["applied"]:
-            lines.append(
-                f"Applied: bumped to {applied['version']}; "
-                f"CHANGELOG patched={applied['changelog_patched']}."
+            promoted = applied.get("unreleased_promoted", False)
+            tail = (
+                " (promoted ## Unreleased section; auto-draft not applied)"
+                if promoted
+                else f"; CHANGELOG patched={applied['changelog_patched']}"
             )
+            lines.append(f"Applied: bumped to {applied['version']}{tail}.")
         else:
             lines.append(
                 f"No-op: already at {applied['version']} ({applied.get('reason', '')})."
@@ -698,6 +747,10 @@ def main(argv: list[str] | None = None) -> int:
 
     date = args.date or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
 
+    # Capture state BEFORE apply so the rendered plan accurately reports
+    # the CHANGELOG mode (Unreleased section is consumed by apply).
+    unreleased_present = _detect_unreleased(root)
+
     applied: dict | None = None
     if args.apply:
         applied = apply_plan(
@@ -711,9 +764,14 @@ def main(argv: list[str] | None = None) -> int:
         out = plan.to_dict()
         out["applied"] = applied
         out["date"] = date
+        out["unreleased_present"] = unreleased_present
         sys.stdout.write(json.dumps(out, indent=2) + "\n")
     else:
-        sys.stdout.write(_render_human_plan(plan, applied=applied))
+        sys.stdout.write(
+            _render_human_plan(
+                plan, applied=applied, unreleased_present=unreleased_present
+            )
+        )
     return 0
 
 
