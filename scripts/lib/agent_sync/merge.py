@@ -30,8 +30,8 @@ import hashlib
 import sys
 from collections import namedtuple
 
-from .errors import ConflictError
-from .git_ops import git_show, sha, tag_for
+from .errors import ConflictError, UsageError
+from .git_ops import git_show, sha, tag_exists, tag_for, try_git_show
 from .io_utils import read_bytes, write_bytes
 
 
@@ -40,6 +40,26 @@ AcceptedRecord = namedtuple("AcceptedRecord", ["path", "reason", "source"])
 
 REASON_USER_FLAG = "user-flag"
 REASON_CATALOG_BASELINE_MATCH = "catalog-baseline-match"
+REASON_FAST_PATH = "checksum-fast-path"
+
+
+def _ensure_tags_for_three_way(template_root, migration, _state):
+    """Lazy per-hop tag check for the 3-way merge fall-through path.
+
+    Idempotent — once both ``v<from>`` and ``v<to>`` are confirmed for a
+    hop, the second-and-later 3-way fall-throughs in the same hop skip
+    the subprocess. Stage 3.2 deliberately makes the check lazy so a hop
+    where every entry takes the checksum fast-path never needs ``v<from>``
+    to exist locally (AC-6).
+    """
+    if _state.get("validated"):
+        return
+    for version in (migration["from"], migration["to"]):
+        if not tag_exists(template_root, version):
+            raise UsageError(
+                f"version {version} requires tag {tag_for(version)}; try git fetch --tags"
+            )
+    _state["validated"] = True
 
 
 def _sha256_hex(data):
@@ -93,6 +113,7 @@ def plan_safe_overwrites(
     accepted,
     known_conflicts=None,
     catalog_source_label=None,
+    tracked_files=None,
 ):
     """Plan ``safe_overwrite`` writes with hash-guarded catalog support.
 
@@ -110,7 +131,17 @@ def plan_safe_overwrites(
         Free-form string (e.g. ``"0.7.0->0.8.0 catalog"``) used in the
         accepted record's ``source`` field so the sync-log can attribute
         the auto-accept to the originating hop.
+    tracked_files:
+        Optional ``manifest.tracked_files`` map (Stage 3.1+) used by the
+        Stage 3.2 checksum fast-path. When ``ours`` matches the
+        recorded ``synced_checksum_sha256`` for ``target_rel``, only
+        ``v<to>`` is consulted (for ``theirs``); ``v<from>`` is never
+        touched (AC-6). Absent map means every entry takes the existing
+        3-way merge path, preserving pre-Stage-3.2 behavior verbatim.
     """
+
+    tracked_files = tracked_files if isinstance(tracked_files, dict) else {}
+    tag_state = {"validated": False}
 
     for entry in entries:
         source = entry["source"]
@@ -121,9 +152,46 @@ def plan_safe_overwrites(
         target_path = target / target_rel
         if entry.get("skip_if_target_missing") and not target_path.exists():
             continue
+        ours = read_bytes(target_path)
+
+        # Stage 3.2 fast-path: when ``ours`` matches a recorded
+        # ``synced_checksum_sha256``, the only template-side bytes we
+        # need are ``theirs`` from ``v<to>``. ``v<from>`` is never
+        # consulted on this branch — that is what makes AC-6 hold in an
+        # ephemeral mirror missing ``v<from>``. ``try_git_show`` returns
+        # None on either tag-missing or path-missing; both fall through
+        # to 3-way merge which raises the existing tag-required hint.
+        record = tracked_files.get(target_rel)
+        if (
+            isinstance(record, dict)
+            and ours is not None
+            and isinstance(record.get("synced_checksum_sha256"), str)
+            and record["synced_checksum_sha256"] == _sha256_hex(ours)
+        ):
+            theirs_fast = try_git_show(template_root, migration["to"], source)
+            if theirs_fast is not None:
+                if theirs_fast == ours:
+                    continue
+                writes[target_rel] = theirs_fast
+                accepted.append(
+                    AcceptedRecord(
+                        path=target_rel,
+                        reason=REASON_FAST_PATH,
+                        source=f"tracked_files@{record.get('synced_at_version', '?')}",
+                    )
+                )
+                updated.append(target_rel)
+                continue
+            # theirs_fast is None: fall through to 3-way merge so the
+            # existing missing-tag UsageError surfaces with the
+            # actionable "git fetch --tags" hint.
+
+        # 3-way merge (unchanged semantics). Lazy tag check fires on
+        # the first entry that actually needs it; fast-path entries do
+        # not pay this cost.
+        _ensure_tags_for_three_way(template_root, migration, tag_state)
         base = git_show(template_root, migration["from"], source)
         theirs = git_show(template_root, migration["to"], source, required=True)
-        ours = read_bytes(target_path)
 
         if ours == theirs:
             continue

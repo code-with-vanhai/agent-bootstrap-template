@@ -72,6 +72,18 @@ def git_show(repo, version, source_path, required=False):
     return None
 
 
+def try_git_show(repo, version, source_path):
+    """Stage 3.2: non-raising alias for ``git_show(required=False)``.
+
+    Returns ``None`` whenever the byte read cannot complete — either
+    because ``v<version>`` does not exist (e.g. ephemeral mirror
+    missing the tag) or because ``source_path`` did not exist at that
+    tag. Callers that already handle either failure identically should
+    use this name to make the intent obvious at the call site.
+    """
+    return git_show(repo, version, source_path, required=False)
+
+
 def sha(data):
     if data is None:
         return "missing"

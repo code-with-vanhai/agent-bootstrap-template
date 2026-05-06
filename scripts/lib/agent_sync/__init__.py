@@ -34,6 +34,7 @@ from .git_ops import (
     tag_commit,
     tag_exists,
     tag_for,
+    try_git_show,
 )
 from .io_utils import (
     dump_manifest,
@@ -119,6 +120,7 @@ __all__ = [
     "tag_exists",
     "tag_for",
     "target_clean",
+    "try_git_show",
     "validate_version",
     "write_bytes",
 ]

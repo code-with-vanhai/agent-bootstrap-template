@@ -35,7 +35,7 @@ from .errors import (
     SyncError,
     UsageError,
 )
-from .git_ops import run_git, tag_commit, tag_exists, tag_for
+from .git_ops import run_git, tag_commit
 from .io_utils import read_json
 from .manifest_ops import plan_manifest
 from .merge import apply_writes, collect_orphans, plan_safe_overwrites
@@ -87,6 +87,7 @@ def _execute_hop_on_temp(
         accepted,
         known_conflicts=known_conflicts,
         catalog_source_label=catalog_label,
+        tracked_files=manifest.get("tracked_files") or {},
     )
     plan_patches(work_target, migration, writes, updated)
     plan_codex_wrappers(
@@ -159,11 +160,13 @@ def run_multi_hop(args, template_root, target, accept_theirs):
     if not chain:
         raise NoPathError(f"empty migration chain from {current} to {to_version}")
 
-    for version in [current] + chain:
-        if not tag_exists(template_root, version):
-            raise UsageError(
-                f"version {version} requires tag {tag_for(version)}; try git fetch --tags"
-            )
+    # Stage 3.2: tag existence is no longer validated up-front for the
+    # full chain. ``plan_safe_overwrites`` lazily checks each hop's
+    # ``v<from>`` / ``v<to>`` only when an entry falls through to the
+    # 3-way merge branch, so a chain whose every entry takes the
+    # checksum fast-path can complete without all intermediate tags
+    # present (AC-6). Missing tags still surface with the existing
+    # "git fetch --tags" hint via ``merge._ensure_tags_for_three_way``.
 
     # Q-2 / Stage 1 Risk: a migration may declare
     # ``block_auto_walk_through: true`` to refuse being silently traversed

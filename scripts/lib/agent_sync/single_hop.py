@@ -25,7 +25,7 @@ from .errors import (
     NoPathError,
     UsageError,
 )
-from .git_ops import run_git, tag_commit, tag_exists, tag_for
+from .git_ops import run_git, tag_commit
 from .io_utils import read_json
 from .manifest_ops import plan_manifest
 from .merge import apply_writes, collect_orphans, plan_safe_overwrites
@@ -76,15 +76,13 @@ def run_single_hop(args, template_root, target, accept_theirs):
     if not candidate_sources:
         raise UsageError("migration must declare either `from` or `from_versions`")
 
-    if not tag_exists(template_root, migration["to"]):
-        raise UsageError(
-            f"version {migration['to']} requires tag {tag_for(migration['to'])}; try git fetch --tags"
-        )
-    for version in candidate_sources:
-        if not tag_exists(template_root, version):
-            raise UsageError(
-                f"version {version} requires tag {tag_for(version)}; try git fetch --tags"
-            )
+    # Stage 3.2: tag existence is no longer validated up-front. The
+    # 3-way merge path inside ``plan_safe_overwrites`` lazily checks
+    # ``v<from>`` and ``v<to>`` only when an entry actually needs them,
+    # which lets the Stage 3.2 checksum fast-path complete a hop in an
+    # ephemeral mirror missing ``v<from>`` (AC-6). The actionable
+    # "git fetch --tags" hint is preserved on fall-through, see
+    # ``merge._ensure_tags_for_three_way``.
 
     if not target.exists():
         raise UsageError(f"target does not exist: {target}")
@@ -163,6 +161,7 @@ def run_single_hop(args, template_root, target, accept_theirs):
             accepted,
             known_conflicts=known_conflicts,
             catalog_source_label=catalog_label,
+            tracked_files=manifest.get("tracked_files") or {},
         )
         plan_patches(target, migration, writes, updated)
         plan_codex_wrappers(
