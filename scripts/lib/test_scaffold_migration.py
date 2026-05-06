@@ -260,6 +260,74 @@ class ClassifySourcePathTests(unittest.TestCase):
         )
 
 
+class SkillEntriesTests(unittest.TestCase):
+    """Conditional dual-target mapping for ``core/skills/<skill>/<...>``.
+
+    Pinned by ``core/migrations/0.9.0/migration.json`` which emits two
+    ``safe_overwrite`` rows per skill source — one under
+    ``.agents/skills/agent-bootstrap`` and one under
+    ``.claude/skills/agent-bootstrap`` — each guarded by an
+    ``enabled_when_path_exists`` matching the downstream root. Top-level
+    files under ``core/skills/`` (``README.md``, ``manifest.json``)
+    remain template-internal and stay skipped.
+    """
+
+    def test_skill_source_emits_two_entries(self):
+        entries = scaffold_migration.classify_source_path_entries(
+            "core/skills/data-safety/SKILL.md"
+        )
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(
+            entries[0],
+            (
+                "emit",
+                "core/skills/data-safety/SKILL.md",
+                ".agents/skills/agent-bootstrap/data-safety/SKILL.md",
+                False,
+                {"enabled_when_path_exists": ".agents/skills/agent-bootstrap"},
+            ),
+        )
+        self.assertEqual(
+            entries[1],
+            (
+                "emit",
+                "core/skills/data-safety/SKILL.md",
+                ".claude/skills/agent-bootstrap/data-safety/SKILL.md",
+                False,
+                {"enabled_when_path_exists": ".claude/skills/agent-bootstrap"},
+            ),
+        )
+
+    def test_skill_top_level_files_stay_skipped(self):
+        # core/skills/README.md and core/skills/manifest.json are
+        # template-internal — they describe the skill catalogue but
+        # are not synced downstream.
+        for src in ("core/skills/README.md", "core/skills/manifest.json"):
+            entries = scaffold_migration.classify_source_path_entries(src)
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0][0], "skip", src)
+
+    def test_skill_removal_keys_are_dual(self):
+        keys = scaffold_migration.removal_tracked_files_keys(
+            "core/skills/data-safety/SKILL.md"
+        )
+        self.assertEqual(
+            keys,
+            [
+                ".agents/skills/agent-bootstrap/data-safety/SKILL.md",
+                ".claude/skills/agent-bootstrap/data-safety/SKILL.md",
+            ],
+        )
+
+    def test_classify_source_path_returns_first_skill_entry(self):
+        # Backward-compat shim — first downstream root.
+        kind, src, tgt, review, extras = scaffold_migration.classify_source_path(
+            "core/skills/data-safety/SKILL.md"
+        )
+        self.assertEqual(kind, "emit")
+        self.assertEqual(tgt, ".agents/skills/agent-bootstrap/data-safety/SKILL.md")
+
+
 class IsTemplateTestFileTests(unittest.TestCase):
     """Pin the ``scripts/**/test_*.py`` heuristic that drives the
     default-on test-exclusion policy. Must be conservative: only
@@ -469,6 +537,72 @@ class BuildSkeletonTests(unittest.TestCase):
             "tracked_files_remove",
             skeleton["manifest_updates"],
         )
+
+    def test_skill_add_emits_dual_safe_overwrite_entries(self):
+        # End-to-end: a release that adds a new skill source must
+        # produce two safe_overwrite rows (one per Claude native skill
+        # root), each with the matching ``enabled_when_path_exists``
+        # guard. Mirrors core/migrations/0.9.0/migration.json.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = _init_synthetic_repo(tmp)
+            _write(repo, "core/commands/a.md", "# a\n")
+            _git(repo, "add", ".")
+            _git(repo, "commit", "-q", "-m", "v0.1.0")
+            _git(repo, "tag", "-a", "v0.1.0", "-m", "v0.1.0")
+
+            _write(
+                repo,
+                "core/skills/data-safety/SKILL.md",
+                "# data safety\n",
+            )
+            _git(repo, "add", ".")
+            _git(repo, "commit", "-q", "-m", "v0.2.0")
+            _git(repo, "tag", "-a", "v0.2.0", "-m", "v0.2.0")
+
+            skeleton, _report = scaffold_migration.build_skeleton(
+                repo, "0.1.0", "0.2.0"
+            )
+            skill_rows = [
+                e for e in skeleton["safe_overwrite"]
+                if e["source"] == "core/skills/data-safety/SKILL.md"
+            ]
+            self.assertEqual(len(skill_rows), 2)
+            targets = {e["target"] for e in skill_rows}
+            self.assertEqual(
+                targets,
+                {
+                    ".agents/skills/agent-bootstrap/data-safety/SKILL.md",
+                    ".claude/skills/agent-bootstrap/data-safety/SKILL.md",
+                },
+            )
+            for row in skill_rows:
+                self.assertIn("enabled_when_path_exists", row)
+                self.assertTrue(
+                    row["target"].startswith(row["enabled_when_path_exists"] + "/")
+                )
+
+    def test_skill_top_level_readme_still_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = _init_synthetic_repo(tmp)
+            _write(repo, "core/commands/a.md", "# a\n")
+            _git(repo, "add", ".")
+            _git(repo, "commit", "-q", "-m", "v0.1.0")
+            _git(repo, "tag", "-a", "v0.1.0", "-m", "v0.1.0")
+
+            _write(repo, "core/skills/README.md", "# skill catalogue\n")
+            _write(repo, "core/skills/manifest.json", "{}\n")
+            _git(repo, "add", ".")
+            _git(repo, "commit", "-q", "-m", "v0.2.0")
+            _git(repo, "tag", "-a", "v0.2.0", "-m", "v0.2.0")
+
+            skeleton, report = scaffold_migration.build_skeleton(
+                repo, "0.1.0", "0.2.0"
+            )
+            sources = {e["source"] for e in skeleton["safe_overwrite"]}
+            self.assertNotIn("core/skills/README.md", sources)
+            self.assertNotIn("core/skills/manifest.json", sources)
+            self.assertIn("core/skills/README.md", report["skipped"])
+            self.assertIn("core/skills/manifest.json", report["skipped"])
 
     def test_pre_1_0_hop_with_no_renames_keeps_update_tracked_files_off(self):
         with tempfile.TemporaryDirectory() as tmp:

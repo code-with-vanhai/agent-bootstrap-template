@@ -93,6 +93,17 @@ _CORE_EXACT_MAP = {
     "core/README.md": ".agent/README.md",
 }
 
+# Native-skills source files map to TWO downstream targets — one per
+# Claude native skill root — guarded by ``enabled_when_path_exists`` so
+# a downstream repo that opted out of one root does not get an unrelated
+# tree materialized. Mirrors ``core/migrations/0.9.0/migration.json`` for
+# ``core/skills/data-safety/SKILL.md``.
+_SKILL_SOURCE_PREFIX = "core/skills/"
+_SKILL_DOWNSTREAM_ROOTS = (
+    ".agents/skills/agent-bootstrap",
+    ".claude/skills/agent-bootstrap",
+)
+
 # ``adapters/*.md(c)`` in the template repo map to discrete downstream
 # targets matching `core/migrations/0.9.0/migration.json` semantics.
 _ADAPTER_MAP = {
@@ -157,10 +168,11 @@ _SKIP_PREFIXES = (
     "core/migrations/",
     "core/github/",
     "core/mcp/",
-    "core/skills/",
 )
 _SKIP_EXACT = frozenset(
     {
+        "core/skills/README.md",
+        "core/skills/manifest.json",
         "core/release-process.md",
         "core/release-tags.md",
         "core/research-basis.md",
@@ -224,6 +236,11 @@ def classify_source_path(source):
     for prefix in _SKIP_PREFIXES:
         if source.startswith(prefix):
             return ("skip", source, None, False, {})
+    if source.startswith(_SKILL_SOURCE_PREFIX):
+        # Skill paths produce multiple entries — return the first as a
+        # backward-compat shim. Multi-entry callers must use
+        # ``classify_source_path_entries``.
+        return _classify_skill_entries(source)[0]
     if source in _CORE_EXACT_MAP:
         return ("emit", source, _CORE_EXACT_MAP[source], False, {})
     for src_prefix, tgt_prefix in _AUTO_MAP_PREFIXES:
@@ -238,6 +255,55 @@ def classify_source_path(source):
         tgt = f".agent/{head}.{tail}"
         return ("emit", source, tgt, False, {})
     return ("emit", source, source, True, {})
+
+
+def _classify_skill_entries(source):
+    """Return the list of dual-target entries for a ``core/skills/`` path.
+
+    Empirically (verified against ``core/migrations/0.9.0/migration.json``)
+    only nested skill content (``core/skills/<skill>/<...>``) gets the
+    dual ``.agents/`` + ``.claude/`` mapping. Top-level files under
+    ``core/skills/`` (``README.md``, ``manifest.json``) are
+    template-internal and stay in ``_SKIP_EXACT``.
+    """
+
+    rel = source[len(_SKILL_SOURCE_PREFIX):]
+    if "/" not in rel:
+        # Top-level files under core/skills/ are handled by _SKIP_EXACT
+        # — this branch only fires for paths the skip list missed.
+        return [("skip", source, None, False, {})]
+    entries = []
+    for root in _SKILL_DOWNSTREAM_ROOTS:
+        target = f"{root}/{rel}"
+        entries.append(
+            (
+                "emit",
+                source,
+                target,
+                False,
+                {"enabled_when_path_exists": root},
+            )
+        )
+    return entries
+
+
+def classify_source_path_entries(source):
+    """Return all migration entries for ``source`` (multi-target aware).
+
+    Most paths produce a single entry — this function is a thin wrapper
+    around :func:`classify_source_path`. ``core/skills/<skill>/<...>``
+    paths produce two entries (one per Claude native skill root) so
+    a single template source can land in both ``.agents/skills/...``
+    and ``.claude/skills/...`` with the appropriate
+    ``enabled_when_path_exists`` guard.
+
+    Each element has the same ``(kind, source, target, review, extras)``
+    shape as :func:`classify_source_path`. Pure / no I/O.
+    """
+
+    if source.startswith(_SKILL_SOURCE_PREFIX) and source not in _SKIP_EXACT:
+        return _classify_skill_entries(source)
+    return [classify_source_path(source)]
 
 
 # ---------------------------------------------------------------------------
@@ -387,15 +453,32 @@ def _diff_full_repo(repo, from_version, to_version):
     return _parse_name_status(text)
 
 
-def removal_tracked_files_key(source_path):
-    """Return downstream key for ``tracked_files_remove``, or ``None`` if skipped."""
+def removal_tracked_files_keys(source_path):
+    """Return all downstream keys for ``tracked_files_remove``.
 
-    kind, _, target, _, _ = classify_source_path(source_path)
-    if kind == "skip":
-        return None
-    if kind != "emit" or target is None:
-        return source_path
-    return target
+    Returns ``[]`` if the path is template-internal (skipped). For
+    multi-target sources (``core/skills/<skill>/<...>``) returns one
+    key per downstream root so a delete / rename clears every record
+    the writer might have written for that source.
+    """
+
+    keys = []
+    has_emit = False
+    for kind, _, target, _, _ in classify_source_path_entries(source_path):
+        if kind == "skip":
+            continue
+        has_emit = True
+        keys.append(target if target is not None else source_path)
+    if not has_emit:
+        return []
+    return keys
+
+
+def removal_tracked_files_key(source_path):
+    """Backward-compat: first downstream key, or ``None`` if skipped."""
+
+    keys = removal_tracked_files_keys(source_path)
+    return keys[0] if keys else None
 
 
 # ---------------------------------------------------------------------------
@@ -475,16 +558,21 @@ def build_skeleton(repo, from_version, to_version, *, include_tests=False):
         # under ``classify_source_path``.
         return (not include_tests) and is_template_test_file(source)
 
+    def _emit_or_skip(source):
+        entries = classify_source_path_entries(source)
+        if all(e[0] == "skip" for e in entries):
+            skipped.append(source)
+            return
+        for entry in entries:
+            if entry[0] == "skip":
+                continue
+            emit_entry(*entry)
+
     for source in sorted(set(scoped_diff["added"]) | set(scoped_diff["modified"])):
         if _filtered_test(source):
             skipped.append(source)
             continue
-        tup = classify_source_path(source)
-        kind, src, tgt, review, extras = tup
-        if kind == "skip":
-            skipped.append(source)
-            continue
-        emit_entry(kind, src, tgt, review, extras)
+        _emit_or_skip(source)
 
     # Renames: emit a removal for the OLD target (if it had a known
     # downstream mapping) and a safe_overwrite for the NEW source.
@@ -492,36 +580,26 @@ def build_skeleton(repo, from_version, to_version, *, include_tests=False):
         if _filtered_test(old_source):
             skipped.append(old_source)
         else:
-            old_kind, _, _, old_review, _ = classify_source_path(old_source)
-            rk = removal_tracked_files_key(old_source)
-            if rk is not None:
-                tracked_files_remove.append(rk)
-            if old_kind != "skip" and old_review:
+            old_entries = classify_source_path_entries(old_source)
+            tracked_files_remove.extend(removal_tracked_files_keys(old_source))
+            if any(e[0] == "emit" and e[3] for e in old_entries):
                 review_required.append(f"removed: {old_source} (rename)")
         if _filtered_test(new_source):
             skipped.append(new_source)
             continue
-        tup = classify_source_path(new_source)
-        kind, src, tgt, review, extras = tup
-        if kind == "skip":
-            skipped.append(new_source)
-        else:
-            emit_entry(kind, src, tgt, review, extras)
+        _emit_or_skip(new_source)
 
     # Pure deletes: removal only.
     for source in scoped_diff["deleted"]:
         if _filtered_test(source):
             skipped.append(source)
             continue
-        tup = classify_source_path(source)
-        kind, _, _, review, _ = tup
-        if kind == "skip":
+        entries = classify_source_path_entries(source)
+        if all(e[0] == "skip" for e in entries):
             skipped.append(source)
             continue
-        rk = removal_tracked_files_key(source)
-        if rk is not None:
-            tracked_files_remove.append(rk)
-        if review:
+        tracked_files_remove.extend(removal_tracked_files_keys(source))
+        if any(e[0] == "emit" and e[3] for e in entries):
             review_required.append(f"removed: {source}")
 
     # Copies are rare; treat the new path like an add.
@@ -529,12 +607,7 @@ def build_skeleton(repo, from_version, to_version, *, include_tests=False):
         if _filtered_test(new_source):
             skipped.append(new_source)
             continue
-        tup = classify_source_path(new_source)
-        kind, src, tgt, review, extras = tup
-        if kind == "skip":
-            skipped.append(new_source)
-        else:
-            emit_entry(kind, src, tgt, review, extras)
+        _emit_or_skip(new_source)
 
     tracked_files_remove = sorted(set(tracked_files_remove))
 
