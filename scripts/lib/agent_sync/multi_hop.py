@@ -93,7 +93,16 @@ def _execute_hop_on_temp(
     plan_codex_wrappers(
         template_root, work_target, migration, manifest, accept_theirs, writes, updated, accepted
     )
-    plan_manifest(template_root, work_target, migration, manifest, sync_now, writes, updated)
+    plan_manifest(
+        template_root,
+        work_target,
+        migration,
+        manifest,
+        sync_now,
+        writes,
+        updated,
+        entries=entries,
+    )
 
     planned_targets = set(writes) | {entry["target"] for entry in entries}
     generator = migration.get("generate_codex_command_wrappers") or {}
@@ -266,6 +275,7 @@ def run_multi_hop(args, template_root, target, accept_theirs):
                 write_count=len(rehearsal_writes),
                 patch_count=rehearsal_patch_count,
                 orphan_count=len(rehearsal_orphans),
+                tracked_files=manifest.get("tracked_files") or {},
             )
 
         if not args.apply:

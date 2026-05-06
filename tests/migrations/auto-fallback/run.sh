@@ -55,6 +55,14 @@ ensure_tag "0.8.0" ""
 ensure_tag "0.8.1" ""
 ensure_tag "0.9.0" ""
 ensure_tag "0.10.0" ""
+# Stage 3.3 added core/migrations/1.0.0/, which advances "latest
+# migratable" to 1.0.0 and brings the 0.10.0 -> 0.11.0 -> 1.0.0 hops
+# into the auto-fallback Case 3 / Case 5 chain. v0.11.0 is a real
+# release tag; v1.0.0 is unreleased so the fixture seeds it
+# ephemerally (HEAD content is not consulted because the 1.0.0
+# migration's safe_overwrite is empty).
+ensure_tag "0.11.0" ""
+ensure_tag "1.0.0" ""
 
 assert_eq() {
   local got="$1" want="$2" desc="$3"

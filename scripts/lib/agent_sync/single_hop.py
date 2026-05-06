@@ -171,7 +171,16 @@ def run_single_hop(args, template_root, target, accept_theirs):
         sync_now = os.environ.get("AGENT_SYNC_NOW") or dt.datetime.now(
             dt.timezone.utc
         ).strftime("%Y-%m-%dT%H:%M:%SZ")
-        plan_manifest(template_root, target, migration, manifest, sync_now, writes, updated)
+        plan_manifest(
+            template_root,
+            target,
+            migration,
+            manifest,
+            sync_now,
+            writes,
+            updated,
+            entries=entries,
+        )
 
         planned_targets = set(writes) | {entry["target"] for entry in entries}
         generator = migration.get("generate_codex_command_wrappers") or {}
@@ -208,6 +217,7 @@ def run_single_hop(args, template_root, target, accept_theirs):
                 write_count=len(writes),
                 patch_count=len(migration.get("patches") or []),
                 orphan_count=len(orphans),
+                tracked_files=manifest.get("tracked_files") or {},
             )
 
         if not args.apply:

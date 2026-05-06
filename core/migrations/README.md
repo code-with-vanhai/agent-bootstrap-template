@@ -391,14 +391,14 @@ walker refuses chains that pass through it. Default is `false` (no
 behavior change). Use this when a release introduces a one-off manual
 step that downstream operators must acknowledge before continuing.
 
-### Notes on tracked_files (added in Stage 3.1, schema v1 additive)
+### Notes on tracked_files (added in Stage 3.1, extended in Stage 3.3, schema v1 additive)
 
 `manifest.tracked_files` is an additive map keyed by downstream target
 path that records, for each managed file, the template version it was
 last synced from and a sha256 of the bytes the runner wrote. The map
 is the foundation for the Stage 3.2 checksum fast-path (skip 3-way
-merge for unmodified files) and the Stage 3.3 one-shot 1.0.0 backfill;
-this slice ships the writer only.
+merge for unmodified files) and the Stage 3.3 one-shot 1.0.0
+backfill.
 
 ```json
 {
@@ -433,17 +433,64 @@ Behavioral notes:
   by the runner.
 - Schema v1's `manifest_updates.replace` directive only does top-level
   scalar upsert, so it cannot remove an entry under
-  `manifest.tracked_files`. When Stage 3.3 lands a 1.0.0 migration that
-  relocates or removes a managed file, that migration MUST author an
-  explicit `manifest_updates.tracked_files_remove: ["<old/path>"]`
-  directive (to be added alongside the writer; not yet implemented in
-  Stage 3.1). Until Stage 3.3 introduces that directive, no migration
-  in the live tree relocates a tracked file, so the issue is latent.
-  This is tracked as a Stage 3 risk in
-  `docs/2026-05-05-migration-ux-improvement-plan.md`.
+  `manifest.tracked_files`. The Stage 3.3 explicit-removal directive
+  (`manifest_updates.tracked_files_remove`) is the supported way to
+  drop stale entries when a migration relocates or deletes a managed
+  file. See "Notes on tracked_files_remove" below.
 
-This block intentionally documents the writer contract only; the
-checksum fast-path in `merge.py` is deferred to Stage 3.2.
+#### Stage 3.3 one-shot backfill at 1.0.0
+
+The 1.0.0 migration is the first to set
+`manifest_updates.update_tracked_files: true`. On apply, the runner
+performs a **one-shot disk backfill** before the per-write Stage 3.1
+refresh:
+
+1. Enumerate every `expand_file_entries` row for the active migration
+   plus every path under `manifest.canonical_files`.
+2. For each existing managed file on disk, record
+   `tracked_files[<path>] = {synced_at_version: <current>,
+   synced_checksum_sha256: sha256(disk)}`. Note the version is the
+   manifest's pre-hop sync version, not the migration's `to`,
+   because the bytes hashed are what the user has on disk right
+   now.
+3. The Stage 3.1 writer then refreshes any entry whose path the hop
+   actually rewrites with `synced_at_version: <to>` and the freshly
+   written bytes' sha256.
+
+The backfill is idempotent: re-running an already-synced 1.0.0
+short-circuits at the `current == to_version` guard before reaching
+the planner.
+
+### Notes on tracked_files_remove (added in Stage 3.3, schema v1 additive)
+
+When a future migration relocates or deletes a managed file, that
+migration MUST author an explicit removal directive. The directive
+lives under `manifest_updates`:
+
+```json
+"manifest_updates": {
+  ...
+  "update_tracked_files": true,
+  "tracked_files_remove": [
+    ".agent/old/path.md"
+  ]
+}
+```
+
+Semantics:
+
+- Activates on the same `update_tracked_files: true` flag as the
+  writer, so a migration that turns the writer off accidentally also
+  turns the removal off (no surprise mutations).
+- Each listed path is removed from `manifest.tracked_files` if
+  present; missing keys are skipped silently (idempotent).
+- Run **after** the per-write refresh, so a hop that both relocates
+  a file and writes the new path lands in the correct end state in
+  one apply.
+
+This is the supported alternative to abusing `manifest_updates.replace:
+{"tracked_files.foo": null}` (which would not work — `replace` does
+top-level scalar upsert only).
 
 ---
 

@@ -33,7 +33,11 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "lib"))
 
 from agent_sync.tracked_files import (  # noqa: E402
     TRACKED_FILES_KEY,
+    TRACKED_FILES_REMOVE_KEY,
     UPDATE_TRACKED_FILES_FLAG,
+    apply_tracked_files_remove,
+    backfill_tracked_files,
+    collect_backfill_paths,
     compute_tracked_record,
     populate_tracked_files,
     should_update_tracked_files,
@@ -292,6 +296,312 @@ class PlanManifestIntegrationTests(unittest.TestCase):
             ],
             _sha(b"# rulebase\n"),
         )
+
+
+class CollectBackfillPathsTests(unittest.TestCase):
+    """``collect_backfill_paths`` is the de-duplicated source for both the
+    Stage 3.3 backfill helper and any future preflight that wants to
+    quote the same scope. Locks down ordering and the skip-paths
+    filter.
+    """
+
+    def _entry(self, target):
+        return {"source": target, "target": target, "kind": "safe_overwrite"}
+
+    def test_entries_listed_first_canonical_appended(self):
+        manifest = {"canonical_files": [".agent/rulebase.md", ".agent/gates.md"]}
+        entries = [self._entry(".agent/constitution.md"), self._entry(".agent/rulebase.md")]
+        paths = collect_backfill_paths(entries, manifest)
+        # Entry order preserved; canonical appended for items not already seen.
+        self.assertEqual(
+            paths,
+            [".agent/constitution.md", ".agent/rulebase.md", ".agent/gates.md"],
+        )
+
+    def test_skip_paths_filtered(self):
+        manifest = {"canonical_files": [".agent/manifest.json", ".agent/gates.md"]}
+        entries = [
+            self._entry(".agent/sync-log.md"),
+            self._entry(".agent/rulebase.md"),
+        ]
+        paths = collect_backfill_paths(entries, manifest)
+        self.assertEqual(paths, [".agent/rulebase.md", ".agent/gates.md"])
+
+    def test_handles_missing_inputs_safely(self):
+        self.assertEqual(collect_backfill_paths(None, None), [])
+        self.assertEqual(collect_backfill_paths([], {}), [])
+        self.assertEqual(collect_backfill_paths([{}], {"canonical_files": [123]}), [])
+
+
+class BackfillTrackedFilesTests(unittest.TestCase):
+    """One-shot backfill semantics (Stage 3.3 / D-7).
+
+    Locks down five contracts:
+
+    1. Default-off when the migration does not opt in.
+    2. Records ``synced_at_version=current``, NOT ``to``.
+    3. Files absent on disk are skipped (no fabricated entries).
+    4. Pre-existing entries for paths outside the backfill scope are
+       preserved verbatim.
+    5. Combined with :func:`populate_tracked_files`, paths the hop
+       writes get refreshed to ``synced_at_version=to``.
+    """
+
+    def setUp(self):
+        import tempfile
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.target = Path(self.tmp.name)
+
+    def _write(self, rel, body):
+        path = self.target / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+        return body
+
+    def _migration(self, *, opt_in, to="1.0.0"):
+        updates = {}
+        if opt_in:
+            updates[UPDATE_TRACKED_FILES_FLAG] = True
+        return {
+            "schema_version": 1,
+            "version": to,
+            "to": to,
+            "manifest_updates": updates,
+        }
+
+    def test_default_off_no_op(self):
+        body = self._write(".agent/rulebase.md", b"# rb\n")
+        manifest = OrderedDict(canonical_files=[".agent/rulebase.md"])
+        out = backfill_tracked_files(
+            manifest,
+            self._migration(opt_in=False),
+            self.target,
+            entries=[],
+            current_version="0.11.0",
+        )
+        self.assertNotIn(TRACKED_FILES_KEY, out)
+        # Sanity check we actually had the byte to hash had backfill fired.
+        self.assertEqual(_sha(body), _sha(b"# rb\n"))
+
+    def test_records_synced_at_version_as_current_not_to(self):
+        body = self._write(".agent/rulebase.md", b"# disk bytes\n")
+        manifest = OrderedDict(canonical_files=[".agent/rulebase.md"])
+        out = backfill_tracked_files(
+            manifest,
+            self._migration(opt_in=True, to="1.0.0"),
+            self.target,
+            entries=[],
+            current_version="0.11.0",
+        )
+        record = out[TRACKED_FILES_KEY][".agent/rulebase.md"]
+        self.assertEqual(record["synced_at_version"], "0.11.0")
+        self.assertEqual(record["synced_checksum_sha256"], _sha(body))
+
+    def test_missing_disk_file_is_skipped(self):
+        manifest = OrderedDict(
+            canonical_files=[".agent/rulebase.md", ".agent/never-created.md"]
+        )
+        body = self._write(".agent/rulebase.md", b"only this one\n")
+        out = backfill_tracked_files(
+            manifest,
+            self._migration(opt_in=True),
+            self.target,
+            entries=[],
+            current_version="0.11.0",
+        )
+        tracked = out[TRACKED_FILES_KEY]
+        self.assertEqual(list(tracked.keys()), [".agent/rulebase.md"])
+        self.assertEqual(
+            tracked[".agent/rulebase.md"]["synced_checksum_sha256"], _sha(body)
+        )
+
+    def test_preserves_existing_entries_outside_scope(self):
+        prior = OrderedDict(
+            **{
+                ".agent/external.md": OrderedDict(
+                    synced_at_version="0.5.0",
+                    synced_checksum_sha256=_sha(b"pre-existing"),
+                )
+            }
+        )
+        manifest = OrderedDict(
+            tracked_files=prior, canonical_files=[".agent/rulebase.md"]
+        )
+        body = self._write(".agent/rulebase.md", b"# rb\n")
+        out = backfill_tracked_files(
+            manifest,
+            self._migration(opt_in=True),
+            self.target,
+            entries=[],
+            current_version="0.11.0",
+        )
+        tracked = out[TRACKED_FILES_KEY]
+        self.assertIn(".agent/external.md", tracked)
+        self.assertEqual(
+            tracked[".agent/external.md"]["synced_at_version"], "0.5.0"
+        )
+        self.assertEqual(
+            tracked[".agent/rulebase.md"]["synced_checksum_sha256"], _sha(body)
+        )
+
+    def test_existing_entry_for_in_scope_path_is_preserved(self):
+        """Backfill is purely additive: an entry already present must
+        keep its provenance (synced_at_version + checksum) even when
+        its path is part of the backfill scope. The Stage 3.1 writer
+        is the only path that may legitimately refresh entries for
+        paths the hop actually rewrites; the backfill must not.
+        """
+
+        prior_record = OrderedDict(
+            synced_at_version="0.11.0",
+            synced_checksum_sha256=_sha(b"backfilled-at-1.0.0"),
+        )
+        manifest = OrderedDict(
+            tracked_files=OrderedDict(**{".agent/rulebase.md": prior_record}),
+            canonical_files=[".agent/rulebase.md", ".agent/gates.md"],
+        )
+        # New disk bytes for rulebase (post-customization) — backfill
+        # should still NOT overwrite the prior entry. gates.md is new
+        # to the map and exists on disk, so it must be seeded.
+        self._write(".agent/rulebase.md", b"# user-edited rulebase\n")
+        gates_body = self._write(".agent/gates.md", b"# gates\n")
+        out = backfill_tracked_files(
+            manifest,
+            self._migration(opt_in=True, to="1.0.1"),
+            self.target,
+            entries=[],
+            current_version="1.0.0",
+        )
+        tracked = out[TRACKED_FILES_KEY]
+        # Pre-existing rulebase entry untouched.
+        self.assertEqual(
+            tracked[".agent/rulebase.md"]["synced_at_version"], "0.11.0"
+        )
+        self.assertEqual(
+            tracked[".agent/rulebase.md"]["synced_checksum_sha256"],
+            _sha(b"backfilled-at-1.0.0"),
+        )
+        # New gates.md entry seeded with the current hop's source version.
+        self.assertEqual(
+            tracked[".agent/gates.md"]["synced_at_version"], "1.0.0"
+        )
+        self.assertEqual(
+            tracked[".agent/gates.md"]["synced_checksum_sha256"],
+            _sha(gates_body),
+        )
+
+    def test_populate_overwrites_backfill_entry_for_touched_path(self):
+        """Stage 3.1 + 3.3 wire-up: backfill seeds ``current``, then
+        populate_tracked_files refreshes touched paths to ``to``.
+        """
+
+        body_disk = self._write(".agent/rulebase.md", b"# disk bytes\n")
+        manifest = OrderedDict(canonical_files=[".agent/rulebase.md"])
+        migration = self._migration(opt_in=True, to="1.0.0")
+
+        manifest = backfill_tracked_files(
+            manifest, migration, self.target, [], "0.11.0"
+        )
+        self.assertEqual(
+            manifest[TRACKED_FILES_KEY][".agent/rulebase.md"][
+                "synced_at_version"
+            ],
+            "0.11.0",
+        )
+
+        new_bytes = b"# new bytes\n"
+        manifest = populate_tracked_files(
+            manifest, migration, {".agent/rulebase.md": new_bytes}
+        )
+        record = manifest[TRACKED_FILES_KEY][".agent/rulebase.md"]
+        self.assertEqual(record["synced_at_version"], "1.0.0")
+        self.assertEqual(record["synced_checksum_sha256"], _sha(new_bytes))
+        # Backfill's seeded sha is replaced; we did NOT keep the disk
+        # bytes' sha after the writer ran.
+        self.assertNotEqual(record["synced_checksum_sha256"], _sha(body_disk))
+
+
+class ApplyTrackedFilesRemoveTests(unittest.TestCase):
+    """``manifest_updates.tracked_files_remove`` directive.
+
+    Locks the same opt-in gate as the writer (so a migration that
+    accidentally turns the writer off cannot keep removing entries),
+    plus idempotent skip semantics.
+    """
+
+    def _migration(self, *, opt_in, removals):
+        updates = {}
+        if opt_in:
+            updates[UPDATE_TRACKED_FILES_FLAG] = True
+        if removals is not None:
+            updates[TRACKED_FILES_REMOVE_KEY] = removals
+        return {"schema_version": 1, "to": "1.0.1", "manifest_updates": updates}
+
+    def _manifest(self):
+        return OrderedDict(
+            tracked_files=OrderedDict(
+                **{
+                    ".agent/keep.md": OrderedDict(
+                        synced_at_version="1.0.0",
+                        synced_checksum_sha256=_sha(b"keep"),
+                    ),
+                    ".agent/old.md": OrderedDict(
+                        synced_at_version="1.0.0",
+                        synced_checksum_sha256=_sha(b"old"),
+                    ),
+                }
+            )
+        )
+
+    def test_default_off_no_removal(self):
+        manifest = self._manifest()
+        out = apply_tracked_files_remove(
+            manifest,
+            self._migration(opt_in=False, removals=[".agent/old.md"]),
+        )
+        self.assertIn(".agent/old.md", out[TRACKED_FILES_KEY])
+
+    def test_opt_in_removes_listed_keys(self):
+        manifest = self._manifest()
+        out = apply_tracked_files_remove(
+            manifest,
+            self._migration(opt_in=True, removals=[".agent/old.md"]),
+        )
+        tracked = out[TRACKED_FILES_KEY]
+        self.assertNotIn(".agent/old.md", tracked)
+        self.assertIn(".agent/keep.md", tracked)
+
+    def test_unknown_keys_idempotent(self):
+        manifest = self._manifest()
+        out = apply_tracked_files_remove(
+            manifest,
+            self._migration(opt_in=True, removals=[".agent/never-tracked.md"]),
+        )
+        self.assertEqual(
+            list(out[TRACKED_FILES_KEY].keys()),
+            [".agent/keep.md", ".agent/old.md"],
+        )
+
+    def test_no_directive_no_op(self):
+        manifest = self._manifest()
+        out = apply_tracked_files_remove(
+            manifest, self._migration(opt_in=True, removals=None)
+        )
+        self.assertEqual(
+            list(out[TRACKED_FILES_KEY].keys()),
+            [".agent/keep.md", ".agent/old.md"],
+        )
+
+    def test_non_string_entries_silently_skipped(self):
+        manifest = self._manifest()
+        out = apply_tracked_files_remove(
+            manifest,
+            self._migration(opt_in=True, removals=[None, 42, ".agent/old.md"]),
+        )
+        self.assertNotIn(".agent/old.md", out[TRACKED_FILES_KEY])
+        self.assertIn(".agent/keep.md", out[TRACKED_FILES_KEY])
 
 
 if __name__ == "__main__":

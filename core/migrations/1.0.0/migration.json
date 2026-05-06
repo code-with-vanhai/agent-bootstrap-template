@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "from_versions": ["0.11.0"],
+  "to": "1.0.0",
+  "safe_overwrite": [],
+  "patches": [],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "1.0.0",
+      "synced_to_template_version": "1.0.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "1.0.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to v1.0.0: one-shot tracked_files backfill (Stage 3.3) records sha256 baselines for every managed file so future hops can take the Stage 3.2 checksum fast-path."
+    },
+    "merge_array_unique": {},
+    "update_tracked_files": true
+  }
+}

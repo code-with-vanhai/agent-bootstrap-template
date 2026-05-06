@@ -55,8 +55,26 @@ def tag_exists(repo, version):
 
 
 def tag_commit(repo, version):
-    tag = tag_for(version)
-    return git_text(repo, "rev-parse", f"{tag}^{{commit}}").strip()
+    """Resolve ``v<version>^{commit}`` SHA, with an actionable error on miss.
+
+    Stage 3.2 made tag presence checks lazy at the per-file 3-way merge
+    layer (see :func:`merge._ensure_tags_for_three_way`), but several
+    code paths still need to resolve a tag's SHA without going through
+    that gate — most notably ``manifest_updates.replace_from_git_tag``
+    and the post-apply ``sync-log`` writer. Without this wrapper a
+    missing ``v<to>`` tag in a *manifest-only* migration would surface
+    as the raw ``git rev-parse v<x>^{commit} failed: ...`` ``SyncError``,
+    which dropped the actionable ``try git fetch --tags`` hint that
+    Stage 3.2 promised. Re-raising as :class:`UsageError` here closes
+    that regression: any caller that requires the tag to be resolvable
+    sees the same canonical hint as the lazy 3-way path.
+    """
+
+    if not tag_exists(repo, version):
+        raise UsageError(
+            f"version {version} requires tag {tag_for(version)}; try git fetch --tags"
+        )
+    return git_text(repo, "rev-parse", f"{tag_for(version)}^{{commit}}").strip()
 
 
 def git_show(repo, version, source_path, required=False):

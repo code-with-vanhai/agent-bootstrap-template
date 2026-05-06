@@ -18,7 +18,12 @@ from collections import OrderedDict
 
 from .git_ops import tag_commit
 from .io_utils import dump_manifest, read_bytes
-from .tracked_files import populate_tracked_files
+from .tracked_files import (
+    apply_tracked_files_remove,
+    backfill_tracked_files,
+    populate_tracked_files,
+)
+from .versions import detect_current_version
 from .versions import validate_version
 
 
@@ -49,7 +54,16 @@ def ordered_manifest_with_sync(data, sync_values):
     return result
 
 
-def plan_manifest(template_root, target, migration, manifest, sync_now, writes, updated):
+def plan_manifest(
+    template_root,
+    target,
+    migration,
+    manifest,
+    sync_now,
+    writes,
+    updated,
+    entries=None,
+):
     updates = migration.get("manifest_updates") or {}
     new_manifest = OrderedDict(manifest)
 
@@ -92,14 +106,32 @@ def plan_manifest(template_root, target, migration, manifest, sync_now, writes, 
                 existing.append(value)
         new_manifest[key] = existing
 
-    # Stage 3.1 opt-in: when the migration sets
-    # ``manifest_updates.update_tracked_files: true``, fold the hop's
-    # planned writes into ``manifest.tracked_files`` so a future
-    # fast-path / backfill release can reason about per-file baseline
-    # checksums. Default behavior is a no-op so legacy migrations and
-    # fixtures (e.g. tests/migrations/0.3.0 diff -r assertion) stay
-    # byte-identical post-apply.
+    # Stage 3.3 (one-shot backfill): runs BEFORE the Stage 3.1 writer
+    # so the writer's per-write refresh wins for paths the hop touches.
+    # ``current`` is detected from the *input* manifest (pre-hop) so
+    # disk bytes carrying the user's current sync version are recorded
+    # with the correct provenance. Default behavior is a no-op when
+    # ``manifest_updates.update_tracked_files`` is absent or not literal
+    # ``True`` — mirrors the Stage 3.1 opt-in contract so every legacy
+    # fixture stays byte-stable.
+    try:
+        current_version = detect_current_version(manifest)
+    except Exception:
+        current_version = None
+    new_manifest = backfill_tracked_files(
+        new_manifest, migration, target, entries or [], current_version
+    )
+
+    # Stage 3.1 opt-in: fold the hop's planned writes into
+    # ``manifest.tracked_files``. Refreshes any entries seeded by the
+    # backfill above for paths the hop actually rewrites, recording the
+    # post-hop ``to`` version + the freshly written bytes' sha256.
     new_manifest = populate_tracked_files(new_manifest, migration, writes)
+
+    # Explicit removal directive (Stage 3.3): drops obsolete keys when a
+    # migration relocates / deletes a managed file. Idempotent;
+    # unknown keys are skipped silently.
+    new_manifest = apply_tracked_files_remove(new_manifest, migration)
 
     new_manifest = ordered_manifest_with_sync(new_manifest, sync_values)
     manifest_bytes = dump_manifest(new_manifest)
