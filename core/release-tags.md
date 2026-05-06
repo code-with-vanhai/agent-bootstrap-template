@@ -17,6 +17,7 @@ This file records the immutable commit mapping for released template versions. I
 | 0.9.0 | `v0.9.0` | `670d5a53ff3563bdad33461aad03315c86c0b8b0` | Template release 0.9.0. |
 | 0.10.0 | `v0.10.0` | `78aba0a307829ca1640ebe6f912173100a5af952` | Template release 0.10.0 (constitution split). |
 | 0.11.0 | `v0.11.0` | `8b223bdc3cde12c554169d899c4454bab17b3216` | MCP discovery + D-11 Option A backfill `core/migrations/0.11.0/`. |
+| 0.12.0 | `v0.12.0` | `<PENDING>` | Replace `<PENDING>` with the release commit after `git tag -a v0.12.0` (see core/release-process.md). |
 
 ## Recovery
 
