@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
 # Stage 3.3 / D-7 fixture — one-shot tracked_files backfill at the 1.0.0 hop.
 #
+# Post-0.12.0 audit finding H-3 tightened the parent edge of the 1.0.0
+# migration so `from_versions: ["0.12.0"]` (was `["0.11.0"]`). The
+# canonical pre-1.0.0 chain is now `0.10.0 → 0.11.0 → 0.12.0 → 1.0.0`,
+# and the 1.0.0 hop only fires after the user has reached 0.12.0. This
+# fixture exercises the chain end-to-end via auto multi-hop.
+#
 # Strategy:
 #   1. Build a 0.10.0 fixture from the canonical 0.3.0 baseline via
 #      multi-hop sync (mirrors tests/migrations/0.11.0/run.sh).
 #   2. Single-hop to 0.11.0 so the manifest is the production
 #      "no-op-migration" shape Stage 3.3 expects to find on disk.
-#   3. Apply --to 1.0.0. The 1.0.0 migration is the first to set
-#      manifest_updates.update_tracked_files: true, so the runner must:
+#   3. Apply --to 1.0.0 with NO --multi-hop flag. The runner's auto
+#      multi-hop fallback (Stage 1.1) composes the chain
+#      0.11.0 → 0.12.0 → 1.0.0 transparently. Both intermediate hops
+#      are no-op for downstream bytes; the 1.0.0 hop is the first to
+#      set manifest_updates.update_tracked_files: true, so the runner
+#      must:
 #        a) enumerate expand_file_entries(1.0.0) ∪ canonical_files,
 #        b) for every existing managed file on disk, record
-#           tracked_files[path] = {synced_at_version: "0.11.0",
+#           tracked_files[path] = {synced_at_version: "0.12.0",
 #                                  synced_checksum_sha256: sha256(disk)}.
+#      The recorded version is 0.12.0 (the user's sync version at the
+#      moment the 1.0.0 backfill fires — i.e., AFTER the no-op
+#      0.11.0 → 0.12.0 hop has bumped the manifest). The bytes hashed
+#      are byte-identical to the 0.11.0 baseline because
+#      0.11.0 → 0.12.0 is no-op for downstream content.
 #   4. Assertions cover the four post-conditions from the plan:
 #        - tracked_files exists in the manifest;
 #        - every canonical_files path that exists on disk has an entry;
 #        - the recorded sha matches sha256(disk);
-#        - synced_at_version is the user's PRE-hop version (0.11.0),
-#          not the migration's `to`.
+#        - synced_at_version is the user's PRE-1.0.0-hop version
+#          (0.12.0), not the migration's `to`.
 #   5. The "manifest-only no-op" contract (only manifest + sync-log
 #      modified) still holds because 1.0.0's safe_overwrite is empty
 #      and tracked_files lives inside the manifest.
@@ -53,6 +68,7 @@ remove_pycache() { find "$1" -type d -name __pycache__ -prune -exec rm -rf {} +;
 
 ensure_tag "0.10.0"
 ensure_tag "0.11.0"
+ensure_tag "0.12.0"
 if ! git -C "$root" rev-parse --verify --quiet "v1.0.0^{commit}" >/dev/null; then
   git -C "$root" tag v1.0.0
   ephemeral_v100_created="1"
@@ -172,10 +188,13 @@ for rel, record in tracked.items():
     if record.get("synced_checksum_sha256") != expected:
         mismatched.append(rel)
     # 1.0.0's safe_overwrite is empty, so EVERY entry should carry the
-    # pre-hop version (0.11.0), not the migration's `to` (1.0.0). This
-    # is the D-7 / Stage 3.3 contract that the recorded version is the
-    # provenance of the bytes on disk.
-    if record.get("synced_at_version") != "0.11.0":
+    # user's PRE-1.0.0-hop sync version (0.12.0 after the post-0.12.0
+    # H-3 retighten), not the migration's `to` (1.0.0). This is the
+    # D-7 / Stage 3.3 contract that the recorded version is the
+    # provenance of the bytes on disk. Bytes are byte-identical to the
+    # 0.11.0 baseline because 0.11.0 → 0.12.0 is a no-op hop; only
+    # the version label has advanced.
+    if record.get("synced_at_version") != "0.12.0":
         wrong_version.append((rel, record.get("synced_at_version")))
 
 if mismatched:
@@ -185,9 +204,9 @@ print("PASS: every tracked_files sha256 matches sha256(disk bytes)")
 if wrong_version:
     raise SystemExit(
         f"FAIL: {len(wrong_version)} entries have wrong synced_at_version "
-        f"(expected 0.11.0, got: {wrong_version[:5]})"
+        f"(expected 0.12.0, got: {wrong_version[:5]})"
     )
-print("PASS: every tracked_files entry records synced_at_version=0.11.0 (pre-hop, not `to`)")
+print("PASS: every tracked_files entry records synced_at_version=0.12.0 (pre-1.0.0-hop, not `to`)")
 PY
 
 # Manifest-only no-op contract (mirrors 0.5.0 / 0.11.0): only

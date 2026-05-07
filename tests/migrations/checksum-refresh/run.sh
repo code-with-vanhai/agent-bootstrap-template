@@ -2,14 +2,23 @@
 # Stage 3.3 (Stage 3.1 reuse) fixture — subsequent hops refresh
 # tracked_files entries to the new content.
 #
-# After 1.0.0 backfills tracked_files with synced_at_version=0.11.0
+# Post-0.12.0 audit finding H-3 tightened the parent edge of the 1.0.0
+# migration so `from_versions: ["0.12.0"]` (was `["0.11.0"]`). The
+# canonical pre-1.0.0 chain is now `0.10.0 → 0.11.0 → 0.12.0 → 1.0.0`,
+# and the 1.0.0 hop only fires after the user has reached 0.12.0. This
+# fixture builds the post-1.0.0 baseline via the auto multi-hop chain
+# end-to-end, so backfill entries record `synced_at_version="0.12.0"`
+# (the user's PRE-1.0.0-hop version, advanced from 0.11.0 by the no-op
+# `0.11.0 → 0.12.0` hop).
+#
+# After 1.0.0 backfills tracked_files with synced_at_version=0.12.0
 # (the pre-hop version), a SUBSEQUENT migration that opts into
 # update_tracked_files: true and writes new bytes to a tracked path
 # must:
 #   - record synced_at_version = the subsequent hop's `to`,
 #   - record synced_checksum_sha256 = sha256(post-write bytes),
 #   - leave entries for paths the subsequent hop does NOT touch
-#     unchanged (still synced_at_version=0.11.0 / sha=disk-at-backfill).
+#     unchanged (still synced_at_version=0.12.0 / sha=disk-at-backfill).
 #
 # v1.0.0 is unreleased so we cannot rely on a real later release. The
 # fixture builds a synthetic ``1.0.1`` migration in a temporary
@@ -44,6 +53,7 @@ remove_pycache() { find "$1" -type d -name __pycache__ -prune -exec rm -rf {} +;
 
 ensure_real_tag "0.10.0"
 ensure_real_tag "0.11.0"
+ensure_real_tag "0.12.0"
 
 # Seed an ephemeral v1.0.0 tag in the live repo so the 1.0.0 migration
 # resolves its replace_from_git_tag SHA.
@@ -110,7 +120,7 @@ import json, sys
 m = json.load(open(sys.argv[1]))
 print(m['tracked_files']['.agent/rulebase.md']['synced_at_version'])
 " "$fixture/.agent/manifest.json")"
-assert_eq "$backfill_rb_ver" "0.11.0" "[step 1] rulebase.md backfill version is 0.11.0 (pre-hop)"
+assert_eq "$backfill_rb_ver" "0.12.0" "[step 1] rulebase.md backfill version is 0.12.0 (pre-1.0.0-hop, post-0.12.0 H-3 retighten)"
 printf 'PASS: [step 1] backfilled rulebase.md sha = %s\n' "$backfill_rb_sha"
 
 # ---------- Step 2: synthesize a 1.0.1 template clone ----------
@@ -233,14 +243,14 @@ if not unchanged_examples:
     raise SystemExit("FAIL: no unchanged canonical paths found in tracked_files")
 for path in unchanged_examples:
     record = tracked[path]
-    if record["synced_at_version"] != "0.11.0":
+    if record["synced_at_version"] != "0.12.0":
         raise SystemExit(
             f"FAIL: {path} synced_at_version={record['synced_at_version']!r}, "
-            "expected 0.11.0 (untouched by 1.0.1 hop)"
+            "expected 0.12.0 (untouched by 1.0.1 hop)"
         )
 print(
     f"PASS: [refresh] {len(unchanged_examples)} untouched canonical paths "
-    "still record synced_at_version=0.11.0"
+    "still record synced_at_version=0.12.0"
 )
 PY
 
