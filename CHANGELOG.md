@@ -32,7 +32,7 @@
 >
 > - **Deterministic gates green**: `scripts/agent-validate.sh`, the full Python unit suite (`python3 -m unittest discover -s scripts/lib`), `scripts/agent-evals.sh --fast`, and `python3 scripts/lib/check_test_module_coverage.py .github/workflows/ci.yml`. The single expected `test_cli_strict_passes_on_real_repo` failure clears once `<PENDING>` in `core/release-tags.md` is replaced with the annotated-tag SHA.
 > - **Migration fixtures green**: every `tests/migrations/*/run.sh` passes (matrix unchanged; new `core/migrations/0.12.0/migration.json` is no-downstream-facing-changes).
-> - **Conventional Commits**: `python3 scripts/lib/check_conventional_commits.py --range v0.11.0..HEAD` reports 0 violations across 12 commits.
+> - **Conventional Commits**: `python3 scripts/lib/check_conventional_commits.py --range v0.11.0..v0.12.0` reports 0 violations across the 13 commits captured by tag `v0.12.0`.
 
 ## 0.11.0 - 2026-05-04
 
