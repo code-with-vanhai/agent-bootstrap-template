@@ -206,6 +206,28 @@ class BumpVersionTests(unittest.TestCase):
             self.assertIn("Existing prose.", text)
 
     def test_cli_strict_passes_on_real_repo(self) -> None:
+        """``--strict`` exits 0 on the real repo when the release is fully
+        finalized — i.e. ``core/release-tags.md`` has no ``<PENDING>`` rows.
+
+        During release prep (between `scripts/bump-version.sh` and
+        `git tag -a v<next>` + backfill of the tag SHA into the latest
+        row), strict mode is *expected* to fail with
+        ``latest row (X.Y.Z) commit is still <PENDING>`` — that is the
+        whole point of the strict check. Asserting strict==0 in that
+        window is a contradiction, so skip the assertion until the
+        ``<PENDING>`` marker has been replaced.
+        """
+
+        tags_text = (REPO_ROOT / "core" / "release-tags.md").read_text(
+            encoding="utf-8"
+        )
+        if "<PENDING>" in tags_text:
+            self.skipTest(
+                "core/release-tags.md still contains <PENDING>; "
+                "strict mode is expected to fail until the tag SHA is "
+                "backfilled (see core/release-process.md)."
+            )
+
         proc = subprocess.run(
             [sys.executable, str(LIB / "check_version_consistency.py"), "--strict"],
             cwd=str(REPO_ROOT),
