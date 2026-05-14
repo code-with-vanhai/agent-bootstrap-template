@@ -112,12 +112,14 @@ case "$gate" in
     # <<< END AGENT-CANDIDATES gate=security <<<
     if command -v gitleaks >/dev/null 2>&1; then
       if gitleaks dir --help >/dev/null 2>&1; then
-        run gitleaks dir .
+        run gitleaks dir --redact .
       else
-        run gitleaks detect --source .
+        run gitleaks detect --redact --source .
       fi
+    elif command -v python3 >/dev/null 2>&1 && [ -f "$ROOT/scripts/lib/secret_scan_redacted.py" ]; then
+      run python3 "$ROOT/scripts/lib/secret_scan_redacted.py" --root .
     else
-      printf 'No secret scanner command found. Install/configure gitleaks or keep the security gate not configured.\n' >&2
+      printf 'No secret scanner command found. Install/configure gitleaks or python3 with scripts/lib/secret_scan_redacted.py, or keep the security gate not configured.\n' >&2
       not_configured
     fi
     ;;

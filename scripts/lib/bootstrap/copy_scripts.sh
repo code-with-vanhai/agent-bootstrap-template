@@ -11,6 +11,7 @@ copy_scripts() {
   copy_file "$TEMPLATE_ROOT/scripts/lib/gate_discovery.py" "$TARGET_ROOT/scripts/lib/gate_discovery.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/gate_modes.py" "$TARGET_ROOT/scripts/lib/gate_modes.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/insert_gate_candidates.py" "$TARGET_ROOT/scripts/lib/insert_gate_candidates.py" "644"
+  copy_file "$TEMPLATE_ROOT/scripts/lib/secret_scan_redacted.py" "$TARGET_ROOT/scripts/lib/secret_scan_redacted.py" "644"
   copy_file "$TEMPLATE_ROOT/scripts/lib/validate_agent_system.py" "$TARGET_ROOT/scripts/lib/validate_agent_system.py" "644"
   _asv="$(find "$TEMPLATE_ROOT/scripts/lib/agent_system_validation" -maxdepth 1 -type f -name '*.py' -print | LC_ALL=C sort)"
   while IFS= read -r agent_system_validation_file; do

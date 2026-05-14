@@ -18,7 +18,7 @@ Before touching secret-adjacent files or behavior:
 1. Re-read `.agent/rulebase.md` and `.agent/gates.md`.
 2. Do not edit secret values or `.env` values without explicit human approval.
 3. Prefer placeholders or documented secret names over real values.
-4. Run the configured security gate or report that secret scanning is `not configured`.
+4. Run `scripts/agent-eval.sh security`; it prefers `gitleaks --redact` and falls back to `scripts/lib/secret_scan_redacted.py` when Python is available.
 5. Report any skipped scanner and residual risk.
 
 ## Red Flags
