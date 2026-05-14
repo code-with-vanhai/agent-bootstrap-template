@@ -195,6 +195,10 @@ def plan_safe_overwrites(
 
         if ours == theirs:
             continue
+        if ours is None and entry.get("create_if_target_missing"):
+            writes[target_rel] = theirs
+            updated.append(target_rel)
+            continue
         if base is not None and ours == base:
             writes[target_rel] = theirs
             updated.append(target_rel)

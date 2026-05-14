@@ -30,6 +30,13 @@ def plan_patches(target, migration, writes, updated):
         if current is None:
             current = read_bytes(target / target_rel)
         if current is None:
+            create_if_missing = patch.get("create_if_missing")
+            if isinstance(create_if_missing, str):
+                writes[target_rel] = create_if_missing.encode("utf-8")
+                updated.append(f"{target_rel} created")
+                continue
+            if patch.get("skip_if_target_missing"):
+                continue
             raise ConflictError(f"patch target is missing: {target_rel}")
         text = current.decode("utf-8")
 

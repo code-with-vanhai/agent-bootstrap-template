@@ -46,6 +46,22 @@ ensure_tag() {
   ephemeral_tags+=("v$version")
 }
 
+tag_current_worktree() {
+  local version="$1"
+  if git -C "$root" rev-parse --verify --quiet "v$version^{commit}" >/dev/null; then
+    return 0
+  fi
+  local index_file tree commit
+  index_file="$work_root/index-$version"
+  GIT_INDEX_FILE="$index_file" git -C "$root" read-tree HEAD
+  GIT_INDEX_FILE="$index_file" git -C "$root" add -A
+  tree="$(GIT_INDEX_FILE="$index_file" git -C "$root" write-tree)"
+  commit="$(printf 'ephemeral v%s\n' "$version" | git -C "$root" commit-tree "$tree" -p HEAD)"
+  git -C "$root" tag "v$version" "$commit"
+  ephemeral_tags+=("v$version")
+  rm -f "$index_file"
+}
+
 ensure_tag "0.3.2" "499eb163bdc4cf5de39f7572a538af418828be4c"
 ensure_tag "0.4.0" "2bb93a0ea9870eccdba1c195f7e65ed367a58ed7"
 ensure_tag "0.5.0" "3900230d548852696fd39b6745fe05f08179c7fb"
@@ -55,14 +71,12 @@ ensure_tag "0.8.0" ""
 ensure_tag "0.8.1" ""
 ensure_tag "0.9.0" ""
 ensure_tag "0.10.0" ""
-# Stage 3.3 added core/migrations/1.0.0/, which advances "latest
-# migratable" to 1.0.0 and brings the 0.10.0 -> 0.11.0 -> 1.0.0 hops
-# into the auto-fallback Case 3 / Case 5 chain. v0.11.0 is a real
-# release tag; v1.0.0 is unreleased so the fixture seeds it
-# ephemerally (HEAD content is not consulted because the 1.0.0
-# migration's safe_overwrite is empty).
+# v1.0.0 is unreleased but its safe_overwrite is empty, so a HEAD tag is
+# enough. v1.1.0 contains unreleased safe_overwrite files, so tag an
+# ephemeral commit built from the current working tree.
 ensure_tag "0.11.0" ""
 ensure_tag "1.0.0" ""
+tag_current_worktree "1.1.0"
 
 assert_eq() {
   local got="$1" want="$2" desc="$3"
