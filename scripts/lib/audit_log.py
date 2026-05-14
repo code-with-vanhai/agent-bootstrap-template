@@ -38,6 +38,7 @@ ALLOWED_TOP_LEVEL_KEYS = frozenset(
         "outcome",
         "notes",
         "extra",
+        "sub_gates",
     }
 )
 OUTCOME_VALUES = frozenset({"complete", "aborted", "error"})
@@ -124,6 +125,28 @@ def _validate(payload: dict[str, Any]) -> None:
             raise AuditLogError("exit_code must be an integer")
         if not isinstance(payload.get("duration_ms"), int) or payload["duration_ms"] < 0:
             raise AuditLogError("duration_ms must be a non-negative integer")
+        if "sub_gates" in payload:
+            sub_gates = payload["sub_gates"]
+            if not isinstance(sub_gates, list):
+                raise AuditLogError("sub_gates must be a list")
+            for index, item in enumerate(sub_gates):
+                if not isinstance(item, dict):
+                    raise AuditLogError(
+                        f"sub_gates[{index}] must be an object"
+                    )
+                if not isinstance(item.get("gate"), str) or not item["gate"]:
+                    raise AuditLogError(
+                        f"sub_gates[{index}].gate must be a non-empty string"
+                    )
+                if not isinstance(item.get("exit_code"), int):
+                    raise AuditLogError(
+                        f"sub_gates[{index}].exit_code must be an integer"
+                    )
+                duration_ms = item.get("duration_ms")
+                if not isinstance(duration_ms, int) or duration_ms < 0:
+                    raise AuditLogError(
+                        f"sub_gates[{index}].duration_ms must be a non-negative integer"
+                    )
     elif kind == "plan_validation":
         if not isinstance(payload.get("target"), str) or not payload["target"]:
             raise AuditLogError("target must be a non-empty string")

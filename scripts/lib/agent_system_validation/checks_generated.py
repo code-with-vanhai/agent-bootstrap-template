@@ -234,6 +234,8 @@ def validate_generated(validator: AgentSystemValidator) -> None:
         "scripts/agent-validate.sh",
         "scripts/lib/audit_log.py",
         "scripts/lib/gate_discovery.py",
+        "scripts/lib/gate_modes.py",
+        "scripts/lib/gate_runner.py",
         "scripts/lib/validate_agent_system.py",
         "scripts/lib/secret_scan_redacted.py",
         "scripts/lib/validate_plan.py",
@@ -284,6 +286,12 @@ def validate_generated(validator: AgentSystemValidator) -> None:
     )
     validator.py_compile(
         ["scripts/lib/gate_discovery.py"], "scripts/lib/gate_discovery.py compiles"
+    )
+    validator.py_compile(
+        ["scripts/lib/gate_modes.py"], "scripts/lib/gate_modes.py compiles"
+    )
+    validator.py_compile(
+        ["scripts/lib/gate_runner.py"], "scripts/lib/gate_runner.py compiles"
     )
     validator.py_compile(
         ["scripts/lib/secret_scan_redacted.py"],

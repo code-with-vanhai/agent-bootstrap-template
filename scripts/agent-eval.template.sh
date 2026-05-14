@@ -24,6 +24,9 @@ audit_start_epoch_ms="$(_audit_epoch_ms)"
 
 _audit_emit_gate_exit() {
   exit_code=$?
+  if [ "${AGENT_EVAL_SUPPRESS_AUDIT:-0}" = "1" ]; then
+    return 0
+  fi
   audit_end_epoch_ms="$(_audit_epoch_ms)"
   duration_ms=$((audit_end_epoch_ms - audit_start_epoch_ms))
   if [ "$duration_ms" -lt 0 ]; then
@@ -40,6 +43,24 @@ _audit_emit_gate_exit() {
 }
 
 trap '_audit_emit_gate_exit' EXIT
+
+gate_modes_path=""
+if [ -f "$ROOT/.agent/gate-modes.json" ]; then
+  gate_modes_path="$ROOT/.agent/gate-modes.json"
+elif [ -f "$ROOT/core/gate-modes.json" ]; then
+  gate_modes_path="$ROOT/core/gate-modes.json"
+fi
+
+if [ -n "$gate_modes_path" ] && [ -f "$ROOT/scripts/lib/gate_runner.py" ] && command -v python3 >/dev/null 2>&1; then
+  composite_check="$(python3 "$ROOT/scripts/lib/gate_runner.py" is-composite --gate "$gate" --gate-modes "$gate_modes_path" 2>/dev/null || true)"
+  if [ "$composite_check" = "yes" ]; then
+    exec python3 "$ROOT/scripts/lib/gate_runner.py" run \
+      --gate "$gate" \
+      --gate-modes "$gate_modes_path" \
+      --eval-script "$0" \
+      --root "$ROOT"
+  fi
+fi
 
 run() {
   printf '\n>>> %s\n' "$*"

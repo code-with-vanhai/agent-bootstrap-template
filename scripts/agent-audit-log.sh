@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Best-effort audit-log wrapper. Runtime callers must keep their own exit code.
+# JSON-looking --field values, including sub_gates=[...], are decoded by audit_log.py.
 
 set -u
 

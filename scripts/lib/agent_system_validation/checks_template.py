@@ -274,6 +274,16 @@ def validate_template(validator: AgentSystemValidator) -> None:
         ["scripts/lib/secret_scan_redacted.py"],
         "scripts/lib/secret_scan_redacted.py compiles",
     )
+    validator.exists("scripts/lib/gate_modes.py")
+    validator.py_compile(
+        ["scripts/lib/gate_modes.py"],
+        "scripts/lib/gate_modes.py compiles",
+    )
+    validator.exists("scripts/lib/gate_runner.py")
+    validator.py_compile(
+        ["scripts/lib/gate_runner.py"],
+        "scripts/lib/gate_runner.py compiles",
+    )
 
     validator.exists("scripts/agent-validate-plan.sh")
     validator.shell_syntax("scripts/agent-validate-plan.sh")
