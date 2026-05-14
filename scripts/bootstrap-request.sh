@@ -16,7 +16,7 @@ force="0"
 install_hook_mode="none"
 discover_gates="0"
 with_mcp_discovery="0"
-template_version="0.12.0"
+template_version="1.1.0"
 
 # shellcheck source=lib/bootstrap/parse_args.sh
 . "$BOOTSTRAP_LIB/parse_args.sh"
