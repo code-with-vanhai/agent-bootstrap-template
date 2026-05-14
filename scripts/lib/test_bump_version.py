@@ -111,13 +111,21 @@ class BumpVersionTests(unittest.TestCase):
         marker in stderr after a bump, until the annotated-tag SHA is
         backfilled. Asserts both the exit code AND the error shape via
         subprocess so a regression that silently returns 0 is caught.
+
+        The fixture bumps to a version strictly greater than every row
+        already present in ``core/release-tags.md`` so the bumped
+        version is the "latest pending" row regardless of how far the
+        real repo has progressed. Without this, a release prep that
+        leaves ``<PENDING>`` on a higher version (e.g. ``1.1.0``) makes
+        strict-mode report the higher row instead of the freshly
+        bumped one.
         """
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             _make_fixture(root, "1.0.0")
             (root / "core").mkdir()
             shutil.copyfile(self._tags, root / "core" / "release-tags.md")
-            self.assertTrue(bv.bump(root, "1.0.1", "2026-05-05"))
+            self.assertTrue(bv.bump(root, "99.0.0", "2026-05-05"))
 
             proc = subprocess.run(
                 [
@@ -137,7 +145,7 @@ class BumpVersionTests(unittest.TestCase):
                 msg=f"strict should fail with pending row; stdout={proc.stdout!r} stderr={proc.stderr!r}",
             )
             self.assertIn("<PENDING>", proc.stderr)
-            self.assertIn("1.0.1", proc.stderr)
+            self.assertIn("99.0.0", proc.stderr)
 
     def test_promotes_unreleased_section_preserving_prose(self) -> None:
         """When CHANGELOG has ``## Unreleased``, the bump promotes that
