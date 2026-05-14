@@ -12,6 +12,13 @@ Use this workflow for defects, regressions, failed tests, incidents, or incorrec
 6. Run the narrowest gate that proves the fix.
 7. If the bug reveals a durable rule, update `lessons.md`.
 
+## Multi-Agent Coordination
+
+When another agent may be working in the same files, use
+`scripts/agent-lock.sh run --paths '<glob>' --task '<summary>' -- <command>`
+around the bugfix command. The lock is advisory and prevents accidental overlap;
+it does not replace ownership review or verification.
+
 ## Root Cause Standard
 
 A bugfix should explain:
@@ -26,4 +33,3 @@ A bugfix should explain:
 - Do not mask symptoms by weakening validation, auth, error handling, or tests.
 - Do not broaden the fix into unrelated refactors.
 - Do not delete failing tests unless they are demonstrably invalid and replaced.
-

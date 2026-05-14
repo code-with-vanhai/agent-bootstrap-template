@@ -269,6 +269,13 @@ def validate_template(validator: AgentSystemValidator) -> None:
         "scripts/lib/agent_system_validation package compiles",
     )
     validate_audit_log_templates(validator)
+    validator.exists("scripts/agent-lock.sh")
+    validator.shell_syntax("scripts/agent-lock.sh")
+    validator.exists("scripts/lib/agent_lock.py")
+    validator.py_compile(
+        ["scripts/lib/agent_lock.py"],
+        "scripts/lib/agent_lock.py compiles",
+    )
     validator.exists("scripts/lib/secret_scan_redacted.py")
     validator.py_compile(
         ["scripts/lib/secret_scan_redacted.py"],

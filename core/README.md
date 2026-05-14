@@ -42,6 +42,14 @@ Create `.agent/audit-log.disabled` to disable audit-log writes. Teams may commit
 `.gitignore` if they prefer not to commit generated telemetry. Bootstrap does
 not modify the target repository's `.gitignore`.
 
+## Multi-Agent Coordination (Optional)
+
+Generated repositories include `scripts/agent-lock.sh` for advisory path locks
+under `.agent/locks/`. Use `scripts/agent-lock.sh run --paths '<glob>' --task
+'<summary>' -- <command>` when multiple agents share one working tree and might
+touch overlapping files. Locks expire by TTL and can be removed with
+`scripts/agent-lock.sh prune`.
+
 ## Operating Model
 
 1. Bootstrap knowledge before editing.

@@ -230,8 +230,10 @@ def validate_generated(validator: AgentSystemValidator) -> None:
         "scripts/agent-audit-log.sh",
         "scripts/agent-eval.sh",
         "scripts/agent-gate-discover.sh",
+        "scripts/agent-lock.sh",
         "scripts/agent-validate-plan.sh",
         "scripts/agent-validate.sh",
+        "scripts/lib/agent_lock.py",
         "scripts/lib/audit_log.py",
         "scripts/lib/gate_discovery.py",
         "scripts/lib/gate_modes.py",
@@ -268,6 +270,7 @@ def validate_generated(validator: AgentSystemValidator) -> None:
 
     validator.shell_syntax("scripts/agent-eval.sh")
     validator.shell_syntax("scripts/agent-audit-log.sh")
+    validator.shell_syntax("scripts/agent-lock.sh")
     validator.shell_syntax("scripts/agent-validate.sh")
     validator.shell_syntax("scripts/agent-validate-plan.sh")
     validator.shell_syntax("scripts/agent-gate-discover.sh")
@@ -283,6 +286,9 @@ def validate_generated(validator: AgentSystemValidator) -> None:
     ]
     validator.py_compile(
         ["scripts/lib/audit_log.py"], "scripts/lib/audit_log.py compiles"
+    )
+    validator.py_compile(
+        ["scripts/lib/agent_lock.py"], "scripts/lib/agent_lock.py compiles"
     )
     validator.py_compile(
         ["scripts/lib/gate_discovery.py"], "scripts/lib/gate_discovery.py compiles"
