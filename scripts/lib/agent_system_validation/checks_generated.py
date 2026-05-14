@@ -231,15 +231,18 @@ def validate_generated(validator: AgentSystemValidator) -> None:
         "scripts/agent-eval.sh",
         "scripts/agent-gate-discover.sh",
         "scripts/agent-validate-plan.sh",
+        "scripts/agent-validate.sh",
         "scripts/lib/audit_log.py",
         "scripts/lib/gate_discovery.py",
         "scripts/lib/validate_agent_system.py",
         "scripts/lib/secret_scan_redacted.py",
         "scripts/lib/validate_plan.py",
+        "scripts/lib/validate_mcp_config.py",
         "scripts/lib/plan_validation/cli.py",
         "scripts/lib/plan_validation/validator.py",
         "scripts/lib/agent_system_validation/__init__.py",
         "scripts/lib/agent_system_validation/cli.py",
+        "scripts/lib/agent_system_validation/monitored_paths.py",
     ):
         validator.exists(rel)
 
@@ -263,6 +266,7 @@ def validate_generated(validator: AgentSystemValidator) -> None:
 
     validator.shell_syntax("scripts/agent-eval.sh")
     validator.shell_syntax("scripts/agent-audit-log.sh")
+    validator.shell_syntax("scripts/agent-validate.sh")
     validator.shell_syntax("scripts/agent-validate-plan.sh")
     validator.shell_syntax("scripts/agent-gate-discover.sh")
     plan_validation_files = [
@@ -284,6 +288,10 @@ def validate_generated(validator: AgentSystemValidator) -> None:
     validator.py_compile(
         ["scripts/lib/secret_scan_redacted.py"],
         "scripts/lib/secret_scan_redacted.py compiles",
+    )
+    validator.py_compile(
+        ["scripts/lib/validate_mcp_config.py"],
+        "scripts/lib/validate_mcp_config.py compiles",
     )
     validator.py_compile(
         ["scripts/lib/validate_agent_system.py"],
