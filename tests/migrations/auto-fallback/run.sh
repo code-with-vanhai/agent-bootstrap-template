@@ -71,11 +71,17 @@ ensure_tag "0.8.0" ""
 ensure_tag "0.8.1" ""
 ensure_tag "0.9.0" ""
 ensure_tag "0.10.0" ""
-# v1.0.0 is unreleased but its safe_overwrite is empty, so a HEAD tag is
-# enough. v1.1.0 contains unreleased safe_overwrite files, so tag an
-# ephemeral commit built from the current working tree.
+# v1.0.0 is unreleased; pin its ephemeral tag to the commit immediately
+# before the 1.1.0 stage commits (ci: gate agent sync versions test module).
+# This keeps v1.0.0's bytes free of 1.1.0's changes (e.g. the comment added to
+# scripts/agent-audit-log.sh), so the multi-hop chain through v1.0.0 -> v1.1.0
+# behaves like a real downstream upgrade: base bytes (v1.0.0) differ from
+# theirs (v1.1.0), and a previously-managed file that has not been customized
+# matches base and fast-paths through. v1.1.0 contains the unreleased
+# safe_overwrite payload, so it tags an ephemeral commit built from the
+# current working tree.
 ensure_tag "0.11.0" ""
-ensure_tag "1.0.0" ""
+ensure_tag "1.0.0" "ce988e0aed187846ba30d3517274355252fb58a6"
 tag_current_worktree "1.1.0"
 
 assert_eq() {
