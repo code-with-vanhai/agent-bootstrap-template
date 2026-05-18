@@ -8,6 +8,9 @@ target_dir="$(mktemp -d "/tmp/security-gate-fixture.XXXXXX")"
 mock_bin="$(mktemp -d "/tmp/security-gate-bin.XXXXXX")"
 python_only_bin="$(mktemp -d "/tmp/security-gate-python-bin.XXXXXX")"
 no_tools_bin="$(mktemp -d "/tmp/security-gate-no-tools.XXXXXX")"
+bash_bin="$(command -v bash)"
+date_bin="$(command -v date)"
+dirname_bin="$(command -v dirname)"
 cleanup() {
   rm -rf "$target_dir" "$mock_bin" "$python_only_bin" "$no_tools_bin"
 }
@@ -42,7 +45,7 @@ EOF
 chmod +x "$mock_bin/gitleaks"
 
 marker="$target_dir/gitleaks-marker.txt"
-AGENT_EVAL_SUPPRESS_AUDIT=1 GITLEAKS_MARKER="$marker" PATH="$mock_bin:$PATH" bash "$target_dir/scripts/agent-eval.sh" security >/tmp/security-gate-gitleaks.out 2>&1
+AGENT_EVAL_SUPPRESS_AUDIT=1 GITLEAKS_MARKER="$marker" PATH="$mock_bin:$PATH" "$bash_bin" "$target_dir/scripts/agent-eval.sh" security >/tmp/security-gate-gitleaks.out 2>&1
 
 if [ "$(cat "$marker")" != "gitleaks-dir-ran" ]; then
   printf 'FAIL: gitleaks dir mock was not invoked\n' >&2
@@ -58,7 +61,7 @@ printf 'API_KEY = "%s"\n' "$fixture_token" >"$target_dir/leaked-secret.py"
 set +e
 (
   cd "$target_dir"
-  AGENT_EVAL_SUPPRESS_AUDIT=1 PATH="$python_only_bin:/usr/bin:/bin" bash scripts/agent-eval.sh security
+  AGENT_EVAL_SUPPRESS_AUDIT=1 PATH="$python_only_bin:/usr/bin:/bin" "$bash_bin" scripts/agent-eval.sh security
 ) >/tmp/security-gate-python.out 2>&1
 python_rc=$?
 set -e
@@ -79,12 +82,12 @@ if grep -qF "$fixture_token" /tmp/security-gate-python.out; then
 fi
 rm -f "$target_dir/leaked-secret.py"
 
-ln -s /usr/bin/date "$no_tools_bin/date"
-ln -s /usr/bin/dirname "$no_tools_bin/dirname"
+ln -s "$date_bin" "$no_tools_bin/date"
+ln -s "$dirname_bin" "$no_tools_bin/dirname"
 set +e
 (
   cd "$target_dir"
-  AGENT_EVAL_SUPPRESS_AUDIT=1 PATH="$no_tools_bin" /usr/bin/bash scripts/agent-eval.sh security
+  AGENT_EVAL_SUPPRESS_AUDIT=1 PATH="$no_tools_bin" "$bash_bin" scripts/agent-eval.sh security
 ) >/tmp/security-gate-missing.out 2>&1
 missing_rc=$?
 set -e
