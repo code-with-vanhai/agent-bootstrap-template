@@ -6,11 +6,15 @@ cd "$ROOT"
 
 target_dir="$(mktemp -d "/tmp/security-gate-fixture.XXXXXX")"
 mock_bin="$(mktemp -d "/tmp/security-gate-bin.XXXXXX")"
+python_only_bin="$(mktemp -d "/tmp/security-gate-python-bin.XXXXXX")"
 no_tools_bin="$(mktemp -d "/tmp/security-gate-no-tools.XXXXXX")"
 cleanup() {
-  rm -rf "$target_dir" "$mock_bin" "$no_tools_bin"
+  rm -rf "$target_dir" "$mock_bin" "$python_only_bin" "$no_tools_bin"
 }
 trap cleanup EXIT
+
+python_bin="$(command -v python3)"
+ln -s "$python_bin" "$python_only_bin/python3"
 
 "$ROOT/scripts/bootstrap-request.sh" \
   --harness generic \
@@ -50,7 +54,7 @@ printf 'API_KEY = "%s"\n' "$fixture_token" >"$target_dir/leaked-secret.py"
 set +e
 (
   cd "$target_dir"
-  PATH="/usr/bin:/bin" bash scripts/agent-eval.sh security
+  PATH="$python_only_bin:/usr/bin:/bin" bash scripts/agent-eval.sh security
 ) >/tmp/security-gate-python.out 2>&1
 python_rc=$?
 set -e
