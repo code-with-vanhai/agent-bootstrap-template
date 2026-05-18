@@ -17,9 +17,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve validation base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "AGENT_VALIDATE_BASE_REF=$(git merge-base HEAD origin/${{ github.base_ref }})" >> "$GITHUB_ENV"
+          else
+            echo "AGENT_VALIDATE_BASE_REF=HEAD~1" >> "$GITHUB_ENV"
+          fi
 
       - name: Validate generated agent files
-        run: bash scripts/agent-validate.sh
+        run: bash scripts/agent-validate.sh --changed-only
 
       - name: Run fast gate when configured
         run: |

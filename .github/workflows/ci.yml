@@ -55,9 +55,13 @@ jobs:
           python3 -m unittest scripts.lib.test_render_template
           python3 -m unittest scripts.lib.test_validate_plan
           python3 -m unittest scripts.lib.test_audit_log
+          python3 -m unittest scripts.lib.test_agent_lock
           python3 -m unittest scripts.lib.test_insert_gate_candidates
           python3 -m unittest scripts.lib.test_check_test_module_coverage
           python3 -m unittest scripts.lib.test_gate_modes
+          python3 -m unittest scripts.lib.test_gate_runner
+          python3 -m unittest scripts.lib.test_monitored_paths
+          python3 -m unittest scripts.lib.test_secret_scan_redacted
           python3 -m unittest scripts.lib.test_check_version_consistency
           python3 -m unittest scripts.lib.test_validate_mcp_config
           python3 -m unittest scripts.lib.test_bump_version

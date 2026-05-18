@@ -201,6 +201,51 @@ class AuditLogTest(unittest.TestCase):
         self.assertNotIn("high", record)
         self.assertNotIn("medium", record)
 
+    def test_gate_run_accepts_sub_gates(self):
+        root = self.make_root()
+        rc = audit_log.append(
+            {
+                "kind": "gate_run",
+                "actor": "scripts/lib/gate_runner.py",
+                "gate": "full",
+                "exit_code": 0,
+                "duration_ms": 12,
+                "sub_gates": [
+                    {"gate": "frontend", "exit_code": 0, "duration_ms": 3},
+                    {"gate": "backend", "exit_code": 0, "duration_ms": 4},
+                ],
+            },
+            root=root,
+        )
+
+        self.assertEqual(rc, 0)
+        [record] = self.read_lines(root)
+        self.assertEqual(record["sub_gates"][0]["gate"], "frontend")
+
+    def test_gate_run_rejects_bad_sub_gates_shape_in_strict_mode(self):
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            rc = audit_log.main(
+                [
+                    "append",
+                    "--kind",
+                    "gate_run",
+                    "--actor",
+                    "scripts/lib/gate_runner.py",
+                    "--field",
+                    "gate=full",
+                    "--field",
+                    "exit_code=1",
+                    "--field",
+                    "duration_ms=10",
+                    "--field",
+                    'sub_gates=[{"gate":"fast","exit_code":"bad","duration_ms":1}]',
+                    "--strict",
+                ]
+            )
+        self.assertEqual(rc, 2)
+        self.assertIn("sub_gates[0].exit_code", stderr.getvalue())
+
     def test_audit_log_empty_payload_warns(self):
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):

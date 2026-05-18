@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "version": "1.1.0",
+  "from_versions": ["1.0.0"],
+  "to": "1.1.0",
+  "safe_overwrite": [
+    {
+      "source": "core/skills/no-secret-leakage/SKILL.md",
+      "target": ".agents/skills/agent-bootstrap/no-secret-leakage/SKILL.md",
+      "enabled_when_path_exists": ".agents/skills/agent-bootstrap",
+      "skip_if_target_missing": true
+    },
+    {
+      "source": "core/skills/no-secret-leakage/SKILL.md",
+      "target": ".claude/skills/agent-bootstrap/no-secret-leakage/SKILL.md",
+      "enabled_when_path_exists": ".claude/skills/agent-bootstrap",
+      "skip_if_target_missing": true
+    },
+    {
+      "source": "scripts/agent-audit-log.sh",
+      "target": "scripts/agent-audit-log.sh"
+    },
+    {
+      "source": "scripts/agent-eval.template.sh",
+      "target": "scripts/agent-eval.sh"
+    },
+    {
+      "source": "scripts/agent-lock.sh",
+      "target": "scripts/agent-lock.sh",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/agent-validate.sh",
+      "target": "scripts/agent-validate.sh"
+    },
+    {
+      "source": "scripts/lib/agent_lock.py",
+      "target": "scripts/lib/agent_lock.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/audit_log.py",
+      "target": "scripts/lib/audit_log.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/gate_modes.py",
+      "target": "scripts/lib/gate_modes.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/gate_runner.py",
+      "target": "scripts/lib/gate_runner.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/secret_scan_redacted.py",
+      "target": "scripts/lib/secret_scan_redacted.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/agent_system_validation/checks_generated.py",
+      "target": "scripts/lib/agent_system_validation/checks_generated.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/agent_system_validation/checks_template.py",
+      "target": "scripts/lib/agent_system_validation/checks_template.py",
+      "create_if_target_missing": true
+    },
+    {
+      "source": "scripts/lib/agent_system_validation/monitored_paths.py",
+      "target": "scripts/lib/agent_system_validation/monitored_paths.py",
+      "create_if_target_missing": true
+    }
+  ],
+  "patches": [
+    {
+      "file": ".agent/README.md",
+      "anchor": "Missing subagent entries do not invalidate a run.",
+      "insert_after_first_match": "\n## Multi-Agent Coordination (Optional)\n\nGenerated repositories include `scripts/agent-lock.sh` for advisory path locks under `.agent/locks/`. Use `scripts/agent-lock.sh run --paths '<glob>' --task '<summary>' -- <command>` when multiple agents share one working tree and might touch overlapping files. Locks expire by TTL and can be removed with `scripts/agent-lock.sh prune`.\n",
+      "skip_if_contains": "## Multi-Agent Coordination (Optional)"
+    },
+    {
+      "file": ".agent/workflows/feature-workflow.md",
+      "anchor": "7. Record durable lessons or decisions only when needed.",
+      "insert_after_first_match": "\n## Multi-Agent Coordination\n\nWhen more than one agent may edit overlapping paths in the same working tree,\nwrap the task command with `scripts/agent-lock.sh run --paths '<glob>' --task '<summary>' -- <command>`.\nThe lock is advisory and fail-fast; use narrow path globs so unrelated work can\nproceed concurrently.\n",
+      "skip_if_contains": "scripts/agent-lock.sh run"
+    },
+    {
+      "file": ".agent/workflows/bugfix-workflow.md",
+      "anchor": "7. If the bug reveals a durable rule, update `lessons.md`.",
+      "insert_after_first_match": "\n## Multi-Agent Coordination\n\nWhen another agent may be working in the same files, use\n`scripts/agent-lock.sh run --paths '<glob>' --task '<summary>' -- <command>`\naround the bugfix command. The lock is advisory and prevents accidental overlap;\nit does not replace ownership review or verification.\n",
+      "skip_if_contains": "scripts/agent-lock.sh run"
+    },
+    {
+      "file": ".gitignore",
+      "anchor": "*.pyc",
+      "insert_after_first_match": ".agent/locks/\n",
+      "skip_if_contains": ".agent/locks/",
+      "create_if_missing": ".agent/locks/\n"
+    }
+  ],
+  "manifest_updates": {
+    "replace": {
+      "template_version": "1.1.0",
+      "synced_to_template_version": "1.1.0"
+    },
+    "replace_from_git_tag": {
+      "synced_to_template_commit": "1.1.0"
+    },
+    "append_to_array_unique": {
+      "notes": "Synced to v1.1.0: redacted secret-scanner fallback, changed-only validation skip, schema-v2 composite gate runner, and optional advisory agent locks."
+    },
+    "merge_array_unique": {},
+    "update_tracked_files": true
+  }
+}

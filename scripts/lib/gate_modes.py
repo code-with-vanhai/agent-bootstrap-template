@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Mapping, Tuple
 
 DEFAULT_GATE_MODES: Tuple[str, ...] = (
     "changed",
@@ -40,18 +40,108 @@ FULL_GATE: str = "full"
 
 TEMPLATE_PATH = "core/gate-modes.json"
 GENERATED_PATH = ".agent/gate-modes.json"
+SUPPORTED_SCHEMA_VERSIONS = frozenset({1, 2})
 
 
 class GateModesError(RuntimeError):
     """Raised when a gate-modes manifest exists but is malformed."""
 
 
+def _validate_composite_gates(
+    data: Mapping[str, Any], *, modes: Tuple[str, ...], source: Path
+) -> dict[str, Any] | None:
+    schema_version = data.get("schema_version")
+    composite_gates = data.get("composite_gates")
+    if schema_version == 1:
+        if composite_gates is not None:
+            raise GateModesError(
+                f"{source}: 'composite_gates' requires schema_version 2"
+            )
+        return None
+
+    if composite_gates is None:
+        return None
+    if not isinstance(composite_gates, dict):
+        raise GateModesError(f"{source}: 'composite_gates' must be an object")
+
+    mode_set = set(modes)
+    composite_names = set(composite_gates)
+    for gate_name, definition in composite_gates.items():
+        if not isinstance(gate_name, str) or gate_name not in mode_set:
+            raise GateModesError(
+                f"{source}: composite gate {gate_name!r} must be present in 'modes'"
+            )
+        if not isinstance(definition, dict):
+            raise GateModesError(
+                f"{source}: composite gate {gate_name!r} must be an object"
+            )
+        unknown = sorted(set(definition) - {"stages"})
+        if unknown:
+            raise GateModesError(
+                f"{source}: composite gate {gate_name!r} has unknown key(s): "
+                + ", ".join(unknown)
+            )
+        stages = definition.get("stages")
+        if not isinstance(stages, list) or not stages:
+            raise GateModesError(
+                f"{source}: composite gate {gate_name!r} must define non-empty stages"
+            )
+        for index, stage in enumerate(stages, start=1):
+            if not isinstance(stage, dict):
+                raise GateModesError(
+                    f"{source}: composite gate {gate_name!r} stage {index} "
+                    "must be an object"
+                )
+            unknown_stage_keys = sorted(set(stage) - {"parallel", "serial"})
+            if unknown_stage_keys:
+                raise GateModesError(
+                    f"{source}: composite gate {gate_name!r} stage {index} "
+                    "has unknown key(s): "
+                    + ", ".join(unknown_stage_keys)
+                )
+            if "parallel" not in stage and "serial" not in stage:
+                raise GateModesError(
+                    f"{source}: composite gate {gate_name!r} stage {index} "
+                    "must define 'parallel' or 'serial'"
+                )
+            for key in ("parallel", "serial"):
+                if key not in stage:
+                    continue
+                values = stage[key]
+                if not isinstance(values, list) or not values:
+                    raise GateModesError(
+                        f"{source}: composite gate {gate_name!r} stage {index} "
+                        f"'{key}' must be a non-empty list"
+                    )
+                if not all(isinstance(item, str) for item in values):
+                    raise GateModesError(
+                        f"{source}: composite gate {gate_name!r} stage {index} "
+                        f"'{key}' entries must be strings"
+                    )
+                for referenced in values:
+                    if referenced not in mode_set:
+                        raise GateModesError(
+                            f"{source}: composite gate {gate_name!r} references "
+                            f"unknown mode {referenced!r}"
+                        )
+                    if referenced == gate_name:
+                        raise GateModesError(
+                            f"{source}: composite gate {gate_name!r} references itself"
+                        )
+                    if referenced in composite_names:
+                        raise GateModesError(
+                            f"{source}: composite gate {gate_name!r} references "
+                            f"composite gate {referenced!r}"
+                        )
+    return dict(composite_gates)
+
+
 def _validate_payload(data: object, *, source: Path) -> Tuple[str, ...]:
     if not isinstance(data, dict):
         raise GateModesError(f"{source}: top-level value must be a JSON object")
-    if data.get("schema_version") != 1:
+    if data.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS:
         raise GateModesError(
-            f"{source}: unsupported schema_version (expected 1, got "
+            f"{source}: unsupported schema_version (expected 1 or 2, got "
             f"{data.get('schema_version')!r})"
         )
     modes = data.get("modes")
@@ -72,7 +162,9 @@ def _validate_payload(data: object, *, source: Path) -> Tuple[str, ...]:
         raise GateModesError(
             f"{source}: 'full_gate' must be a string present in 'modes'"
         )
-    return tuple(modes)
+    modes_tuple = tuple(modes)
+    _validate_composite_gates(data, modes=modes_tuple, source=source)
+    return modes_tuple
 
 
 def _read_json(path: Path) -> object:
@@ -122,6 +214,9 @@ def load_gate_modes_metadata(root: Path, *, mode: str) -> dict[str, object]:
             "modes": modes,
             "default_gate": data["default_gate"],
             "full_gate": data["full_gate"],
+            "composite_gates": _validate_composite_gates(
+                data, modes=modes, source=manifest
+            ),
         }
 
     if mode == "generated":
@@ -134,11 +229,26 @@ def load_gate_modes_metadata(root: Path, *, mode: str) -> dict[str, object]:
                 "modes": modes,
                 "default_gate": data["default_gate"],
                 "full_gate": data["full_gate"],
+                "composite_gates": _validate_composite_gates(
+                    data, modes=modes, source=manifest
+                ),
             }
         return {
             "modes": DEFAULT_GATE_MODES,
             "default_gate": DEFAULT_GATE,
             "full_gate": FULL_GATE,
+            "composite_gates": None,
         }
 
     raise ValueError(f"unknown mode: {mode!r}")
+
+
+def load_composite_gates(root: Path, *, mode: str) -> dict[str, Any] | None:
+    """Return the optional schema-v2 composite gate block for a root."""
+
+    metadata = load_gate_modes_metadata(root, mode=mode)
+    composite_gates = metadata.get("composite_gates")
+    if composite_gates is None:
+        return None
+    assert isinstance(composite_gates, dict)
+    return composite_gates

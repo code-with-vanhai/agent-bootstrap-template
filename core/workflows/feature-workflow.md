@@ -12,6 +12,13 @@ Use this workflow for new user-visible or system behavior.
 6. Reviewer checks the diff if the change affects public contracts, data, auth, infra, or broad UI flows.
 7. Record durable lessons or decisions only when needed.
 
+## Multi-Agent Coordination
+
+When more than one agent may edit overlapping paths in the same working tree,
+wrap the task command with `scripts/agent-lock.sh run --paths '<glob>' --task '<summary>' -- <command>`.
+The lock is advisory and fail-fast; use narrow path globs so unrelated work can
+proceed concurrently.
+
 ## Grounding Requirements
 
 The planner re-reads every file it cites in the same planning turn. Stale session memory is not acceptable.

@@ -54,7 +54,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-scripts/agent-evals.sh --fast --artifact-dir "$artifact_dir" >/tmp/agent-evals-artifacts.out
+if ! scripts/agent-evals.sh --fast --artifact-dir "$artifact_dir" >/tmp/agent-evals-artifacts.out; then
+  printf 'FAIL: scripts/agent-evals.sh --fast --artifact-dir failed\n' >&2
+  cat /tmp/agent-evals-artifacts.out >&2
+  exit 1
+fi
 
 # Single discovery strategy: depth-1 glob of metadata.json. The runner writes
 # exactly one artifact directory per eval. We use Python's pathlib.glob rather
@@ -120,7 +124,11 @@ for path in root.glob("*/output.txt"):
         raise SystemExit(f"empty output artifact: {path}")
 PY
 
-EVAL_ARTIFACT_DIR="$env_artifact_dir" scripts/agent-evals.sh --fast --artifact-dir "$cli_artifact_dir" >/tmp/agent-evals-artifacts-precedence.out
+if ! EVAL_ARTIFACT_DIR="$env_artifact_dir" scripts/agent-evals.sh --fast --artifact-dir "$cli_artifact_dir" >/tmp/agent-evals-artifacts-precedence.out; then
+  printf 'FAIL: scripts/agent-evals.sh --fast --artifact-dir failed during precedence check\n' >&2
+  cat /tmp/agent-evals-artifacts-precedence.out >&2
+  exit 1
+fi
 
 if find "$env_artifact_dir" -name metadata.json | grep -q .; then
   printf 'FAIL: EVAL_ARTIFACT_DIR received artifacts even though --artifact-dir was provided\n' >&2

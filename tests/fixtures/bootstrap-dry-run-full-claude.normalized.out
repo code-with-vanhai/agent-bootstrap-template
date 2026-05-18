@@ -84,9 +84,13 @@ DRY-RUN copy @ROOT@/scripts/agent-eval.template.sh -> @TARGET@/scripts/agent-eva
 DRY-RUN mkdir -p @TARGET@/scripts
 DRY-RUN copy @ROOT@/scripts/agent-gate-discover.sh -> @TARGET@/scripts/agent-gate-discover.sh
 DRY-RUN mkdir -p @TARGET@/scripts
+DRY-RUN copy @ROOT@/scripts/agent-lock.sh -> @TARGET@/scripts/agent-lock.sh
+DRY-RUN mkdir -p @TARGET@/scripts
 DRY-RUN copy @ROOT@/scripts/agent-validate-plan.sh -> @TARGET@/scripts/agent-validate-plan.sh
 DRY-RUN mkdir -p @TARGET@/scripts/lib
 DRY-RUN copy @ROOT@/scripts/lib/__init__.py -> @TARGET@/scripts/lib/__init__.py
+DRY-RUN mkdir -p @TARGET@/scripts/lib
+DRY-RUN copy @ROOT@/scripts/lib/agent_lock.py -> @TARGET@/scripts/lib/agent_lock.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib
 DRY-RUN copy @ROOT@/scripts/lib/audit_log.py -> @TARGET@/scripts/lib/audit_log.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib
@@ -94,7 +98,11 @@ DRY-RUN copy @ROOT@/scripts/lib/gate_discovery.py -> @TARGET@/scripts/lib/gate_d
 DRY-RUN mkdir -p @TARGET@/scripts/lib
 DRY-RUN copy @ROOT@/scripts/lib/gate_modes.py -> @TARGET@/scripts/lib/gate_modes.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib
+DRY-RUN copy @ROOT@/scripts/lib/gate_runner.py -> @TARGET@/scripts/lib/gate_runner.py
+DRY-RUN mkdir -p @TARGET@/scripts/lib
 DRY-RUN copy @ROOT@/scripts/lib/insert_gate_candidates.py -> @TARGET@/scripts/lib/insert_gate_candidates.py
+DRY-RUN mkdir -p @TARGET@/scripts/lib
+DRY-RUN copy @ROOT@/scripts/lib/secret_scan_redacted.py -> @TARGET@/scripts/lib/secret_scan_redacted.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib
 DRY-RUN copy @ROOT@/scripts/lib/validate_agent_system.py -> @TARGET@/scripts/lib/validate_agent_system.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation
@@ -119,6 +127,8 @@ DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation
 DRY-RUN copy @ROOT@/scripts/lib/agent_system_validation/constants.py -> @TARGET@/scripts/lib/agent_system_validation/constants.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation
 DRY-RUN copy @ROOT@/scripts/lib/agent_system_validation/core.py -> @TARGET@/scripts/lib/agent_system_validation/core.py
+DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation
+DRY-RUN copy @ROOT@/scripts/lib/agent_system_validation/monitored_paths.py -> @TARGET@/scripts/lib/agent_system_validation/monitored_paths.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation
 DRY-RUN copy @ROOT@/scripts/lib/agent_system_validation/output.py -> @TARGET@/scripts/lib/agent_system_validation/output.py
 DRY-RUN mkdir -p @TARGET@/scripts/lib/agent_system_validation

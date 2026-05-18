@@ -45,7 +45,7 @@ class LoadGateModesTemplateTests(unittest.TestCase):
             self._write_manifest(
                 root,
                 {
-                    "schema_version": 2,
+                    "schema_version": 3,
                     "modes": ["fast", "full"],
                     "default_gate": "fast",
                     "full_gate": "full",
@@ -111,6 +111,104 @@ class LoadGateModesGeneratedTests(unittest.TestCase):
             self.assertEqual(modes, ("fast", "release"))
 
 
+class LoadGateModesSchemaV2Tests(unittest.TestCase):
+    def _write_manifest(self, root: pathlib.Path, payload: dict) -> pathlib.Path:
+        agent = root / ".agent"
+        agent.mkdir(parents=True, exist_ok=True)
+        path = agent / "gate-modes.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def base_payload(self) -> dict:
+        return {
+            "schema_version": 2,
+            "modes": ["fast", "frontend", "backend", "full"],
+            "default_gate": "fast",
+            "full_gate": "full",
+        }
+
+    def test_v2_without_composites_behaves_like_v1(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._write_manifest(root, self.base_payload())
+
+            self.assertEqual(
+                gate_modes.load_gate_modes(root, mode="generated"),
+                ("fast", "frontend", "backend", "full"),
+            )
+            self.assertIsNone(gate_modes.load_composite_gates(root, mode="generated"))
+
+    def test_v2_valid_composite_gates_load(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            payload = self.base_payload()
+            payload["composite_gates"] = {
+                "full": {
+                    "stages": [
+                        {"parallel": ["frontend", "backend"]},
+                        {"serial": ["fast"]},
+                    ]
+                }
+            }
+            self._write_manifest(root, payload)
+
+            composites = gate_modes.load_composite_gates(root, mode="generated")
+            self.assertIsNotNone(composites)
+            assert composites is not None
+            self.assertIn("full", composites)
+
+    def assert_invalid_composite(self, composite_gates: object) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            payload = self.base_payload()
+            payload["composite_gates"] = composite_gates
+            self._write_manifest(root, payload)
+            with self.assertRaises(gate_modes.GateModesError):
+                gate_modes.load_gate_modes(root, mode="generated")
+
+    def test_rejects_unknown_mode_reference(self) -> None:
+        self.assert_invalid_composite(
+            {"full": {"stages": [{"parallel": ["missing"]}]}}
+        )
+
+    def test_rejects_self_reference(self) -> None:
+        self.assert_invalid_composite(
+            {"full": {"stages": [{"serial": ["full"]}]}}
+        )
+
+    def test_rejects_composite_to_composite_reference(self) -> None:
+        self.assert_invalid_composite(
+            {
+                "full": {"stages": [{"parallel": ["frontend"]}]},
+                "fast": {"stages": [{"serial": ["full"]}]},
+            }
+        )
+
+    def test_rejects_empty_stages(self) -> None:
+        self.assert_invalid_composite({"full": {"stages": []}})
+
+    def test_rejects_unknown_stage_key(self) -> None:
+        self.assert_invalid_composite(
+            {"full": {"stages": [{"parallel": ["fast"], "after": ["backend"]}]}}
+        )
+
+    def test_rejects_stage_with_neither_parallel_nor_serial(self) -> None:
+        self.assert_invalid_composite({"full": {"stages": [{"name": "bad"}]}})
+
+    def test_rejects_v1_with_composite_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            payload = self.base_payload()
+            payload["schema_version"] = 1
+            payload["composite_gates"] = {
+                "full": {"stages": [{"parallel": ["fast"]}]}
+            }
+            self._write_manifest(root, payload)
+
+            with self.assertRaises(gate_modes.GateModesError):
+                gate_modes.load_gate_modes(root, mode="generated")
+
+
 class TemplateRepoConsistencyTests(unittest.TestCase):
     def test_repo_manifest_matches_default(self) -> None:
         # Sanity: the checked-in manifest in this repo must agree with the
@@ -171,7 +269,7 @@ class GeneratedGateModesValidationTests(unittest.TestCase):
             (root / ".agent" / "gate-modes.json").write_text(
                 json.dumps(
                     {
-                        "schema_version": 2,
+                        "schema_version": 3,
                         "modes": ["fast", "full"],
                         "default_gate": "fast",
                         "full_gate": "full",

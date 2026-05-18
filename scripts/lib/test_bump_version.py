@@ -55,17 +55,19 @@ class BumpVersionTests(unittest.TestCase):
             (root / "core").mkdir()
             shutil.copyfile(self._tags, root / "core" / "release-tags.md")
 
-            self.assertTrue(bv.bump(root, "1.0.1", "2026-05-05"))
+            # Use a version above the real repo's release table so the
+            # freshly inserted <PENDING> row is the strict-mode target.
+            self.assertTrue(bv.bump(root, "99.0.0", "2026-05-05"))
 
-            self.assertEqual(vercheck.extract_bootstrap_version(root), "1.0.1")
-            self.assertEqual(vercheck.extract_plugin_version(root), "1.0.1")
+            self.assertEqual(vercheck.extract_bootstrap_version(root), "99.0.0")
+            self.assertEqual(vercheck.extract_plugin_version(root), "99.0.0")
             mm, mp = vercheck.extract_marketplace_versions(root)
-            self.assertEqual(mm, "1.0.1")
-            self.assertEqual(mp, "1.0.1")
-            self.assertEqual(vercheck.extract_changelog_version(root), "1.0.1")
+            self.assertEqual(mm, "99.0.0")
+            self.assertEqual(mp, "99.0.0")
+            self.assertEqual(vercheck.extract_changelog_version(root), "99.0.0")
 
             text = (root / "core" / "release-tags.md").read_text(encoding="utf-8")
-            self.assertIn("1.0.1", text)
+            self.assertIn("99.0.0", text)
             self.assertIn("<PENDING>", text)
 
             self.assertEqual(vercheck.report(list(vercheck.collect(root))), 0)
@@ -111,13 +113,21 @@ class BumpVersionTests(unittest.TestCase):
         marker in stderr after a bump, until the annotated-tag SHA is
         backfilled. Asserts both the exit code AND the error shape via
         subprocess so a regression that silently returns 0 is caught.
+
+        The fixture bumps to a version strictly greater than every row
+        already present in ``core/release-tags.md`` so the bumped
+        version is the "latest pending" row regardless of how far the
+        real repo has progressed. Without this, a release prep that
+        leaves ``<PENDING>`` on a higher version (e.g. ``1.1.0``) makes
+        strict-mode report the higher row instead of the freshly
+        bumped one.
         """
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             _make_fixture(root, "1.0.0")
             (root / "core").mkdir()
             shutil.copyfile(self._tags, root / "core" / "release-tags.md")
-            self.assertTrue(bv.bump(root, "1.0.1", "2026-05-05"))
+            self.assertTrue(bv.bump(root, "99.0.0", "2026-05-05"))
 
             proc = subprocess.run(
                 [
@@ -137,7 +147,7 @@ class BumpVersionTests(unittest.TestCase):
                 msg=f"strict should fail with pending row; stdout={proc.stdout!r} stderr={proc.stderr!r}",
             )
             self.assertIn("<PENDING>", proc.stderr)
-            self.assertIn("1.0.1", proc.stderr)
+            self.assertIn("99.0.0", proc.stderr)
 
     def test_promotes_unreleased_section_preserving_prose(self) -> None:
         """When CHANGELOG has ``## Unreleased``, the bump promotes that
@@ -198,6 +208,28 @@ class BumpVersionTests(unittest.TestCase):
             self.assertIn("Existing prose.", text)
 
     def test_cli_strict_passes_on_real_repo(self) -> None:
+        """``--strict`` exits 0 on the real repo when the release is fully
+        finalized — i.e. ``core/release-tags.md`` has no ``<PENDING>`` rows.
+
+        During release prep (between `scripts/bump-version.sh` and
+        `git tag -a v<next>` + backfill of the tag SHA into the latest
+        row), strict mode is *expected* to fail with
+        ``latest row (X.Y.Z) commit is still <PENDING>`` — that is the
+        whole point of the strict check. Asserting strict==0 in that
+        window is a contradiction, so skip the assertion until the
+        ``<PENDING>`` marker has been replaced.
+        """
+
+        tags_text = (REPO_ROOT / "core" / "release-tags.md").read_text(
+            encoding="utf-8"
+        )
+        if "<PENDING>" in tags_text:
+            self.skipTest(
+                "core/release-tags.md still contains <PENDING>; "
+                "strict mode is expected to fail until the tag SHA is "
+                "backfilled (see core/release-process.md)."
+            )
+
         proc = subprocess.run(
             [sys.executable, str(LIB / "check_version_consistency.py"), "--strict"],
             cwd=str(REPO_ROOT),

@@ -139,6 +139,8 @@ def expand_file_entries(template_root, migration, include_adapters, manifest):
         if item:
             if item.get("skip_if_target_missing"):
                 entry["skip_if_target_missing"] = True
+            if item.get("create_if_target_missing"):
+                entry["create_if_target_missing"] = True
             if item.get("enabled_when_path_exists"):
                 if not isinstance(item["enabled_when_path_exists"], str):
                     raise UsageError(

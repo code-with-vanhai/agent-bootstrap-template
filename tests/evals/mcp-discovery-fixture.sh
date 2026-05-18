@@ -111,14 +111,16 @@ fi
 
 # --- Inline-credential rejection regression ---------------------------------
 inject_dir="$(mktemp -d "/tmp/mcp-inject-fixture.XXXXXX")"
-cat > "$inject_dir/.mcp.json" <<'EOF'
+pat_prefix="ghp_"
+pat_suffix="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+cat > "$inject_dir/.mcp.json" <<EOF
 {
   "mcpServers": {
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
-        "GITHUB_TOKEN": "ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "GITHUB_TOKEN": "${pat_prefix}${pat_suffix}"
       }
     }
   }
