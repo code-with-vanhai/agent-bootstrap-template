@@ -29,6 +29,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+create_ephemeral_commit() {
+  local version="$1" tree="$2"
+  printf 'ephemeral v%s\n' "$version" |
+    GIT_AUTHOR_NAME="Test" \
+    GIT_AUTHOR_EMAIL="t@t" \
+    GIT_COMMITTER_NAME="Test" \
+    GIT_COMMITTER_EMAIL="t@t" \
+    git -C "$root" commit-tree "$tree" -p HEAD
+}
+
 ensure_tag() {
   local version="$1" commit="$2"
   if git -C "$root" rev-parse --verify --quiet "v$version^{commit}" >/dev/null; then
@@ -56,7 +66,7 @@ tag_current_worktree() {
   GIT_INDEX_FILE="$index_file" git -C "$root" read-tree HEAD
   GIT_INDEX_FILE="$index_file" git -C "$root" add -A
   tree="$(GIT_INDEX_FILE="$index_file" git -C "$root" write-tree)"
-  commit="$(printf 'ephemeral v%s\n' "$version" | git -C "$root" commit-tree "$tree" -p HEAD)"
+  commit="$(create_ephemeral_commit "$version" "$tree")"
   git -C "$root" tag "v$version" "$commit"
   ephemeral_tags+=("v$version")
   rm -f "$index_file"
