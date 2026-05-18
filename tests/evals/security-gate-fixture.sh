@@ -13,8 +13,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python_bin="$(command -v python3)"
-ln -s "$python_bin" "$python_only_bin/python3"
+python_bin="$(python3 -c 'import sys; print(sys.executable)')"
+cat >"$python_only_bin/python3" <<EOF
+#!/bin/sh
+exec "$python_bin" "\$@"
+EOF
+chmod +x "$python_only_bin/python3"
 
 "$ROOT/scripts/bootstrap-request.sh" \
   --harness generic \
@@ -38,7 +42,7 @@ EOF
 chmod +x "$mock_bin/gitleaks"
 
 marker="$target_dir/gitleaks-marker.txt"
-GITLEAKS_MARKER="$marker" PATH="$mock_bin:$PATH" bash "$target_dir/scripts/agent-eval.sh" security >/tmp/security-gate-gitleaks.out 2>&1
+AGENT_EVAL_SUPPRESS_AUDIT=1 GITLEAKS_MARKER="$marker" PATH="$mock_bin:$PATH" bash "$target_dir/scripts/agent-eval.sh" security >/tmp/security-gate-gitleaks.out 2>&1
 
 if [ "$(cat "$marker")" != "gitleaks-dir-ran" ]; then
   printf 'FAIL: gitleaks dir mock was not invoked\n' >&2
@@ -54,7 +58,7 @@ printf 'API_KEY = "%s"\n' "$fixture_token" >"$target_dir/leaked-secret.py"
 set +e
 (
   cd "$target_dir"
-  PATH="$python_only_bin:/usr/bin:/bin" bash scripts/agent-eval.sh security
+  AGENT_EVAL_SUPPRESS_AUDIT=1 PATH="$python_only_bin:/usr/bin:/bin" bash scripts/agent-eval.sh security
 ) >/tmp/security-gate-python.out 2>&1
 python_rc=$?
 set -e
@@ -80,7 +84,7 @@ ln -s /usr/bin/dirname "$no_tools_bin/dirname"
 set +e
 (
   cd "$target_dir"
-  PATH="$no_tools_bin" /usr/bin/bash scripts/agent-eval.sh security
+  AGENT_EVAL_SUPPRESS_AUDIT=1 PATH="$no_tools_bin" /usr/bin/bash scripts/agent-eval.sh security
 ) >/tmp/security-gate-missing.out 2>&1
 missing_rc=$?
 set -e
