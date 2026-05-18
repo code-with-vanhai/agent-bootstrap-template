@@ -55,17 +55,19 @@ class BumpVersionTests(unittest.TestCase):
             (root / "core").mkdir()
             shutil.copyfile(self._tags, root / "core" / "release-tags.md")
 
-            self.assertTrue(bv.bump(root, "1.0.1", "2026-05-05"))
+            # Use a version above the real repo's release table so the
+            # freshly inserted <PENDING> row is the strict-mode target.
+            self.assertTrue(bv.bump(root, "99.0.0", "2026-05-05"))
 
-            self.assertEqual(vercheck.extract_bootstrap_version(root), "1.0.1")
-            self.assertEqual(vercheck.extract_plugin_version(root), "1.0.1")
+            self.assertEqual(vercheck.extract_bootstrap_version(root), "99.0.0")
+            self.assertEqual(vercheck.extract_plugin_version(root), "99.0.0")
             mm, mp = vercheck.extract_marketplace_versions(root)
-            self.assertEqual(mm, "1.0.1")
-            self.assertEqual(mp, "1.0.1")
-            self.assertEqual(vercheck.extract_changelog_version(root), "1.0.1")
+            self.assertEqual(mm, "99.0.0")
+            self.assertEqual(mp, "99.0.0")
+            self.assertEqual(vercheck.extract_changelog_version(root), "99.0.0")
 
             text = (root / "core" / "release-tags.md").read_text(encoding="utf-8")
-            self.assertIn("1.0.1", text)
+            self.assertIn("99.0.0", text)
             self.assertIn("<PENDING>", text)
 
             self.assertEqual(vercheck.report(list(vercheck.collect(root))), 0)
